@@ -555,18 +555,18 @@ function carveCorridor(grid,w,h,a,b){
 }
 function genMaze(w,h){
   const grid=new Uint8Array(w*h).fill(T_WALL);
-  const rooms=[];const nRooms=Math.round(w*h/1100);let tries=0;
-  while(rooms.length<nRooms&&tries++<nRooms*5){
-    const rw=randi(5,10),rh=randi(5,9);const rx=randi(2,w-rw-2),ry=randi(2,h-rh-2);
+  const rooms=[];const nRooms=Math.round(w*h/560);let tries=0;
+  while(rooms.length<nRooms&&tries++<nRooms*4){
+    const rw=randi(6,14),rh=randi(6,12);const rx=randi(2,w-rw-2),ry=randi(2,h-rh-2);
     for(let y=ry;y<ry+rh;y++)for(let x=rx;x<rx+rw;x++)grid[idx(w,x,y)]=T_FLOOR;
     rooms.push([rx+(rw>>1),ry+(rh>>1)]);
   }
   for(let i=1;i<rooms.length;i++){
     let best=i-1,bd=1e18;
-    for(let j=Math.max(0,i-25);j<i;j++){const dx=rooms[i][0]-rooms[j][0],dy=rooms[i][1]-rooms[j][1];const d=dx*dx+dy*dy;if(d<bd){bd=d;best=j;}}
+    for(let j=Math.max(0,i-70);j<i;j++){const dx=rooms[i][0]-rooms[j][0],dy=rooms[i][1]-rooms[j][1];const d=dx*dx+dy*dy;if(d<bd){bd=d;best=j;}}
     carveCorridor(grid,w,h,rooms[i],rooms[best]);
   }
-  for(let k=0;k<Math.round(rooms.length*0.12);k++)carveCorridor(grid,w,h,pick(rooms),pick(rooms));
+  for(let k=0;k<Math.round(rooms.length*0.14);k++)carveCorridor(grid,w,h,pick(rooms),pick(rooms));
   for(let x=0;x<w;x++){grid[idx(w,x,0)]=T_WALL;grid[idx(w,x,h-1)]=T_WALL;}
   for(let y=0;y<h;y++){grid[idx(w,0,y)]=T_WALL;grid[idx(w,w-1,y)]=T_WALL;}
   return grid;
@@ -591,7 +591,7 @@ function buildAct(n){
   const farD=Math.max(w,h)*0.5;
   const pickFar=()=>{for(let t=0;t<120;t++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])>farD)return p;}return rf[rf.length-1];};
   if(n<ACTS.length-1){const g=pickFar();grid[idx(w,g[0],g[1])]=T_GATE;lvl.gate={tx:g[0],ty:g[1]};}
-  const nEn=Math.min(1000,Math.round(rf.length*0.02)+90);
+  const nEn=Math.min(1800,Math.round(rf.length*0.03)+140);
   for(let i=0;i<nEn;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<14)continue;
     let kind='imp';const r=Math.random();if(A.depth>=2&&r<0.35)kind='brute';else if(r<0.55)kind='wraith';else if(A.depth>=1&&r<0.7)kind='brute';
     const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth);if(Math.random()<0.12+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
@@ -848,9 +848,9 @@ function onClick(wx,wy){
   let tgt=null,best=1e9;
   for(const en of level.enemies){if(!en._visible)continue;const d=dist(wx,wy,en.x,en.y);
     if(d<en.r+16&&d<best){best=d;tgt=en;}}
-  if(tgt){clearIntents();player.attackTarget=tgt;setPathTo(tgt.x,tgt.y);return;}
-  // skill toward point
-  if(activeSkill!=='slap'&&trySkill(activeSkill,wx,wy))return;
+  if(tgt){clearIntents();
+    if(activeSkill!=='slap'){faceAngle(Math.atan2(tgt.y-player.y,tgt.x-player.x));if(trySkill(activeSkill,tgt.x,tgt.y))return;}
+    player.attackTarget=tgt;setPathTo(tgt.x,tgt.y);return;}
   clearIntents();setPathTo(wx,wy);
 }
 function clearIntents(){player.attackTarget=null;player._grab=null;player._npc=null;player._chest=null;player._shrine=null;}
@@ -1432,7 +1432,7 @@ function drawBossBar(){
 const mini=document.getElementById('mini'),mctx=mini.getContext('2d');
 function drawMinimap(){
   const MW=mini.width,MH=mini.height;mctx.clearRect(0,0,MW,MH);
-  const R=26;const pt=tileAt(player.x,player.y);const sc=MW/(R*2);
+  const R=44;const pt=tileAt(player.x,player.y);const sc=MW/(R*2);
   const x0=pt.tx-R,y0=pt.ty-R;
   for(let yy=0;yy<R*2;yy++)for(let xx=0;xx<R*2;xx++){
     const gx=x0+xx,gy=y0+yy;if(gx<0||gy<0||gx>=level.w||gy>=level.h)continue;
@@ -1448,9 +1448,9 @@ function drawMinimap(){
 }
 
 /* full map */
-let fmPan=null;
+let fmPan=null,fmScale=5;
 function drawFullMap(){
-  const fc=document.getElementById('fmCanvas');const f=fc.getContext('2d');const sc=5;
+  const fc=document.getElementById('fmCanvas');const f=fc.getContext('2d');const sc=fmScale;
   const VW=Math.max(40,Math.floor((innerWidth-160)/sc)),VH=Math.max(30,Math.floor((innerHeight-170)/sc));
   fc.width=VW*sc;fc.height=VH*sc;
   f.fillStyle='#06090f';f.fillRect(0,0,fc.width,fc.height);
@@ -1476,8 +1476,9 @@ function toggleFullMap(){
 }
 (function(){const fc=document.getElementById('fmCanvas');let drag=false,lx=0,ly=0;
   fc.addEventListener('mousedown',e=>{drag=true;lx=e.clientX;ly=e.clientY;});
-  window.addEventListener('mousemove',e=>{if(!drag||!fmPan)return;fmPan.x-=(e.clientX-lx)/5;fmPan.y-=(e.clientY-ly)/5;lx=e.clientX;ly=e.clientY;drawFullMap();});
-  window.addEventListener('mouseup',()=>drag=false);})();
+  window.addEventListener('mousemove',e=>{if(!drag||!fmPan)return;fmPan.x-=(e.clientX-lx)/fmScale;fmPan.y-=(e.clientY-ly)/fmScale;lx=e.clientX;ly=e.clientY;drawFullMap();});
+  window.addEventListener('mouseup',()=>drag=false);
+  fc.addEventListener('wheel',e=>{e.preventDefault();fmScale=clamp(fmScale+(e.deltaY<0?1:-1),2,18);if(fmPan)drawFullMap();},{passive:false});})();
 
 /* ---------------- HUD ---------------- */
 let toastTimer=0;
