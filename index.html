@@ -68,7 +68,11 @@
     background:rgba(10,14,26,.97);border:2px solid #2a3350;border-radius:10px;padding:14px 16px;
     pointer-events:auto;box-shadow:0 8px 40px rgba(0,0,0,.7);display:none;z-index:5}
   #invPanel{right:14px}#charPanel{left:14px}
-  #skillPanel{left:50%;transform:translate(-50%,-50%);width:440px}
+  #skillPanel{left:50%;transform:translate(-50%,-50%);width:440px;max-height:82vh;overflow:auto}
+  #treePanel{left:50%;transform:translate(-50%,-50%);width:min(94vw,940px)}
+  #treeWrap{width:100%;height:64vh;overflow:hidden;background:#0b1020;border:1px solid #232c44;border-radius:8px;cursor:grab;touch-action:none}
+  #treeSvg{width:100%;height:100%;display:block}
+  #treeInfo{margin-top:8px;font-size:12px;color:#cbd5f0;min-height:32px;line-height:1.5}
   .panel h2{font-size:15px;color:#f4d35e;margin-bottom:10px;letter-spacing:1px;
     border-bottom:1px solid #2a3350;padding-bottom:6px}
   #invGrid{display:grid;grid-template-columns:repeat(6,44px);gap:5px}
@@ -210,13 +214,22 @@
       <hr style="border-color:#232c44;margin:8px 0">
       <div style="font-size:12px;line-height:1.7">
         Dégâts : <b id="dDmg">—</b><br>Vie max : <b id="dHp">—</b> · Mana max : <b id="dMp">—</b><br>
-        Défense : <b id="dDef">—</b> · Dégâts totaux infligés : <b id="dTotalDmg">0</b><br>🏆 Panoplie du Croisé : <b id="dSet">—</b> · ✨ Trouvaille : <b id="dMF">—</b><br>💥 Critique : <b id="dCrit">—</b> · 🩸 Vol de vie : <b id="dLeech">—</b>
+        Défense : <b id="dDef">—</b> · Dégâts totaux infligés : <b id="dTotalDmg">0</b><br>🏆 Panoplie du Croisé : <b id="dSet">—</b> · ✨ Trouvaille : <b id="dMF">—</b><br>💥 Critique : <b id="dCrit">—</b> · 🩸 Vol de vie : <b id="dLeech">—</b> · ⚡ Incant. : <b id="dCast">—</b>
       </div>
     </div>
 
     <div class="panel" id="skillPanel">
-      <h2>VOIE DU HOCKEY — <span id="skPts">0</span> point(s)</h2>
+      <h2>SORTS & BARRE DE COMPÉTENCES</h2>
       <div id="skillList"></div>
+    </div>
+    <div class="panel" id="treePanel">
+      <h2>ARBRE DE COMPÉTENCES — <span id="treePts">0</span> point(s)</h2>
+      <div id="treeWrap"><svg id="treeSvg" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <div id="treeInfo">Survole un nœud pour voir son effet. Clique un nœud connecté (relié à un nœud déjà pris) pour le débloquer. Molette = zoom, glisser = déplacer.</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <span style="font-size:11px;color:#8ea0c8">🟢 sort · 🟡 passif · 🟠 clé</span>
+        <button id="treeReset" class="sBtn" style="width:auto;padding:4px 12px">♻️ Réinitialiser</button>
+      </div>
     </div>
 
     <div class="panel" id="questPanel">
@@ -298,18 +311,18 @@ const walkableCode=c=>c===T_FLOOR||c===T_CAVE||c===T_STAIR||c===T_GATE;
 const player={
   x:0,y:0,r:16,face:1,
   baseStr:10,baseDex:10,baseVit:10,baseEne:10,
-  lvl:1,xp:0,xpNext:40,xpTotal:0,statPts:0,skPts:1,
+  lvl:1,xp:0,xpNext:40,xpTotal:0,statPts:0,
   hp:100,mp:50,potions:3,manaPots:2,gold:60,frags:0,
   atkCd:0,path:null,attackTarget:null,
   swing:0,hurt:0,tempest:0,kills:0,totalDmg:0,
   anim:'Idle',animFrame:0,animT:0,animOnce:false,dirRow:0,_moved:false,buffType:null,buffT:0,
   equip:{weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},
-  skillRanks:{slap:0,charge:0,tempest:0,holy:0}
+  skillRanks:{slap:1,charge:0,tempest:0,holy:0,whirl:0,multi:0,warcry:0},tree:{},treeBonus:{},treePts:2,bar:['slap',null,null,null]
 };
 const UPMULT=plus=>1+ (plus||0)*0.12;   // +12% par niveau d'amélioration
 function P(){
   let str=player.baseStr,dex=player.baseDex,vit=player.baseVit,ene=player.baseEne;
-  let flatDmg=0,def=0,dmgPct=0,mf=0,uc=0,crit=5,leech=0;
+  let flatDmg=0,def=0,dmgPct=0,mf=0,uc=0,crit=5,leech=0,cast=0;
   for(const slot of ['weapon','armor','amulet','ring','ring2','helm','gloves','belt','skates']){
     const it=player.equip[slot];if(!it)continue;
     const m=UPMULT(it.plus);
@@ -317,7 +330,7 @@ function P(){
       if(a.t==='str')str+=v;else if(a.t==='dex')dex+=v;
       else if(a.t==='vit')vit+=v;else if(a.t==='ene')ene+=v;
       else if(a.t==='dmg')flatDmg+=v;else if(a.t==='def')def+=v;
-      else if(a.t==='dmgpct')dmgPct+=v;else if(a.t==='mf')mf+=v;else if(a.t==='crit')crit+=v;else if(a.t==='leech')leech+=v;
+      else if(a.t==='dmgpct')dmgPct+=v;else if(a.t==='mf')mf+=v;else if(a.t==='crit')crit+=v;else if(a.t==='leech')leech+=v;else if(a.t==='cast')cast+=v;
     }
     if(it.baseDmg)flatDmg+=Math.round(it.baseDmg*m);
     if(it.baseDef)def+=Math.round(it.baseDef*m);
@@ -331,14 +344,15 @@ function P(){
   if(uc>=2)dmgPct+=({2:5,3:10,4:18}[uc]||30);
   if(uc>=3){str+=5;dex+=5;vit+=5;ene+=5;}
   if(uc>=5){str+=5;dex+=5;vit+=5;ene+=5;def+=25;}
-  const hpMax=Math.round(60+vit*7+player.lvl*8);
-  const mpMax=Math.round(20+ene*4+player.lvl*3);
+  const TB=player.treeBonus||{};str+=(TB.str||0);dex+=(TB.dex||0);vit+=(TB.vit||0);ene+=(TB.ene||0);def+=(TB.def||0);crit+=(TB.crit||0);leech+=(TB.leech||0);mf+=(TB.mf||0);cast+=(TB.cast||0);dmgPct+=(TB.dmgPct||0);
+  const hpMax=Math.round((60+vit*7+player.lvl*8)*(1+(TB.hpPct||0)/100));
+  const mpMax=Math.round((20+ene*4+player.lvl*3)*(1+(TB.mpPct||0)/100));
   const dmgMin=Math.round((3+str*0.7+flatDmg)*(1+dmgPct/100));
   const dmgMax=Math.round((6+str*1.1+flatDmg*1.4)*(1+dmgPct/100));
   const atkSpeed=clamp(0.55-dex*0.012,0.16,0.55);
-  const moveSpeed=2.5+dex*0.02+((player.equip.skates&&player.equip.skates.spd)||0);
+  const moveSpeed=2.5+dex*0.02+((player.equip.skates&&player.equip.skates.spd)||0)+(TB.moveSpeed||0);
   const _pw=(player.buffT>0&&player.buffType==='power')?1.5:1;const _ha=(player.buffT>0&&player.buffType==='haste');
-  return {str,dex,vit,ene,hpMax,mpMax,dmgMin:Math.round(dmgMin*_pw),dmgMax:Math.round(dmgMax*_pw),atkSpeed:_ha?atkSpeed*0.7:atkSpeed,moveSpeed:_ha?moveSpeed+1.2:moveSpeed,def,mf,uc,crit,leech};
+  return {str,dex,vit,ene,hpMax,mpMax,dmgMin:Math.round(dmgMin*_pw),dmgMax:Math.round(dmgMax*_pw),atkSpeed:_ha?atkSpeed*0.7:atkSpeed,moveSpeed:_ha?moveSpeed+1.2:moveSpeed,def,mf,uc,crit,leech,cast};
 }
 
 /* ---------------- ITEMS ---------------- */
@@ -350,7 +364,7 @@ const AFFIX=[
   {t:'str',n:'+# Force',min:2,max:9},{t:'dex',n:'+# Dextérité',min:2,max:9},
   {t:'vit',n:'+# Vitalité',min:2,max:10},{t:'ene',n:'+# Énergie',min:2,max:8},
   {t:'dmg',n:'+# Dégâts',min:2,max:8},{t:'def',n:'+# Défense',min:3,max:14},
-  {t:'dmgpct',n:'+#% Dégâts',min:6,max:22},{t:'mf',n:'+#% Trouvaille magique',min:8,max:30},{t:'crit',n:'+#% Coup critique',min:3,max:12},{t:'leech',n:'+#% Vol de vie',min:2,max:8}];
+  {t:'dmgpct',n:'+#% Dégâts',min:6,max:22},{t:'mf',n:'+#% Trouvaille magique',min:8,max:30},{t:'crit',n:'+#% Coup critique',min:3,max:12},{t:'leech',n:'+#% Vol de vie',min:2,max:8},{t:'cast',n:'+#% Vitesse d’incantation',min:4,max:15}];
 const GEAR={
  weapon:{white:[['Crosse d\'entraînement','w_ash1'],['Crosse d\'entraînement II','w_ash2'],['Crosse d\'entraînement III','w_ash3'],['Crosse d\'entraînement IV','w_ash4']],magic:[['Crosse de guerre composite','w_comp1'],['Crosse de guerre composite II','w_comp2'],['Crosse de guerre composite III','w_comp3'],['Crosse de guerre composite IV','w_comp4']],rare:[['Trancheuse de Givre','w_frost1'],['Trancheuse de Givre II','w_frost2'],['Trancheuse de Givre III','w_frost3'],['Trancheuse de Givre IV','w_frost4'],['Rédemption Emberblue','w_ember1'],['Rédemption Emberblue II','w_ember2'],['Rédemption Emberblue III','w_ember3'],['Rédemption Emberblue IV','w_ember4']],unique:[['Cendreglace, la Crosse Damnée','w_ash21'],['Cendreglace, la Crosse Damnée II','w_ash22'],['Cendreglace, la Crosse Damnée III','w_ash23'],['Cendreglace, la Crosse Damnée IV','w_ash24'],['Aile Brisée du Séraphin','w_wing1'],['Aile Brisée du Séraphin II','w_wing2'],['Aile Brisée du Séraphin III','w_wing3'],['Aile Brisée du Séraphin IV','w_wing4']]},
  armor:{white:[['Maillot rembourré de Moreuil','a_jersey1'],['Maillot rembourré de Moreuil II','a_jersey2'],['Maillot rembourré de Moreuil III','a_jersey3'],['Maillot rembourré de Moreuil IV','a_jersey4']],magic:[['Plastron d\'écailles','a_scale1'],['Plastron d\'écailles II','a_scale2'],['Plastron d\'écailles III','a_scale3']],rare:[['Plastron du Gardien','a_plackart1'],['Plastron du Gardien II','a_plackart2'],['Plastron du Gardien III','a_plackart3'],['Plastron du Gardien IV','a_plackart4'],['Harnois ailé du Croisé','a_harness1'],['Harnois ailé du Croisé II','a_harness2'],['Harnois ailé du Croisé III','a_harness3'],['Harnois ailé du Croisé IV','a_harness4']],unique:[['Égide de la Patinoire Gelée','a_aegis1'],['Égide de la Patinoire Gelée II','a_aegis2'],['Égide de la Patinoire Gelée III','a_aegis3'],['Égide de la Patinoire Gelée IV','a_aegis4']]},
@@ -406,7 +420,9 @@ const inventory=[];const INV_MAX=18;
 const ENEMY_TYPES={
   imp:{name:'Diablotin',r:12,hp:22,dmg:5,spd:1.5,xp:9,col:'#c23b3b',res:{holy:-25}},
   wraith:{name:'Spectre bleu',r:13,hp:34,dmg:8,spd:2.0,xp:16,col:'#3f7fd6',res:{cold:60,holy:-25}},
-  brute:{name:"Brute d'os",r:18,hp:60,dmg:12,spd:1.0,xp:24,col:'#8a6b3a',res:{phys:30}}};
+  brute:{name:"Brute d'os",r:18,hp:60,dmg:12,spd:1.0,xp:24,col:'#8a6b3a',res:{phys:30}},
+  shade:{name:'Ombre rôdeuse',r:12,hp:26,dmg:9,spd:2.4,xp:14,col:'#7a4fb0',res:{cold:20,holy:-30}},
+  golem:{name:'Golem de givre',r:22,hp:120,dmg:16,spd:0.8,xp:34,col:'#5a86b8',res:{phys:35,cold:65,holy:-20}}};
 
 /* ================================================================
    GÉNÉRATION PROCÉDURALE
@@ -593,11 +609,15 @@ function buildAct(n){
   if(n<ACTS.length-1){const g=pickFar();grid[idx(w,g[0],g[1])]=T_GATE;lvl.gate={tx:g[0],ty:g[1]};}
   const nEn=Math.min(1800,Math.round(rf.length*0.03)+140);
   for(let i=0;i<nEn;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<14)continue;
-    let kind='imp';const r=Math.random();if(A.depth>=2&&r<0.35)kind='brute';else if(r<0.55)kind='wraith';else if(A.depth>=1&&r<0.7)kind='brute';
+    let kind='imp';const r=Math.random();
+    if(A.depth>=3&&r<0.16)kind='golem';else if(A.depth>=1&&r<0.34)kind='shade';else if(A.depth>=2&&r<0.5)kind='brute';else if(r<0.62)kind='wraith';else if(r<0.74)kind='brute';
     const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth);if(Math.random()<0.12+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
   const nCh=Math.min(14,Math.round(rf.length/9000)+4);
   for(let i=0;i<nCh;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<16)continue;
     lvl.chests.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,opened:false,depth:A.depth});}
+  lvl.breakables=[];const nB=Math.min(70,Math.round(rf.length/1100)+14);
+  for(let i=0;i<nB;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<6)continue;
+    lvl.breakables.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,broken:false});}
   const _stp=['heal','power','haste'];const nS=Math.min(8,Math.round(rf.length/25000)+2);
   for(let i=0;i<nS;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<12)continue;
     lvl.shrines.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,used:false,type:pick(_stp)});}
@@ -666,6 +686,12 @@ function activateShrine(sh){
   else{player.buffType=sh.type;player.buffT=30;toast(sh.type==='power'?'⚔ Sanctuaire de Puissance : +50% dégâts (30s)':'➤ Sanctuaire de Célérité : vitesse accrue (30s)',2.4);}
   qc.shrines++;checkQuests();burst(sh.x,sh.y,'#8fdcff',24);refreshHud();
 }
+function breakBarrel(b){if(b.broken)return;b.broken=true;
+  const g=randi(2,9);player.gold+=g;floatText(b.x,b.y-10,'+'+g+' or','#f4d35e');
+  const r=Math.random();
+  if(r<0.15)dropItem(b.x,b.y+8,makeItem(Math.random()<0.2?'magic':'white'));
+  else if(r<0.27){player.potions++;floatText(b.x,b.y-24,'+potion','#7dff9a');}
+  burst(b.x,b.y,'#a07850',12);refreshHud();}
 function openChest(ch){
   if(ch.opened)return;ch.opened=true;qc.chests++;checkQuests();
   const d=ch.depth||0;
@@ -810,11 +836,14 @@ function burst(x,y,col,n){for(let i=0;i<n;i++){const a=rand(0,6.28),s=rand(1,4);
 
 /* ---------------- SKILLS ---------------- */
 const SKILLS={
-  slap:{key:'1',ico:'💥',name:'Slap Shot',desc:'Tir puissant qui perce en ligne (physique). Dégâts ×2.2.',manaBase:6,cdBase:1.2,type:'phys'},
-  charge:{key:'2',ico:'🌀',name:'Charge du Croisé',desc:'Fonce vers le curseur et renverse les ennemis (physique).',manaBase:10,cdBase:3.4,type:'phys'},
-  tempest:{key:'3',ico:'❄️',name:'Tempête de Givre',desc:'Explosion de glace (froid), ralentit les ennemis.',manaBase:16,cdBase:5,type:'cold'},
-  holy:{key:'4',ico:'✨',name:'Palet Sacré',desc:'Palet béni (sacré) qui rebondit et transperce.',manaBase:12,cdBase:2.2,type:'holy'}};
-const skillCd={slap:0,charge:0,tempest:0,holy:0};
+  slap:{ico:'💥',name:'Slap Shot',desc:'Tir puissant qui perce en ligne (physique).',manaBase:6,cdBase:1.2,type:'phys',arch:'Mêlée'},
+  charge:{ico:'🌀',name:'Charge du Croisé',desc:'Fonce vers le curseur et renverse les ennemis (physique).',manaBase:10,cdBase:3.4,type:'phys',arch:'Mêlée'},
+  whirl:{ico:'🌪️',name:'Moulinet',desc:'Frappe tournoyante : touche tous les ennemis autour (physique).',manaBase:14,cdBase:2.8,type:'phys',arch:'Mêlée'},
+  tempest:{ico:'❄️',name:'Tempête de Givre',desc:'Explosion de glace (froid), ralentit et gèle les ennemis.',manaBase:16,cdBase:5,type:'cold',arch:'Froid'},
+  holy:{ico:'✨',name:'Palet Sacré',desc:'Palet béni (sacré) qui rebondit et transperce.',manaBase:12,cdBase:2.2,type:'holy',arch:'Distance'},
+  multi:{ico:'🎯',name:'Triple Palet',desc:'Envoie 3 palets en éventail (physique).',manaBase:12,cdBase:2.4,type:'phys',arch:'Distance'},
+  warcry:{ico:'📣',name:'Cri de Guerre',desc:'Galvanise : dégâts +50% et soin pendant quelques secondes.',manaBase:18,cdBase:9,type:'buff',arch:'Défense'}};
+const skillCd={slap:0,charge:0,tempest:0,holy:0,whirl:0,multi:0,warcry:0};
 let activeSkill='slap';
 function selectSkill(s){
   if(s!=='slap'&&player.skillRanks[s]<=0){toast('Compétence non débloquée (touche S)',1.4);return;}
@@ -841,6 +870,9 @@ function onClick(wx,wy){
   if(level.shrines)for(const sh of level.shrines){if(sh.used)continue;
     if(dist(wx,wy,sh.x,sh.y)<TS*0.7){clearIntents();player._shrine=sh;
       if(dist(player.x,player.y,sh.x,sh.y)<TS*1.5)activateShrine(sh);else setPathTo(sh.x,sh.y);return;}}
+  if(level.breakables)for(const bk of level.breakables){if(bk.broken)continue;
+    if(dist(wx,wy,bk.x,bk.y)<TS*0.55){clearIntents();player._break=bk;
+      if(dist(player.x,player.y,bk.x,bk.y)<TS*1.4)breakBarrel(bk);else setPathTo(bk.x,bk.y);return;}}
   // pickup drop
   for(let i=level.drops.length-1;i>=0;i--)
     if(dist(wx,wy,level.drops[i].x,level.drops[i].y)<28){pathToThenGrab(level.drops[i]);return;}
@@ -853,7 +885,7 @@ function onClick(wx,wy){
     player.attackTarget=tgt;setPathTo(tgt.x,tgt.y);return;}
   clearIntents();setPathTo(wx,wy);
 }
-function clearIntents(){player.attackTarget=null;player._grab=null;player._npc=null;player._chest=null;player._shrine=null;}
+function clearIntents(){player.attackTarget=null;player._grab=null;player._npc=null;player._chest=null;player._shrine=null;player._break=null;}
 function setPathTo(wx,wy){
   const s=tileAt(player.x,player.y);let t=tileAt(wx,wy);
   // if target tile not walkable, find nearest walkable neighbor
@@ -874,10 +906,10 @@ addEventListener('keydown',e=>{
   // touches de sorts : on lit le CODE physique (Digit1..4 / Numpad1..4)
   // → fonctionne aussi bien en AZERTY qu'en QWERTY, sans Shift.
   const c=e.code;
-  if(c==='Digit1'||c==='Numpad1'){castSkillKey('slap');return;}
-  if(c==='Digit2'||c==='Numpad2'){castSkillKey('charge');return;}
-  if(c==='Digit3'||c==='Numpad3'){castSkillKey('tempest');return;}
-  if(c==='Digit4'||c==='Numpad4'){castSkillKey('holy');return;}
+  if(c==='Digit1'||c==='Numpad1'){castSlot(0);return;}
+  if(c==='Digit2'||c==='Numpad2'){castSlot(1);return;}
+  if(c==='Digit3'||c==='Numpad3'){castSlot(2);return;}
+  if(c==='Digit4'||c==='Numpad4'){castSlot(3);return;}
   if(c==='Space'){e.preventDefault();usePotion();return;}
   const k=e.key.toLowerCase();
   if(k==='i')togglePanel('invPanel');else if(k==='c')togglePanel('charPanel');
@@ -886,8 +918,9 @@ addEventListener('keydown',e=>{
   else if(k==='escape'){closeAllPanels();document.getElementById('fullmap').style.display='none';}
 });
 // Sélectionne le sort ET le lance immédiatement vers le curseur
+function castSlot(i){const s=player.bar&&player.bar[i];if(!s){toast('Emplacement '+(i+1)+' vide — assigne un sort (touche S)',1.4);return;}castSkillKey(s);}
 function castSkillKey(s){
-  if(s!=='slap'&&player.skillRanks[s]<=0){toast('Compétence non débloquée (touche S)',1.4);return;}
+  if(s!=='slap'&&(player.skillRanks[s]||0)<=0){toast('Compétence non débloquée (arbre)',1.4);return;}
   activeSkill=s;renderSkillBar();
   const wx=mouse.x+cam.x,wy=mouse.y+cam.y;
   if(!trySkill(s,wx,wy)){ /* en cooldown/mana : reste sélectionné */ }
@@ -899,10 +932,10 @@ function trySkill(s,wx,wy){
   if(skillCd[s]>0)return false;
   const def=SKILLS[s];const mana=def.manaBase+(s==='slap'?0:rank);
   if(player.mp<mana){toast('Pas assez de mana',1);return false;}
-  player.mp-=mana;skillCd[s]=def.cdBase;
-  const st=P();const ang=Math.atan2(wy-player.y,wx-player.x);faceAngle(ang);playOnce('Attack1');
+  player.mp-=mana;skillCd[s]=def.cdBase*(1-Math.min(0.6,(P().cast||0)/100));
+  const st=P();const ang=Math.atan2(wy-player.y,wx-player.x);faceAngle(ang);playOnce('Attack1');const TBp=player.treeBonus||{};
   if(s==='slap'){
-    const dmg=randi(st.dmgMin,st.dmgMax)*(2.2+rank*0.15);
+    const dmg=randi(st.dmgMin,st.dmgMax)*(2.2+rank*0.15)*(1+(TBp.phys||0)/100);
     for(let d=0;d<260;d+=18){const px=player.x+Math.cos(ang)*d,py=player.y+Math.sin(ang)*d;
       if(!isWalkablePx(level,px,py))break;
       for(const en of level.enemies){if(en._slapHit)continue;
@@ -913,22 +946,35 @@ function trySkill(s,wx,wy){
     let dd=Math.min(200,dist(player.x,player.y,wx,wy));let nx=player.x,ny=player.y;
     for(let d=0;d<dd;d+=6){const tx=player.x+Math.cos(ang)*d,ty=player.y+Math.sin(ang)*d;
       if(!isWalkablePx(level,tx,ty))break;nx=tx;ny=ty;}
-    const dmg=randi(st.dmgMin,st.dmgMax)*(1.6+rank*0.15);
+    const dmg=randi(st.dmgMin,st.dmgMax)*(1.6+rank*0.15)*(1+(TBp.phys||0)/100);
     for(let t=0;t<=1;t+=0.08){const px=player.x+(nx-player.x)*t,py=player.y+(ny-player.y)*t;
       for(const en of level.enemies){if(en._chHit)continue;
         if(dist(px,py,en.x,en.y)<en.r+22){hitEnemy(en,dmg,'phys');en._chHit=true;}}}
     level.enemies.forEach(en=>en._chHit=false);
     player.x=nx;player.y=ny;player.path=null;player.attackTarget=null;burst(nx,ny,'#8fdcff',18);
   } else if(s==='tempest'){
-    const dmg=randi(st.dmgMin,st.dmgMax)*(1.4+rank*0.2);
-    for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<150){hitEnemy(en,dmg,'cold');en.slow=1.6;}
+    const dmg=randi(st.dmgMin,st.dmgMax)*(1.4+rank*0.2)*(1+(TBp.cold||0)/100);
+    for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<150){hitEnemy(en,dmg,'cold');en.slow=1.6;en.frozen=1.2;}
     for(let i=0;i<40;i++){const a=rand(0,6.28);particles.push({x:player.x,y:player.y,
       vx:Math.cos(a)*rand(2,6),vy:Math.sin(a)*rand(2,6),t:0,life:rand(.4,.8),col:'#7fd0ff'});}
     player.tempest=0.4;
   } else if(s==='holy'){
     projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*7,vy:Math.sin(ang)*7,
-      dmg:randi(st.dmgMin,st.dmgMax)*(1.8+rank*0.2),bounces:2+rank,r:9,life:2.5,t:0,
+      dmg:randi(st.dmgMin,st.dmgMax)*(1.8+rank*0.2)*(1+(TBp.holy||0)/100),bounces:2+rank,r:9,life:2.5,t:0,
       hitSet:new Set(),type:'holy',col:'#ffe89a'});}
+  else if(s==='whirl'){
+    const dmg=randi(st.dmgMin,st.dmgMax)*(1.3+rank*0.15)*(1+(TBp.phys||0)/100);
+    for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<130)hitEnemy(en,dmg,'phys');
+    for(let i=0;i<26;i++){const a=rand(0,6.28);particles.push({x:player.x,y:player.y,vx:Math.cos(a)*rand(3,7),vy:Math.sin(a)*rand(3,7),t:0,life:rand(.3,.6),col:'#ffd27f'});}
+    player.swing=0.2;
+  } else if(s==='multi'){
+    const base=randi(st.dmgMin,st.dmgMax)*(1.2+rank*0.15)*(1+(TBp.phys||0)/100);
+    for(const off of [-0.28,0,0.28]){const aa=ang+off;projectiles.push({x:player.x,y:player.y,vx:Math.cos(aa)*8,vy:Math.sin(aa)*8,dmg:base,bounces:0,r:7,life:1.6,t:0,hitSet:new Set(),type:'holy',col:'#bfe3ff'});}
+  } else if(s==='warcry'){
+    player.buffType='power';player.buffT=5+rank;player.hp=Math.min(st.hpMax,player.hp+Math.round(st.hpMax*0.12));
+    for(let i=0;i<30;i++){const a=rand(0,6.28);particles.push({x:player.x,y:player.y,vx:Math.cos(a)*rand(2,5),vy:Math.sin(a)*rand(2,5),t:0,life:rand(.4,.9),col:'#ffe08a'});}
+    toast('Cri de Guerre !',1);
+  }
   renderSkillBar();return true;
 }
 const DMG_COL={phys:'#ffd85e',cold:'#7fd0ff',holy:'#fff2a0',fire:'#ff9a4d'};
@@ -985,12 +1031,13 @@ function grabDrop(drop){
 }
 
 /* ---------------- XP / POTION / DAMAGE ---------------- */
+const LEVEL_CAP=60;
 function gainXp(v){
   v=Math.max(1,Math.round(v*0.17));
   player.xp+=v;player.xpTotal+=v;
-  while(player.xp>=player.xpNext){
+  while(player.xp>=player.xpNext&&player.lvl<LEVEL_CAP){
     player.xp-=player.xpNext;player.lvl++;player.xpNext=Math.round(player.xpNext*1.45+20);
-    player.statPts+=5;player.skPts+=1;const st=P();player.hp=st.hpMax;player.mp=st.mpMax;
+    player.statPts+=5;player.treePts+=1;const st=P();player.hp=st.hpMax;player.mp=st.mpMax;
     toast('⭐ NIVEAU '+player.lvl+' !  +5 stats · +1 skill',2.2);burst(player.x,player.y,'#f4d35e',26);}
   refreshHud();
 }
@@ -1063,8 +1110,9 @@ function update(dt){
       && dist(en.x,en.y,player.x,player.y)<Math.max(W,H)*0.8;
     const dP=dist(en.x,en.y,player.x,player.y);
     if(dP<300)en.aggro=true;
+    if(en.frozen>0)en.frozen-=dt;
     const spd=en.spd*(en.slow>0?0.45:1);
-    if(en.aggro){
+    if(en.aggro&&!(en.frozen>0)){
       if(dP>en.r+player.r+2){
         // path toward player, throttled
         en.pcd-=dt;
@@ -1081,7 +1129,7 @@ function update(dt){
           const nxp=en.x+Math.cos(a)*spd,nyp=en.y+Math.sin(a)*spd;
           if(isWalkablePx(level,nxp,en.y))en.x=nxp; if(isWalkablePx(level,en.x,nyp))en.y=nyp; }
       } else if(en.hitCd<=0){en.hitCd=1.0;damagePlayer(en.dmg);}
-      if(en.boss){en.special-=dt;if(en.special<=0){en.special=4.5;
+      if(en.boss){if(!en.enraged&&en.hp<en.hpMax*0.5){en.enraged=true;en.spd*=1.5;en.dmg=Math.round(en.dmg*1.3);toast('⚠  '+(en.name||'Le boss')+' entre en FUREUR !',2.8);}en.special-=dt;if(en.special<=0){en.special=en.enraged?2.6:4.5;
         for(let i=0;i<3;i++){const a=rand(0,6.28);
           const bx=en.x+Math.cos(a)*60,by=en.y+Math.sin(a)*60;
           if(isWalkablePx(level,bx,by))level.enemies.push(makeEnemy('wraith',bx,by,level.depth));}
@@ -1139,6 +1187,8 @@ function followPath(st,dt){
     if(ch.opened){player._chest=null;} else if(dist(player.x,player.y,ch.x,ch.y)<TS*1.4){player.path=null;openChest(ch);player._chest=null;return;}}
   if(player._shrine){const sh=player._shrine;
     if(sh.used){player._shrine=null;} else if(dist(player.x,player.y,sh.x,sh.y)<TS*1.4){player.path=null;activateShrine(sh);player._shrine=null;return;}}
+  if(player._break){const bk=player._break;
+    if(bk.broken){player._break=null;} else if(dist(player.x,player.y,bk.x,bk.y)<TS*1.4){player.path=null;breakBarrel(bk);player._break=null;return;}}
   if(!player.path||!player.path.length){
     if(player._grab&&dist(player.x,player.y,player._grab.x,player._grab.y)<30){grabDrop(player._grab);player._grab=null;}
     return;}
@@ -1158,6 +1208,7 @@ function render(){
   drawTiles();
   if(level.chests)for(const ch of level.chests)drawChest(ch);
   if(level.shrines)for(const sh of level.shrines)drawShrine(sh);
+  if(level.breakables)for(const bk of level.breakables)drawBreakable(bk);
   if(level.npcs)for(const npc of level.npcs)drawNpc(npc);
   for(const d of level.drops)drawDrop(d);
   for(const en of level.enemies)if(en._visible)drawEnemy(en);
@@ -1342,6 +1393,7 @@ function drawEnemy(en){
   const sx=en.x-cam.x,sy=en.y-cam.y;
   ctx.fillStyle='rgba(0,0,0,0.4)';ctx.beginPath();ctx.ellipse(sx,sy+en.r-3,en.r*0.7,5,0,0,6.28);ctx.fill();
   const col=en.hurt>0?'#fff':en.col;
+  if(en.frozen>0){ctx.strokeStyle='rgba(140,210,255,0.85)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy,en.r+3,0,6.28);ctx.stroke();ctx.lineWidth=1;}
   if(en.elite){const ar=en.r+6+2*Math.sin(performance.now()/200);ctx.strokeStyle=en.auraCol;ctx.globalAlpha=0.75;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx,sy,ar,0,6.28);ctx.stroke();ctx.globalAlpha=1;ctx.lineWidth=1;}
   if(en.boss&&en.kind==='falcon'){drawFalcon(sx,sy,en);}
   else if(en.boss){
@@ -1441,6 +1493,12 @@ function drawShrine(sh){
   ctx.font='14px serif';ctx.textAlign='center';ctx.fillStyle=sh.used?'#555':col;
   ctx.fillText(sh.type==='heal'?'✚':sh.type==='power'?'⚔':'➤',sx,sy-3);ctx.textAlign='left';
 }
+function drawBreakable(b){if(level.seen[idx(level.w,b.tx,b.ty)]!==1)return;
+  const sx=b.x-cam.x,sy=b.y-cam.y;if(sx<-30||sx>W+30||sy<-30||sy>H+30)return;
+  ctx.fillStyle='rgba(0,0,0,0.3)';ctx.beginPath();ctx.ellipse(sx,sy+10,9,4,0,0,6.28);ctx.fill();
+  if(b.broken){ctx.fillStyle='#3a2c1a';ctx.fillRect(sx-8,sy+5,16,5);ctx.fillRect(sx-4,sy+1,6,4);}
+  else{ctx.fillStyle='#6a4a28';ctx.fillRect(sx-8,sy-12,16,22);ctx.fillStyle='#8a6438';ctx.fillRect(sx-8,sy-8,16,3);ctx.fillRect(sx-8,sy+3,16,3);ctx.strokeStyle='#2f2010';ctx.lineWidth=1;ctx.strokeRect(sx-8,sy-12,16,22);}
+}
 function drawBossBar(){
   const b=level.boss;const w=Math.min(560,W*0.7),x=(W-w)/2,y=54;
   ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(x-2,y-2,w+4,18);
@@ -1520,13 +1578,13 @@ function refreshHud(){
   document.getElementById('sVit').textContent=st.vit;document.getElementById('sEne').textContent=st.ene;
   document.getElementById('dDmg').textContent=st.dmgMin+' - '+st.dmgMax;
   document.getElementById('dHp').textContent=st.hpMax;document.getElementById('dMp').textContent=st.mpMax;
-  document.getElementById('dDef').textContent=st.def;setTxt('dSet',st.uc>=2?st.uc+' uniques — bonus actif':st.uc+'/9 uniques');setTxt('dMF',(st.mf||0)+'%');setTxt('dCrit',(st.crit||0)+'%');setTxt('dLeech',(st.leech||0)+'%');
+  document.getElementById('dDef').textContent=st.def;setTxt('dSet',st.uc>=2?st.uc+' uniques — bonus actif':st.uc+'/9 uniques');setTxt('dMF',(st.mf||0)+'%');setTxt('dCrit',(st.crit||0)+'%');setTxt('dLeech',(st.leech||0)+'%');setTxt('dCast',(st.cast||0)+'%');
   document.getElementById('dTotalDmg').textContent=player.totalDmg.toLocaleString('fr-FR');
   bindEquipSlot('slotWeapon','eqWeapon','weapon');
   bindEquipSlot('slotArmor','eqArmor','armor');
   bindEquipSlot('slotAmulet','eqAmulet','amulet');bindEquipSlot('slotRing','eqRing','ring');bindEquipSlot('slotRing2','eqRing2','ring2');bindEquipSlot('slotHelm','eqHelm','helm');bindEquipSlot('slotGloves','eqGloves','gloves');bindEquipSlot('slotBelt','eqBelt','belt');bindEquipSlot('slotSkates','eqSkates','skates');
   document.querySelectorAll('.plusBtn').forEach(b=>b.disabled=player.statPts<=0);
-  document.getElementById('skPts').textContent=player.skPts;
+  {const _tp=document.getElementById('treePts');if(_tp)_tp.textContent=player.treePts;}
   // ressources
   const g=player.gold,f=player.frags;
   setTxt('cGold',g);setTxt('cFrags',f);setTxt('invGold',g);setTxt('invFrags',f);
@@ -1547,13 +1605,13 @@ function unequip(slot){const it=player.equip[slot];if(!it)return;
   toast('Retiré : '+it.name.replace(/<[^>]+>/g,''),1.4);renderInventory();refreshHud();}
 function renderSkillBar(){
   const bar=document.getElementById('skillBar');bar.innerHTML='';
-  for(const s of['slap','charge','tempest','holy']){
-    const def=SKILLS[s];const locked=(s!=='slap'&&player.skillRanks[s]<=0);
+  for(let i=0;i<4;i++){const s=player.bar[i];
     const el=document.createElement('div');
-    el.className='slot'+(locked?' locked':'')+(activeSkill===s?' active':'');
-    el.innerHTML=`<span class="key">${def.key}</span><span class="ico">${def.ico}</span>`;
-    if(skillCd[s]>0.05)el.innerHTML+=`<div class="cd">${skillCd[s].toFixed(1)}</div>`;
-    el.onclick=()=>selectSkill(s);bar.appendChild(el);}
+    const locked=!s||(player.skillRanks[s]||0)<=0;
+    el.className='slot'+(locked?' locked':'')+(s&&activeSkill===s?' active':'');
+    el.innerHTML='<span class="key">'+(i+1)+'</span><span class="ico">'+(s?SKILLS[s].ico:'·')+'</span>';
+    if(s&&skillCd[s]>0.05)el.innerHTML+='<div class="cd">'+skillCd[s].toFixed(1)+'</div>';
+    el.onclick=(function(sk){return ()=>{if(sk)selectSkill(sk);};})(s);bar.appendChild(el);}
 }
 let invSel=-1;
 function renderInventory(){
@@ -1588,25 +1646,116 @@ function salvageItem(i){const it=inventory[i];if(!it)return;const f=salvageValue
 function dropFromBag(i){const it=inventory[i];if(!it)return;
   dropItem(player.x+rand(-20,20),player.y+rand(10,26),it);inventory.splice(i,1);invSel=-1;
   toast('Objet jeté au sol',1.3);hideTip();renderInventory();}
+/* ---------------- ARBRE DE COMPÉTENCES ---------------- */
+const T_SPOKES=[
+ {a:-90, key:{name:'Jugement Divin',rk:'holy',b:{holy:28,cast:12}}, rings:[
+   {name:'Visée',b:{holy:5,dex:3}},{name:'Palet Sacré',skill:'holy',b:{}},{name:'Bénédiction',rk:'holy',b:{holy:8}},{name:'Halo Sacré',rk:'holy',b:{holy:12,crit:3}}]},
+ {a:-45, rings:[
+   {name:'Adresse',b:{crit:2,dex:3}},{name:'Œil de lynx',b:{crit:4,dex:4}},{name:'Triple Palet',skill:'multi',b:{}},{name:'Précision',rk:'multi',b:{crit:6,dex:8}}]},
+ {a:0, key:{name:'Zéro Absolu',rk:'tempest',b:{cold:28,mpPct:12}}, rings:[
+   {name:'Fraîcheur',b:{cold:5}},{name:'Tempête de Givre',skill:'tempest',b:{}},{name:'Engelure',rk:'tempest',b:{cold:8}},{name:'Cœur de Glace',rk:'tempest',b:{cold:12,ene:8}}]},
+ {a:45, rings:[
+   {name:'Arcane',b:{ene:4,cast:3}},{name:'Concentration',b:{cast:4,mpPct:6}},{name:'Réserve',b:{ene:6,mpPct:6}},{name:'Flux Arcanique',b:{ene:12,mpPct:12,cast:8}}]},
+ {a:90, key:{name:'Colosse',rk:'warcry',b:{vit:26,hpPct:14,def:30}}, rings:[
+   {name:'Endurance',b:{vit:5,hpPct:2}},{name:'Robustesse',b:{vit:5,def:12}},{name:'Cri de Guerre',skill:'warcry',b:{}},{name:'Constitution de Fer',rk:'warcry',b:{vit:14,hpPct:8}}]},
+ {a:135, key:{name:'Frappe Ultime',rk:'slap',b:{phys:26,leech:6}}, rings:[
+   {name:'Prise en main',rk:'slap',b:{phys:4}},{name:'Moulinet',skill:'whirl',b:{}},{name:'Slap précis',rk:'whirl',b:{crit:4,phys:6}},{name:'Tir de la Ligue',rk:'slap',b:{phys:12,leech:3}}]},
+ {a:180, key:{name:'Berserker',rk:'charge',b:{phys:26,dmgPct:12}}, rings:[
+   {name:'Muscle',b:{phys:5,str:3}},{name:'Charge du Croisé',skill:'charge',b:{}},{name:'Impact',rk:'charge',b:{phys:6,str:6}},{name:'Bélier',rk:'charge',b:{phys:12,str:10}}]},
+ {a:225, rings:[
+   {name:'Célérité',b:{moveSpeed:0.25,mf:4}},{name:'Foulée',b:{moveSpeed:0.3}},{name:'Chasseur',b:{mf:8,dex:4}},{name:'Vent du Nord',b:{moveSpeed:0.7,mf:12}}]}
+];
+const T_RAD=[0,96,178,262,348];const T_KEYRAD=430;
+const TREE_NODES={};const TREE_ADJ={};
+function tAdd(id,x,y,kind,spec,name){TREE_NODES[id]={id,x,y,kind,b:(spec&&spec.b)||{},name,skill:spec&&spec.skill,rk:spec&&spec.rk};TREE_ADJ[id]=TREE_ADJ[id]||[];}
+function tLink(a,b){TREE_ADJ[a]=TREE_ADJ[a]||[];TREE_ADJ[b]=TREE_ADJ[b]||[];TREE_ADJ[a].push(b);TREE_ADJ[b].push(a);}
+tAdd('c',0,0,'center',{},'Départ');
+(function(){for(let s=0;s<8;s++){const sp=T_SPOKES[s];const ang=sp.a*Math.PI/180;let prev='c';
+  for(let r=1;r<=4;r++){const spec=sp.rings[r-1];const id='s'+s+'r'+r;
+    const x=Math.round(Math.cos(ang)*T_RAD[r]),y=Math.round(Math.sin(ang)*T_RAD[r]);
+    const kind=spec.skill?'skill':(r===4?'notable':'minor');
+    tAdd(id,x,y,kind,spec,spec.name);tLink(prev,id);prev=id;}
+  if(sp.key){const id='s'+s+'k';const x=Math.round(Math.cos(ang)*T_KEYRAD),y=Math.round(Math.sin(ang)*T_KEYRAD);
+    tAdd(id,x,y,'key',sp.key,sp.key.name);tLink('s'+s+'r4',id);}}
+  for(let s=0;s<8;s++)tLink('s'+s+'r2','s'+((s+1)%8)+'r2');
+})();
+function computeTreeBonus(){
+  const B={};const rk={};const unl={slap:true};
+  for(const id in player.tree){if(!player.tree[id])continue;const n=TREE_NODES[id];if(!n)continue;
+    for(const k in n.b)B[k]=(B[k]||0)+n.b[k];
+    if(n.skill)unl[n.skill]=true;if(n.rk)rk[n.rk]=(rk[n.rk]||0)+1;}
+  player.treeBonus=B;
+  const R={};for(const s in SKILLS)R[s]=(unl[s]?Math.min(5,1+(rk[s]||0)):0);
+  player.skillRanks=R;
+  if(player.bar)for(let i=0;i<player.bar.length;i++){const b=player.bar[i];if(b&&b!=='slap'&&(R[b]||0)<=0)player.bar[i]=null;}
+}
+function nodeReachable(id){if(player.tree[id])return true;for(const nb of TREE_ADJ[id]||[]){if(nb==='c'||player.tree[nb])return true;}return false;}
+const TBL={str:'Force',dex:'Dextérité',vit:'Vitalité',ene:'Énergie',def:'Défense',crit:'% Critique',leech:'% Vol de vie',mf:'% Trouvaille',cast:'% Incantation',phys:'% dégâts physiques',cold:'% dégâts de froid',holy:'% dégâts sacrés',dmgPct:'% dégâts',hpPct:'% Vie max',mpPct:'% Mana max',moveSpeed:'Vitesse dépl.'};
+function bonusText(n){const o=[];if(n.skill)o.push('🔓 Débloque : '+SKILLS[n.skill].name);if(n.rk)o.push('+1 rang '+SKILLS[n.rk].name);for(const k in n.b)o.push('+'+n.b[k]+' '+(TBL[k]||k));return o.join(' · ')||'Nœud de départ';}
+let treeVB={x:-500,y:-500,w:1000,h:1000};let treeDrag=null;
+function renderTree(){
+  const tp=document.getElementById('treePts');if(tp)tp.textContent=player.treePts;
+  const svg=document.getElementById('treeSvg');let edges='',nodes='';const seen={};
+  for(const a in TREE_ADJ){for(const b of TREE_ADJ[a]){const key=a<b?a+'|'+b:b+'|'+a;if(seen[key])continue;seen[key]=1;
+    const A=TREE_NODES[a],B=TREE_NODES[b];const on=(player.tree[a]||a==='c')&&(player.tree[b]||b==='c');
+    edges+='<line x1="'+A.x+'" y1="'+A.y+'" x2="'+B.x+'" y2="'+B.y+'" stroke="'+(on?'#f4d35e':'#28324e')+'" stroke-width="'+(on?4:3)+'"/>';}}
+  for(const id in TREE_NODES){const n=TREE_NODES[id];const alloc=player.tree[id]||id==='c';const reach=nodeReachable(id)&&!alloc&&player.treePts>0;
+    const rr=n.kind==='center'?18:n.kind==='key'?25:(n.kind==='skill'||n.kind==='notable')?20:14;
+    const fill=alloc?(n.kind==='skill'?'#7cd06a':n.kind==='key'?'#e0a24a':'#f4d35e'):(reach?'#1d3a6e':'#141a2e');
+    const stroke=alloc?'#fff3c0':(reach?'#5b8fe0':'#2a3350');
+    nodes+='<g class="tnode" data-id="'+id+'" style="cursor:pointer"><circle cx="'+n.x+'" cy="'+n.y+'" r="'+rr+'" fill="'+fill+'" stroke="'+stroke+'" stroke-width="'+(n.kind==='key'||n.kind==='skill'?4:2)+'"/>';
+    if(n.skill||n.rk){const ic=SKILLS[n.skill||n.rk].ico;nodes+='<text x="'+n.x+'" y="'+(n.y+6)+'" font-size="'+(rr)+'" text-anchor="middle">'+ic+'</text>';}
+    if(n.kind==='skill'||n.kind==='notable'||n.kind==='key')nodes+='<text x="'+n.x+'" y="'+(n.y+rr+14)+'" fill="'+(alloc?'#ffe89a':'#cbd5f0')+'" font-size="12" text-anchor="middle">'+n.name+'</text>';
+    nodes+='</g>';}
+  svg.setAttribute('viewBox',treeVB.x+' '+treeVB.y+' '+treeVB.w+' '+treeVB.h);
+  svg.innerHTML=edges+nodes;bindTree();
+}
+function treeAlloc(id){const n=TREE_NODES[id];if(!n||player.tree[id]||id==='c')return;
+  if(player.treePts<=0){toast('Aucun point disponible',1.2);return;}
+  if(!nodeReachable(id)){toast('Nœud non connecté — suis un chemin depuis le centre',1.6);return;}
+  player.tree[id]=1;player.treePts--;computeTreeBonus();
+  if(n.skill){if(!player.bar.includes(n.skill))for(let i=0;i<4;i++){if(!player.bar[i]){player.bar[i]=n.skill;break;}}toast('Sort débloqué : '+SKILLS[n.skill].name+' !',2);}
+  else toast(n.name+' alloué',1);
+  renderTree();renderSkillBar();refreshHud();
+}
+function bindTree(){const svg=document.getElementById('treeSvg');if(svg._bound)return;svg._bound=1;
+  const wrap=document.getElementById('treeWrap');const info=document.getElementById('treeInfo');
+  svg.addEventListener('pointerdown',e=>{treeDrag={x:e.clientX,y:e.clientY,vx:treeVB.x,vy:treeVB.y,moved:false};wrap.style.cursor='grabbing';});
+  window.addEventListener('pointerup',()=>{if(treeDrag)wrap.style.cursor='grab';treeDrag=null;});
+  svg.addEventListener('pointermove',e=>{
+    if(treeDrag){const sc=treeVB.w/svg.clientWidth;if(Math.abs(e.clientX-treeDrag.x)+Math.abs(e.clientY-treeDrag.y)>3)treeDrag.moved=true;
+      treeVB.x=treeDrag.vx-(e.clientX-treeDrag.x)*sc;treeVB.y=treeDrag.vy-(e.clientY-treeDrag.y)*sc;svg.setAttribute('viewBox',treeVB.x+' '+treeVB.y+' '+treeVB.w+' '+treeVB.h);}
+    else{const g=e.target.closest&&e.target.closest('.tnode');if(g){const n=TREE_NODES[g.dataset.id];const st=(player.tree[g.dataset.id]||g.dataset.id==='c')?'✅ Alloué':(nodeReachable(g.dataset.id)?'🔓 Disponible':'🔒 Verrouillé');if(info)info.innerHTML='<b>'+n.name+'</b> — '+st+'<br>'+bonusText(n);}}
+  });
+  svg.addEventListener('click',e=>{if(treeDrag&&treeDrag.moved)return;const g=e.target.closest&&e.target.closest('.tnode');if(g)treeAlloc(g.dataset.id);});
+  svg.addEventListener('wheel',e=>{e.preventDefault();const f=e.deltaY>0?1.12:0.89;const nw=clamp(treeVB.w*f,420,1700);const cx=treeVB.x+treeVB.w/2,cy=treeVB.y+treeVB.h/2;treeVB.w=nw;treeVB.h=nw;treeVB.x=cx-nw/2;treeVB.y=cy-nw/2;svg.setAttribute('viewBox',treeVB.x+' '+treeVB.y+' '+treeVB.w+' '+treeVB.h);},{passive:false});
+  const rb=document.getElementById('treeReset');if(rb)rb.onclick=()=>{let n=0;for(const id in player.tree){if(player.tree[id]){n++;player.tree[id]=0;}}player.treePts+=n;computeTreeBonus();renderTree();renderSkillBar();refreshHud();toast('Arbre réinitialisé (+'+n+' pts)',1.6);};
+}
+computeTreeBonus();
 function renderSkillPanel(){
-  const list=document.getElementById('skillList');list.innerHTML='';
-  for(const s of['slap','charge','tempest','holy']){const def=SKILLS[s];const rank=player.skillRanks[s];
-    const node=document.createElement('div');node.className='skillNode';
-    const canLearn=player.skPts>0&&rank<5;
-    node.innerHTML=`<div class="sIco">${def.ico}</div><div style="flex:1">
-      <div class="sName">${def.name} <span class="rank">${rank>0?'Rang '+rank:(s==='slap'?'(de base)':'verrouillé')}</span></div>
-      <div class="sDesc">${def.desc}</div>
-      <button class="sBtn" ${canLearn?'':'disabled'}>${rank===0&&s!=='slap'?'Débloquer':'Améliorer'} (1 pt)</button></div>`;
-    node.querySelector('.sBtn').onclick=()=>{if(player.skPts>0&&rank<5){player.skillRanks[s]++;player.skPts--;
-      renderSkillPanel();renderSkillBar();refreshHud();toast(def.name+' → rang '+player.skillRanks[s],1.4);}};
+  const list=document.getElementById('skillList');list.innerHTML='';const R=player.skillRanks;
+  const bd=document.createElement('div');bd.style.cssText='display:flex;gap:8px;margin-bottom:8px;justify-content:center';
+  for(let i=0;i<4;i++){const s=player.bar[i];const sl=document.createElement('div');sl.className='slot'+(s?'':' locked');sl.style.cssText='width:48px;height:48px;position:relative';sl.innerHTML='<span class="key">'+(i+1)+'</span><span class="ico">'+(s?SKILLS[s].ico:'·')+'</span>';bd.appendChild(sl);}
+  list.appendChild(bd);
+  const hint=document.createElement('div');hint.style.cssText='font-size:11px;color:#8ea0c8;margin-bottom:8px;text-align:center';hint.textContent='Assigne 4 sorts débloqués à ta barre (boutons 1–4). Débloque-les dans l\'arbre.';list.appendChild(hint);
+  const ARCH={'Mêlée':'#ff9b6b','Distance':'#8fd0ff','Froid':'#7fe3ff','Défense':'#f4d35e'};
+  for(const s in SKILLS){const def=SKILLS[s];const rank=R[s]||0;const unlocked=rank>0;
+    const node=document.createElement('div');node.className='skillNode';if(!unlocked)node.style.opacity='0.55';
+    let sb='';for(let i=0;i<4;i++){const on=player.bar[i]===s;sb+='<button class="slotAssign" data-s="'+s+'" data-i="'+i+'" '+(unlocked?'':'disabled')+' style="width:22px;height:22px;margin-left:3px;border-radius:4px;border:1px solid #2a3350;background:'+(on?'#f4d35e':'#141a2e')+';color:'+(on?'#111':'#8ea0c8')+';cursor:'+(unlocked?'pointer':'default')+'">'+(i+1)+'</button>';}
+    node.innerHTML='<div class="sIco">'+def.ico+'</div><div style="flex:1">'
+      +'<div class="sName">'+def.name+' <span class="rank" style="color:'+(ARCH[def.arch]||'#8ea0c8')+'">'+(def.arch||'')+'</span> · <span class="rank">'+(unlocked?'Rang '+rank+'/5':'🔒 arbre')+'</span></div>'
+      +'<div class="sDesc">'+def.desc+'</div>'
+      +'<div style="margin-top:4px;font-size:11px;color:#8ea0c8">Barre : '+sb+'</div></div>';
     list.appendChild(node);}
+  document.querySelectorAll('.slotAssign').forEach(b=>b.onclick=()=>{const s=b.dataset.s,i=+b.dataset.i;if((player.skillRanks[s]||0)<=0)return;for(let j=0;j<4;j++)if(player.bar[j]===s)player.bar[j]=null;player.bar[i]=s;renderSkillPanel();renderSkillBar();});
+  const tb=document.createElement('button');tb.className='sBtn';tb.style.cssText='width:100%;margin-top:12px;font-size:13px';tb.textContent='🌳 Ouvrir l\'arbre de compétences ('+player.treePts+' pts)';tb.onclick=()=>togglePanel('treePanel');list.appendChild(tb);
 }
 // agrège les stats effectives d'un objet (avec niveau d'amélioration)
-function itemAgg(it){const m=UPMULT(it.plus);const o={dmg:0,def:0,str:0,dex:0,vit:0,ene:0,dmgpct:0,mf:0,crit:0,leech:0};
+function itemAgg(it){const m=UPMULT(it.plus);const o={dmg:0,def:0,str:0,dex:0,vit:0,ene:0,dmgpct:0,mf:0,crit:0,leech:0,cast:0};
   if(it.baseDmg)o.dmg+=it.baseDmg*m;if(it.baseDef)o.def+=it.baseDef*m;
   for(const a of it.affixes){const v=a.v*m;if(o[a.t]!==undefined)o[a.t]+=v;}
   return o;}
-const AGGLBL={dmg:'Dégâts',def:'Défense',str:'Force',dex:'Dextérité',vit:'Vitalité',ene:'Énergie',dmgpct:'% Dégâts',mf:'% Trouvaille',crit:'% Critique',leech:'% Vol de vie'};
+const AGGLBL={dmg:'Dégâts',def:'Défense',str:'Force',dex:'Dextérité',vit:'Vitalité',ene:'Énergie',dmgpct:'% Dégâts',mf:'% Trouvaille',crit:'% Critique',leech:'% Vol de vie',cast:'% Incant.'};
 function comparisonHTML(it){
   const cur=player.equip[it.slot];if(!cur||cur===it)return '';
   const a=itemAgg(it),b=itemAgg(cur);let rows='';
@@ -1795,9 +1944,9 @@ function togglePanel(id){const el=document.getElementById(id);const open=el.styl
   closeAllPanels();if(!open){el.style.display='block';
     if(id==='invPanel'){renderInventory();document.getElementById('charPanel').style.display='block';}
     if(id==='charPanel'){document.getElementById('invPanel').style.display='block';renderInventory();}
-    if(id==='skillPanel')renderSkillPanel();if(id==='questPanel')renderQuests();refreshHud();}
+    if(id==='skillPanel')renderSkillPanel();if(id==='treePanel')renderTree();if(id==='questPanel')renderQuests();refreshHud();}
   if(typeof updateTabs==='function')updateTabs();}
-function closeAllPanels(){['invPanel','charPanel','skillPanel','shopPanel','stashPanel','waypointPanel','questPanel','dialoguePanel'].forEach(id=>document.getElementById(id).style.display='none');hideTip();
+function closeAllPanels(){['invPanel','charPanel','skillPanel','treePanel','shopPanel','stashPanel','waypointPanel','questPanel','dialoguePanel'].forEach(id=>document.getElementById(id).style.display='none');hideTip();
   if(typeof updateTabs==='function')updateTabs();}
 
 /* ---------------- BOUTIQUES (marchand / forgeron) ---------------- */
@@ -1843,7 +1992,7 @@ function renderShop(){
     brs.onclick=()=>{if(player.gold>=250){player.gold-=250;
       player.statPts+=(player.baseStr-10)+(player.baseDex-10)+(player.baseVit-10)+(player.baseEne-10);
       player.baseStr=player.baseDex=player.baseVit=player.baseEne=10;
-      let sk=0;for(const k in player.skillRanks){sk+=player.skillRanks[k];player.skillRanks[k]=0;}player.skPts+=sk;
+      let tn=0;for(const id in player.tree){if(player.tree[id]){tn++;player.tree[id]=0;}}player.treePts+=tn;computeTreeBonus();
       toast('Réentraînement effectué',1.8);renderShop();refreshHud();renderSkillBar();}};
     resp.appendChild(brs);body.appendChild(resp);
     const sec1=document.createElement('div');sec1.className='shopSec';sec1.textContent='Améliorer l\'équipement (❄ fragments + 💰 or)';body.appendChild(sec1);
@@ -1939,11 +2088,11 @@ function victory(){running=false;saveGame();const ov=document.getElementById('ov
   else{b.textContent='REJOUER';b.onclick=()=>location.reload();}
   ov.style.display='flex';}
 const SAVE_KEY='croise_moreuil_save_v1';let saveTimer=6;
-function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,skPts:player.skPts,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled}));}catch(e){}}
+function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled}));}catch(e){}}
 function hasSave(){try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
 function loadGame(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(!s)return false;
-  ['lvl','xp','xpNext','xpTotal','statPts','skPts','baseStr','baseDex','baseVit','baseEne','gold','frags','potions','manaPots','kills','totalDmg'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
-  if(s.skillRanks)player.skillRanks=s.skillRanks;
+  ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','gold','frags','potions','manaPots','kills','totalDmg'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
+  if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
   if(s.equip)player.equip=Object.assign({weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},s.equip);
   inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;return true;}catch(e){return false;}}
 window.addEventListener('beforeunload',()=>{if(running)saveGame();});
