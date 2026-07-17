@@ -562,6 +562,18 @@ const ACTS=[
 ];
 const ACT_SUB=['Le Sifflet d\'Argent','La Rondelle de Givre','La Médaille de 1918','La Crosse Bénie','Le Trophée des Faucons'];
 const ACT_DIM=[[500,360],[380,470],[650,280],[200,760],[450,450]];
+const ACT_BOSSES=[
+ {name:'Le Maître-Nageur Noyé', bkind:'swimmer', col:'#2f8fbf', wcol:'rgba(47,143,191,0.32)', hp:320, dmg:14, xp:260, res:{phys:15,holy:-25}},
+ {name:'Givre-Cœur, Gardien de Glace', bkind:'iceheart', col:'#5ac8e0', wcol:'rgba(90,200,224,0.32)', hp:480, dmg:18, xp:410, res:{cold:70,phys:20,holy:-25}},
+ {name:"L'Ancien des Bois", bkind:'ent', col:'#5a8f3a', wcol:'rgba(90,143,58,0.32)', hp:680, dmg:22, xp:660, res:{phys:30,holy:-20}},
+ {name:'Séraphin Corrompu', bkind:'seraphin', col:'#d98a3d', wcol:'rgba(217,138,61,0.32)', hp:900, dmg:26, xp:950, res:{phys:20,cold:20,holy:-30}}
+];
+function makeActBoss(n,x,y){const b=ACT_BOSSES[n]||ACT_BOSSES[ACT_BOSSES.length-1];
+ const dm=1+difficulty*0.8,xm=1+difficulty*0.5,lf=Math.min(2.5,1+Math.max(0,player.lvl-1)*0.03);
+ const hp=Math.round(b.hp*dm*lf);
+ return {kind:'boss',x,y,r:38,hp,hpMax:hp,dmg:Math.round(b.dmg*dm*lf),spd:0.95,xp:Math.round(b.xp*xm),
+  col:b.col,wcol:b.wcol,bkind:b.bkind,name:b.name,res:b.res||{},hitCd:0,hurt:0,boss:true,special:3,aggro:false,path:null,pcd:0,slow:0};
+}
 const acts={};const actDiscovered={};
 function stamp(grid,w,h,x,y){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){grid[idx(w,clamp(x+dx,1,w-2),clamp(y+dy,1,h-2))]=T_FLOOR;}}
 function carveCorridor(grid,w,h,a,b){
@@ -621,7 +633,9 @@ function buildAct(n){
   const _stp=['heal','power','haste'];const nS=Math.min(8,Math.round(rf.length/25000)+2);
   for(let i=0;i<nS;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<12)continue;
     lvl.shrines.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,used:false,type:pick(_stp)});}
-  if(A.boss){const g=pickFar();const bo=makeEnemy('falcon',g[0]*TS+TS/2,g[1]*TS+TS/2,A.depth);lvl.enemies.push(bo);lvl.boss=bo;}
+  {let bx,by; if(lvl.gate){bx=lvl.gate.tx;by=lvl.gate.ty;} else {const g=pickFar();bx=g[0];by=g[1];}
+    const bo=(n===ACTS.length-1)?makeEnemy('falcon',bx*TS+TS/2,by*TS+TS/2,A.depth):makeActBoss(n,bx*TS+TS/2,by*TS+TS/2);
+    lvl.enemies.push(bo);lvl.boss=bo;}
   return lvl;
 }
 function enterAct(n){
@@ -711,17 +725,19 @@ function openChest(ch){
 function makeEnemy(kind,x,y,depth){
   if(kind==='falcon'){
     return {kind:'falcon',x,y,r:56,hp:Math.round(1700*(1+difficulty*0.8)),hpMax:Math.round(1700*(1+difficulty*0.8)),dmg:Math.round(34*(1+difficulty*0.8)),spd:1.0,xp:Math.round(1400*(1+difficulty*0.5)),
-      col:'#2fbf4f',name:'Green Falcon',res:{phys:25,cold:20,holy:-25},hitCd:0,hurt:0,boss:true,special:3,
+      col:'#2fbf4f',name:'Green Falcon',res:{phys:25,cold:20,holy:-25},hitCd:0,hurt:0,boss:true,finalBoss:true,special:3,
       aggro:false,path:null,pcd:0,slow:0};
   }
   if(kind==='boss'){
     return {kind:'boss',x,y,r:40,hp:Math.round(700*(1+difficulty*0.8)),hpMax:Math.round(700*(1+difficulty*0.8)),dmg:Math.round(24*(1+difficulty*0.8)),spd:0.95,xp:Math.round(400*(1+difficulty*0.5)),
-      col:'#d98a3d',name:'Séraphin Corrompu',res:{phys:20,cold:20,holy:-30},hitCd:0,hurt:0,boss:true,special:3,
+      col:'#8a5ad0',name:'Gardien du Repaire',wcol:'rgba(138,90,208,0.32)',res:{phys:20,cold:20,holy:-30},hitCd:0,hurt:0,boss:true,special:3,
       aggro:false,path:null,pcd:0,slow:0};
   }
   const t=ENEMY_TYPES[kind];const dm=1+difficulty*0.8,xm=1+difficulty*0.5;const m=(1+depth*0.35)*dm;
-  return {kind,x,y,r:t.r,hp:Math.round(t.hp*m),hpMax:Math.round(t.hp*m),
-    dmg:Math.round(t.dmg*(1+depth*0.3)*dm),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
+  const lf=Math.min(2.5,1+Math.max(0,player.lvl-1)*0.03);
+  const hp0=Math.round(t.hp*m*lf);
+  return {kind,x,y,r:t.r,hp:hp0,hpMax:hp0,
+    dmg:Math.round(t.dmg*(1+depth*0.3)*dm*lf),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
     col:t.col,name:t.name,res:t.res||{},hitCd:0,hurt:0,aggro:false,path:null,pcd:0,slow:0,
     wander:0,wx:x,wy:y};
 }
@@ -819,7 +835,7 @@ function travelCheck(){
   const{tx,ty}=tileAt(player.x,player.y);
   const c=level.grid[idx(level.w,tx,ty)];
   if(c===T_GATE&&level.kind==='village'){enterAct(0);}
-  else if(c===T_GATE&&level.kind==='act'){enterAct((level.actNum||0)+1);}
+  else if(c===T_GATE&&level.kind==='act'){if(level.boss&&level.enemies.indexOf(level.boss)>=0){toast('Le gardien de l\'acte bloque le passage — vaincs-le d\'abord !',2.2);}else enterAct((level.actNum||0)+1);}
 }
 function townPortal(){
   if(!village)return;
@@ -1000,7 +1016,7 @@ function killEnemy(en){
   player.gold+=g;floatText(en.x+16,en.y-en.r-6,'+'+g+' or','#f4d35e');
   rollLoot(en);
   if(en.elite){const eg=randi(20,40)+(level.depth||0)*8;player.gold+=eg;floatText(en.x,en.y-6,'+'+eg+' or','#f4d35e');dropItem(en.x,en.y+10,makeItem(Math.random()<0.25?'unique':'rare'));}
-  if(en.boss){setTimeout(victory,900);}
+  if(en.finalBoss){setTimeout(victory,900);}else if(en.boss){toast('⚑ Gardien vaincu — le passage s\'ouvre !',2.4);}
   updateStatLine();refreshHud();
 }
 function updateStatLine(){document.getElementById('statLine').textContent=
@@ -1015,7 +1031,7 @@ function rollLoot(en){
   const mf=Math.min(1.2,(P().mf||0)/100)+difficulty*0.15;
   if(en.boss)rar='rare';else if(r<0.0005*(1+mf))rar='unique';else if(r<0.0055*(1+mf))rar='rare';else if(r<0.0555)rar='magic';
   dropItem(en.x+rand(-10,10),en.y+rand(-6,6),makeItem(rar));
-  if(en.boss){dropItem(en.x+30,en.y,makeItem('unique','weapon'));dropItem(en.x-30,en.y,makeItem('unique','armor'));}
+  if(en.finalBoss){dropItem(en.x+30,en.y,makeItem('unique','weapon'));dropItem(en.x-30,en.y,makeItem('unique','armor'));}else if(en.boss){dropItem(en.x,en.y+14,makeItem('unique'));}
 }
 function dropItem(x,y,item){
   // ensure on walkable tile
@@ -1036,7 +1052,7 @@ function gainXp(v){
   v=Math.max(1,Math.round(v*0.17));
   player.xp+=v;player.xpTotal+=v;
   while(player.xp>=player.xpNext&&player.lvl<LEVEL_CAP){
-    player.xp-=player.xpNext;player.lvl++;player.xpNext=Math.round(player.xpNext*1.45+20);
+    player.xp-=player.xpNext;player.lvl++;player.xpNext=Math.round(40*Math.pow(player.lvl,1.5));
     player.statPts+=5;player.treePts+=1;const st=P();player.hp=st.hpMax;player.mp=st.mpMax;
     toast('⭐ NIVEAU '+player.lvl+' !  +5 stats · +1 skill',2.2);burst(player.x,player.y,'#f4d35e',26);}
   refreshHud();
@@ -1389,29 +1405,114 @@ function drawPlayerVector(){
     ctx.beginPath();ctx.arc(0,4,150*(1-player.tempest/0.4),0,6.28);ctx.stroke();ctx.lineWidth=1;}
   ctx.restore();
 }
+
+function drawImp(sx,sy,en,col){const r=en.r;
+ ctx.fillStyle='#7a1e1e';
+ for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx+s*r*0.4,sy-r*0.2);ctx.lineTo(sx+s*r*1.6,sy-r*0.9);ctx.lineTo(sx+s*r*1.5,sy+r*0.35);ctx.lineTo(sx+s*r*0.4,sy+r*0.2);ctx.closePath();ctx.fill();}
+ ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx,sy,r,0,6.28);ctx.fill();
+ ctx.fillStyle='#2a0e0e';
+ ctx.beginPath();ctx.moveTo(sx-r*0.55,sy-r*0.7);ctx.lineTo(sx-r*0.95,sy-r*1.5);ctx.lineTo(sx-r*0.3,sy-r*0.8);ctx.closePath();ctx.fill();
+ ctx.beginPath();ctx.moveTo(sx+r*0.55,sy-r*0.7);ctx.lineTo(sx+r*0.95,sy-r*1.5);ctx.lineTo(sx+r*0.3,sy-r*0.8);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#ffef7a';ctx.shadowBlur=6;ctx.shadowColor='#ffbf3a';
+ ctx.beginPath();ctx.arc(sx-r*0.35,sy-r*0.1,r*0.17,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.35,sy-r*0.1,r*0.17,0,6.28);ctx.fill();ctx.shadowBlur=0;
+ ctx.strokeStyle='#2a0e0e';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy+r*0.4,r*0.32,0.15*Math.PI,0.85*Math.PI);ctx.stroke();ctx.lineWidth=1;
+}
+function drawWraith(sx,sy,en,col){const r=en.r;
+ ctx.save();ctx.globalAlpha=0.82;ctx.fillStyle=col;
+ ctx.beginPath();ctx.arc(sx,sy-r*0.15,r,Math.PI,0,false);ctx.lineTo(sx+r,sy+r*0.55);
+ const n=3,seg=2*r/n;for(let i=0;i<n;i++){const x0=sx+r-i*seg,x1=sx+r-(i+1)*seg;ctx.arc((x0+x1)/2,sy+r*0.55,seg/2,0,Math.PI,false);}
+ ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+ ctx.fillStyle='#dff2ff';ctx.shadowBlur=8;ctx.shadowColor='#7fd0ff';
+ ctx.beginPath();ctx.ellipse(sx-r*0.35,sy-r*0.2,r*0.17,r*0.25,0,0,6.28);ctx.fill();
+ ctx.beginPath();ctx.ellipse(sx+r*0.35,sy-r*0.2,r*0.17,r*0.25,0,0,6.28);ctx.fill();ctx.shadowBlur=0;ctx.restore();
+}
+function drawBrute(sx,sy,en,col){const r=en.r;
+ ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(sx,sy+r*0.15,r*0.95,r,0,0,6.28);ctx.fill();
+ ctx.fillStyle='#e9dcc0';
+ for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx+s*r*0.7,sy-r*0.15);ctx.lineTo(sx+s*r*1.15,sy-r*0.7);ctx.lineTo(sx+s*r*0.45,sy-r*0.5);ctx.closePath();ctx.fill();}
+ ctx.strokeStyle='#efe6cf';ctx.lineWidth=Math.max(1.5,r*0.08);
+ for(let i=0;i<3;i++){const yy=sy+i*r*0.35;ctx.beginPath();ctx.arc(sx,yy,r*0.55,0.15*Math.PI,0.85*Math.PI);ctx.stroke();}ctx.lineWidth=1;
+ ctx.fillStyle='#efe6cf';ctx.beginPath();ctx.arc(sx,sy-r*0.85,r*0.5,0,6.28);ctx.fill();
+ ctx.fillRect(sx-r*0.28,sy-r*0.5,r*0.56,r*0.2);
+ ctx.fillStyle='#2a2016';ctx.beginPath();ctx.arc(sx-r*0.2,sy-r*0.9,r*0.14,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.2,sy-r*0.9,r*0.14,0,6.28);ctx.fill();
+ ctx.fillStyle='#ff5a3a';ctx.shadowBlur=5;ctx.shadowColor='#ff5a3a';ctx.beginPath();ctx.arc(sx-r*0.2,sy-r*0.9,r*0.06,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.2,sy-r*0.9,r*0.06,0,6.28);ctx.fill();ctx.shadowBlur=0;
+}
+function drawShade(sx,sy,en,col){const r=en.r;
+ ctx.save();ctx.globalAlpha=0.9;ctx.fillStyle=col;
+ ctx.beginPath();ctx.moveTo(sx,sy-r*1.4);
+ ctx.quadraticCurveTo(sx-r*0.9,sy-r*0.4,sx-r*0.8,sy+r*0.6);
+ ctx.quadraticCurveTo(sx-r*0.5,sy+r*1.1,sx-r*0.2,sy+r*0.7);
+ ctx.quadraticCurveTo(sx,sy+r*1.2,sx+r*0.2,sy+r*0.7);
+ ctx.quadraticCurveTo(sx+r*0.5,sy+r*1.1,sx+r*0.8,sy+r*0.6);
+ ctx.quadraticCurveTo(sx+r*0.9,sy-r*0.4,sx,sy-r*1.4);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#150920';ctx.beginPath();ctx.ellipse(sx,sy-r*0.25,r*0.42,r*0.55,0,0,6.28);ctx.fill();
+ ctx.globalAlpha=1;ctx.fillStyle='#e06bff';ctx.shadowBlur=8;ctx.shadowColor='#c04bff';
+ ctx.beginPath();ctx.arc(sx-r*0.16,sy-r*0.28,r*0.12,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.16,sy-r*0.28,r*0.12,0,6.28);ctx.fill();ctx.shadowBlur=0;ctx.restore();
+}
+function drawGolem(sx,sy,en,col){const r=en.r;
+ ctx.fillStyle=col;ctx.beginPath();
+ ctx.moveTo(sx-r*0.85,sy-r*0.5);ctx.lineTo(sx-r*0.6,sy+r*0.9);ctx.lineTo(sx+r*0.6,sy+r*0.9);ctx.lineTo(sx+r*0.85,sy-r*0.5);ctx.lineTo(sx+r*0.4,sy-r*0.9);ctx.lineTo(sx-r*0.4,sy-r*0.9);ctx.closePath();ctx.fill();
+ ctx.fillStyle='rgba(220,245,255,0.45)';ctx.beginPath();ctx.moveTo(sx-r*0.4,sy-r*0.9);ctx.lineTo(sx,sy-r*0.2);ctx.lineTo(sx-r*0.6,sy+r*0.9);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#bfe8ff';for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx+s*r*0.7,sy-r*0.4);ctx.lineTo(sx+s*r*0.95,sy-r*1.2);ctx.lineTo(sx+s*r*0.45,sy-r*0.6);ctx.closePath();ctx.fill();}
+ ctx.beginPath();ctx.moveTo(sx-r*0.25,sy-r*0.8);ctx.lineTo(sx,sy-r*1.5);ctx.lineTo(sx+r*0.25,sy-r*0.8);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#eaffff';ctx.shadowBlur=8;ctx.shadowColor='#8fe0ff';ctx.fillRect(sx-r*0.36,sy-r*0.12,r*0.24,r*0.13);ctx.fillRect(sx+r*0.12,sy-r*0.12,r*0.24,r*0.13);ctx.shadowBlur=0;
+}
+function drawSeraphin(sx,sy,en,col){const r=en.r;
+ ctx.fillStyle=en.wcol||'rgba(217,138,61,0.4)';
+ for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx,sy-10);ctx.quadraticCurveTo(sx+s*66,sy-56,sx+s*76,sy-4);ctx.quadraticCurveTo(sx+s*46,sy+4,sx,sy-10);ctx.fill();}
+ ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx,sy,r,0,6.28);ctx.fill();
+ ctx.strokeStyle='#ffe08a';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(sx,sy-r*1.3,r*0.6,r*0.2,0,0,6.28);ctx.stroke();ctx.lineWidth=1;
+ ctx.fillStyle='#3a1a08';
+ ctx.beginPath();ctx.moveTo(sx-18,sy-r*0.62);ctx.lineTo(sx-28,sy-r*1.2);ctx.lineTo(sx-10,sy-r*0.72);ctx.fill();
+ ctx.beginPath();ctx.moveTo(sx+18,sy-r*0.62);ctx.lineTo(sx+28,sy-r*1.2);ctx.lineTo(sx+10,sy-r*0.72);ctx.fill();
+ ctx.fillStyle='#ffd27a';ctx.shadowBlur=12;ctx.shadowColor='#ff8a3d';ctx.fillRect(sx-14,sy-6,9,5);ctx.fillRect(sx+5,sy-6,9,5);ctx.shadowBlur=0;
+}
+function drawSwimmer(sx,sy,en,col){const r=en.r;
+ ctx.lineWidth=r*0.3;ctx.strokeStyle='#e8873a';ctx.beginPath();ctx.arc(sx,sy+r*0.12,r*0.95,0,6.28);ctx.stroke();
+ ctx.strokeStyle='#f0ece0';for(let k=0;k<4;k++){ctx.beginPath();ctx.arc(sx,sy+r*0.12,r*0.95,k*Math.PI/2+0.2,k*Math.PI/2+0.6);ctx.stroke();}ctx.lineWidth=1;
+ ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(sx,sy+r*0.1,r*0.5,r*0.78,0,0,6.28);ctx.fill();
+ ctx.beginPath();ctx.arc(sx,sy-r*0.72,r*0.4,0,6.28);ctx.fill();
+ ctx.fillStyle='#0b2230';ctx.beginPath();ctx.arc(sx-r*0.15,sy-r*0.74,r*0.11,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.15,sy-r*0.74,r*0.11,0,6.28);ctx.fill();
+ ctx.fillStyle='#7fe0ff';ctx.shadowBlur=8;ctx.shadowColor='#7fe0ff';ctx.beginPath();ctx.arc(sx-r*0.15,sy-r*0.74,r*0.05,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.15,sy-r*0.74,r*0.05,0,6.28);ctx.fill();ctx.shadowBlur=0;
+ ctx.fillStyle='rgba(120,210,255,0.6)';for(let k=-1;k<2;k++){ctx.beginPath();ctx.arc(sx+k*r*0.35,sy+r*0.98,r*0.09,0,6.28);ctx.fill();}
+}
+function drawIceHeart(sx,sy,en,col){const r=en.r,pulse=0.6+0.4*Math.sin(performance.now()/300);
+ ctx.fillStyle=col;ctx.beginPath();
+ ctx.moveTo(sx-r*0.9,sy-r*0.3);ctx.lineTo(sx-r*0.6,sy+r);ctx.lineTo(sx+r*0.6,sy+r);ctx.lineTo(sx+r*0.9,sy-r*0.3);ctx.lineTo(sx+r*0.45,sy-r);ctx.lineTo(sx-r*0.45,sy-r);ctx.closePath();ctx.fill();
+ ctx.fillStyle='#bfeeff';for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx+s*r*0.7,sy-r*0.5);ctx.lineTo(sx+s*r*1.0,sy-r*1.3);ctx.lineTo(sx+s*r*0.4,sy-r*0.7);ctx.closePath();ctx.fill();}
+ ctx.save();ctx.globalAlpha=pulse;ctx.fillStyle='#eafcff';ctx.shadowBlur=16;ctx.shadowColor='#9fe8ff';
+ const hx=sx,hy=sy+r*0.02,hs=r*0.5;
+ ctx.beginPath();ctx.moveTo(hx,hy+hs*0.85);
+ ctx.bezierCurveTo(hx-hs*1.1,hy-hs*0.2,hx-hs*0.55,hy-hs*0.95,hx,hy-hs*0.25);
+ ctx.bezierCurveTo(hx+hs*0.55,hy-hs*0.95,hx+hs*1.1,hy-hs*0.2,hx,hy+hs*0.85);
+ ctx.closePath();ctx.fill();ctx.restore();ctx.shadowBlur=0;
+}
+function drawEnt(sx,sy,en,col){const r=en.r;
+ ctx.fillStyle='#5a3d22';ctx.beginPath();ctx.moveTo(sx-r*0.55,sy+r);ctx.lineTo(sx-r*0.4,sy-r*0.6);ctx.quadraticCurveTo(sx,sy-r*0.95,sx+r*0.4,sy-r*0.6);ctx.lineTo(sx+r*0.55,sy+r);ctx.closePath();ctx.fill();
+ ctx.strokeStyle='#4a3016';ctx.lineWidth=r*0.12;for(const s of[-1,0,1]){ctx.beginPath();ctx.moveTo(sx+s*r*0.3,sy+r*0.8);ctx.lineTo(sx+s*r*0.6,sy+r*1.15);ctx.stroke();}
+ ctx.strokeStyle='#6a4a28';ctx.lineWidth=r*0.1;
+ for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx+s*r*0.2,sy-r*0.7);ctx.lineTo(sx+s*r*0.7,sy-r*1.5);ctx.moveTo(sx+s*r*0.45,sy-r*1.1);ctx.lineTo(sx+s*r*0.9,sy-r*1.25);ctx.stroke();}ctx.lineWidth=1;
+ ctx.fillStyle=col;for(const o of[[-0.5,-1.4,0.5],[0.5,-1.4,0.5],[0,-1.75,0.55],[-0.95,-1.1,0.42],[0.95,-1.1,0.42]]){ctx.beginPath();ctx.arc(sx+o[0]*r,sy+o[1]*r,o[2]*r,0,6.28);ctx.fill();}
+ ctx.fillStyle='#c8ff7a';ctx.shadowBlur=8;ctx.shadowColor='#8fff5a';ctx.beginPath();ctx.arc(sx-r*0.2,sy-r*0.1,r*0.1,0,6.28);ctx.fill();ctx.beginPath();ctx.arc(sx+r*0.2,sy-r*0.1,r*0.1,0,6.28);ctx.fill();ctx.shadowBlur=0;
+}
 function drawEnemy(en){
   const sx=en.x-cam.x,sy=en.y-cam.y;
   ctx.fillStyle='rgba(0,0,0,0.4)';ctx.beginPath();ctx.ellipse(sx,sy+en.r-3,en.r*0.7,5,0,0,6.28);ctx.fill();
   const col=en.hurt>0?'#fff':en.col;
   if(en.frozen>0){ctx.strokeStyle='rgba(140,210,255,0.85)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy,en.r+3,0,6.28);ctx.stroke();ctx.lineWidth=1;}
   if(en.elite){const ar=en.r+6+2*Math.sin(performance.now()/200);ctx.strokeStyle=en.auraCol;ctx.globalAlpha=0.75;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(sx,sy,ar,0,6.28);ctx.stroke();ctx.globalAlpha=1;ctx.lineWidth=1;}
-  if(en.boss&&en.kind==='falcon'){drawFalcon(sx,sy,en);}
-  else if(en.boss){
-    ctx.fillStyle='rgba(217,138,61,0.35)';
-    for(const s of[-1,1]){ctx.beginPath();ctx.moveTo(sx,sy-10);
-      ctx.quadraticCurveTo(sx+s*66,sy-56,sx+s*76,sy-4);ctx.quadraticCurveTo(sx+s*46,sy+4,sx,sy-10);ctx.fill();}
-    ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx,sy,en.r,0,6.28);ctx.fill();
-    ctx.fillStyle='#3a1a08';
-    ctx.beginPath();ctx.moveTo(sx-18,sy-26);ctx.lineTo(sx-28,sy-48);ctx.lineTo(sx-10,sy-30);ctx.fill();
-    ctx.beginPath();ctx.moveTo(sx+18,sy-26);ctx.lineTo(sx+28,sy-48);ctx.lineTo(sx+10,sy-30);ctx.fill();
-    ctx.fillStyle='#ffd27a';ctx.shadowBlur=12;ctx.shadowColor='#ff8a3d';
-    ctx.fillRect(sx-14,sy-6,9,5);ctx.fillRect(sx+5,sy-6,9,5);ctx.shadowBlur=0;
+  if(en.boss){
+    if(en.kind==='falcon')drawFalcon(sx,sy,en);
+    else if(en.bkind==='swimmer')drawSwimmer(sx,sy,en,col);
+    else if(en.bkind==='iceheart')drawIceHeart(sx,sy,en,col);
+    else if(en.bkind==='ent')drawEnt(sx,sy,en,col);
+    else drawSeraphin(sx,sy,en,col);
   } else {
-    ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx,sy,en.r,0,6.28);ctx.fill();
-    ctx.fillStyle='#1a1a1a';
-    ctx.beginPath();ctx.moveTo(sx-en.r*0.6,sy-en.r*0.6);ctx.lineTo(sx-en.r,sy-en.r*1.3);ctx.lineTo(sx-en.r*0.3,sy-en.r*0.7);ctx.fill();
-    ctx.beginPath();ctx.moveTo(sx+en.r*0.6,sy-en.r*0.6);ctx.lineTo(sx+en.r,sy-en.r*1.3);ctx.lineTo(sx+en.r*0.3,sy-en.r*0.7);ctx.fill();
-    ctx.fillStyle='#ffef7a';ctx.fillRect(sx-5,sy-2,3,3);ctx.fillRect(sx+2,sy-2,3,3);
+    if(en.kind==='wraith')drawWraith(sx,sy,en,col);
+    else if(en.kind==='brute')drawBrute(sx,sy,en,col);
+    else if(en.kind==='shade')drawShade(sx,sy,en,col);
+    else if(en.kind==='golem')drawGolem(sx,sy,en,col);
+    else drawImp(sx,sy,en,col);
   }
   if(en.hp<en.hpMax&&!en.boss){ctx.fillStyle='#000';ctx.fillRect(sx-en.r,sy-en.r-9,en.r*2,4);
     ctx.fillStyle=en.elite?en.auraCol:'#d33';ctx.fillRect(sx-en.r,sy-en.r-9,en.r*2*(en.hp/en.hpMax),4);}
@@ -1798,7 +1899,7 @@ function showTip(e,it,equipped){
 function moveTip(e){tip.style.left=Math.min(e.clientX+14,innerWidth-250)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-160)+'px';}
 function hideTip(){tip.style.display='none';}
 const slotName=s=>s==='weapon'?'Crosse':s==='armor'?'Armure':'Amulette';
-let maxAct=-1,bossKilled=false;
+let maxAct=-1,bossKilled=false,bossCleared=[false,false,false,false,false];
 const qc={elites:0,chests:0,shrines:0,imp:0,wraith:0,brute:0};
 const QUESTS=[{"id":"m0a","act":0,"name":"Le Grand Plongeon","desc":"Aldric chausse ses patins : « Bon. La ville est envahie de démons, ma patinoire est un cratère et mon coach a disparu. Journée normale. » Nettoie l’entrée de la Piscine.","type":"kills","target":8,"need":{"act":0},"gold":100,"potion":1},
 {"id":"m0b","act":0,"name":"Le Sifflet d’Argent","desc":"Dans les vestiaires noyés, on murmure que le Sifflet du Coach Verdier repose au fond d’un casier. Fouille les coffres — première relique des Faucons de Moreuil.","type":"chests","target":3,"need":{"act":0,"prev":["m0a"]},"gold":150,"gem":true},
@@ -1899,10 +2000,10 @@ const QUESTS=[{"id":"m0a","act":0,"name":"Le Grand Plongeon","desc":"Aldric chau
 {"id":"s72","act":4,"name":"Tueur de champions d’Gymnase","desc":"Abats les champions marqués. « Facile. Enfin, presque. »","type":"elites","target":20,"need":{"act":4},"gold":245,"potion":1},
 {"id":"s73","act":4,"name":"Communion de Collège","desc":"Active les sanctuaires pour gagner leurs bienfaits. Aldric : « Encore ? »","type":"shrines","target":9,"need":{"act":4},"gold":225},
 {"id":"s74","act":4,"name":"Bénédictions de Collège","desc":"Active les sanctuaires pour gagner leurs bienfaits. « Je fais ça les yeux fermés. »","type":"shrines","target":10,"need":{"act":4},"gold":225,"gem":true},
-{"id":"s75","act":4,"name":"Entraînement intensif — Gymnase du Collège","desc":"Gagne en puissance avant la suite. « Pour l’équipe. »","type":"level","target":22,"need":{"act":4},"gold":225,"frags":10}];
+{"id":"s75","act":4,"name":"Entraînement intensif — Gymnase du Collège","desc":"Gagne en puissance avant la suite. « Pour l’équipe. »","type":"level","target":22,"need":{"act":4},"gold":225,"frags":10},{"id":"b0","act":0,"name":"Le Maître-Nageur Noyé","desc":"Un gardien spectral s'accroche encore à son poste au fond du bassin. Terrasse-le pour ouvrir la voie hors de la Piscine.","type":"bossact","target":1,"need":{"act":0},"gold":150,"xp":80,"potion":1},{"id":"b1","act":1,"name":"Givre-Cœur, Gardien de Glace","desc":"Un cœur de gel scelle la sortie de la Glacière. Brise Givre-Cœur — le froid ne l'atteint pas, frappe au physique ou au sacré.","type":"bossact","target":1,"need":{"act":1},"gold":250,"xp":150,"potion":1},{"id":"b2","act":2,"name":"L'Ancien des Bois","desc":"Une entité sylvestre garde la lisière depuis 1918. Abats l'Ancien des Bois pour rejoindre l'Église.","type":"bossact","target":1,"need":{"act":2},"gold":400,"xp":260,"potion":2},{"id":"b3","act":3,"name":"Le Séraphin Corrompu","desc":"L'ange déchu veille sur le chœur de feu bleu. Rappelle-lui, crosse en main, que le sacré, ça pique.","type":"bossact","target":1,"need":{"act":3},"gold":600,"xp":380,"gem":true}];
 const quests={};
 function initQuests(){for(const q of QUESTS)if(!quests[q.id])quests[q.id]={p:0,done:false,unl:false};}
-function qProgress(q){switch(q.type){case 'kills':return player.kills;case 'elites':return qc.elites;case 'chests':return qc.chests;case 'shrines':return qc.shrines;case 'reach':return maxAct;case 'boss':return bossKilled?1:0;case 'level':return player.lvl;case 'kind':return qc[q.kind]||0;default:return 0;}}
+function qProgress(q){switch(q.type){case 'kills':return player.kills;case 'elites':return qc.elites;case 'chests':return qc.chests;case 'shrines':return qc.shrines;case 'reach':return maxAct;case 'boss':return bossKilled?1:0;case 'bossact':return bossCleared[q.act]?1:0;case 'level':return player.lvl;case 'kind':return qc[q.kind]||0;default:return 0;}}
 function qMet(need){if(!need)return true;if(need.act!=null&&maxAct<need.act)return false;if(need.lvl!=null&&player.lvl<need.lvl)return false;if(need.prev){for(const p of need.prev)if(!quests[p]||!quests[p].done)return false;}return true;}
 function questReward(q){if(q.gold)player.gold+=q.gold;if(q.potion)player.potions+=q.potion;if(q.frags)player.frags+=q.frags;if(q.gem)inventory.push(makeSocketable(true));if(q.xp)gainXp(q.xp);toast('📜 Quête accomplie : '+q.name+(q.gold?' (+'+q.gold+' or)':''),2.6);burst(player.x,player.y,'#f4d35e',20);refreshHud();}
 function checkQuests(){initQuests();let newq=false,rew=false;
@@ -1911,7 +2012,7 @@ function checkQuests(){initQuests();let newq=false,rew=false;
     if(!st.done){st.p=qProgress(q);if(st.p>=q.target){st.done=true;questReward(q);rew=true;}}}
   if(newq&&!rew)toast('📜 Nouvelle(s) quête(s) — touche J',1.8);
   if((newq||rew)&&document.getElementById('questPanel').style.display==='block')renderQuests();}
-function onKill(en){if(en.kind&&qc[en.kind]!=null)qc[en.kind]++;if(en.elite)qc.elites++;if(en.boss)bossKilled=true;checkQuests();}
+function onKill(en){if(en.kind&&qc[en.kind]!=null)qc[en.kind]++;if(en.elite)qc.elites++;if(en.boss){if(level.kind==='act'&&level.actNum!=null)bossCleared[level.actNum]=true;if(en.finalBoss)bossKilled=true;}checkQuests();}
 function renderQuests(){initQuests();const box=document.getElementById('questList');box.innerHTML='';
   const AN=['Acte 1 · Piscine','Acte 2 · Glacière','Acte 3 · Bois','Acte 4 · Église','Acte 5 · Gymnase'];
   let shown=0,doneN=0;for(const q of QUESTS)if(quests[q.id].done)doneN++;
@@ -2102,13 +2203,13 @@ function victory(){running=false;saveGame();const ov=document.getElementById('ov
   else{b.textContent='REJOUER';b.onclick=()=>location.reload();}
   ov.style.display='flex';}
 const SAVE_KEY='croise_moreuil_save_v1';let saveTimer=6;
-function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled}));}catch(e){}}
+function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared}));}catch(e){}}
 function hasSave(){try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
 function loadGame(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(!s)return false;
   ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','gold','frags','potions','manaPots','kills','totalDmg'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
   if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
   if(s.equip)player.equip=Object.assign({weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},s.equip);
-  inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;return true;}catch(e){return false;}}
+  inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;if(s.bossCleared)bossCleared=s.bossCleared;return true;}catch(e){return false;}}
 window.addEventListener('beforeunload',()=>{if(running)saveGame();});
 function beginNew(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}startGame(false);}
 (function initMenu(){var b=document.getElementById('startBtn');
