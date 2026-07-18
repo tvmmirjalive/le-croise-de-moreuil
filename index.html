@@ -863,6 +863,29 @@ function townPortal(){
   toast('Retour au village de Moreuil',1.8);
 }
 
+/* ---------------- MODE TEST (touches cachées F9 / F10) ---------------- */
+function devKit(){
+  for(let i=0;i<ACTS.length;i++)actDiscovered[i]=true;maxAct=ACTS.length-1;
+  const target=35;
+  if(player.lvl<target){const g=target-player.lvl;player.lvl=target;player.statPts+=5*g;player.treePts+=g;player.xp=0;player.xpNext=Math.round(40*Math.pow(player.lvl,1.5));}
+  for(const s of ['weapon','armor','helm','gloves','belt','amulet','ring','ring2','skates']){
+    const sl=(s==='ring2'?'ring':s);
+    try{player.equip[s]=makeGear(sl,Math.random()<0.5?'unique':'rare',player.lvl);}catch(err){}
+  }
+  player.potions=10;player.manaPots=10;player.gold+=5000;player.frags+=200;
+  const st=P();player.hp=st.hpMax;player.mp=st.mpMax;
+  checkQuests();refreshHud();if(typeof renderInventory==='function')renderInventory();renderSkillBar();
+  toast('🔧 MODE TEST — 5 actes débloqués · niveau '+player.lvl+' · équipement fourni. Balise 🔷 pour voyager, F10 près du boss.',5);
+}
+function devToBoss(){
+  if(!level||level.kind!=='act'||!level.boss||level.enemies.indexOf(level.boss)<0){toast('🔧 Aucun boss vivant dans cette zone',1.6);return;}
+  const b=level.boss;let px=b.x,py=b.y+70;
+  if(!isWalkablePx(level,px,py)){px=b.x;py=b.y;}
+  player.x=px;player.y=py;player.path=null;player.attackTarget=null;travelLock=0.4;
+  cam.x=player.x-W/2;cam.y=player.y-H/2;
+  toast('🔧 Téléporté au boss : '+(b.name||'?'),2.4);
+}
+
 /* ---------------- EFFECTS ---------------- */
 const projectiles=[],floaters=[],particles=[];
 function floatText(x,y,txt,col,big){floaters.push({x,y,txt,col,t:0,life:big?1.2:0.9,big});}
@@ -946,6 +969,8 @@ addEventListener('keydown',e=>{
   if(c==='Digit3'||c==='Numpad3'){castSlot(2);return;}
   if(c==='Digit4'||c==='Numpad4'){castSlot(3);return;}
   if(c==='Space'){e.preventDefault();usePotion();return;}
+  if(e.key==='F9'){e.preventDefault();devKit();return;}
+  if(e.key==='F10'){e.preventDefault();devToBoss();return;}
   const k=e.key.toLowerCase();
   if(k==='i')togglePanel('invPanel');else if(k==='c')togglePanel('charPanel');
   else if(k==='s')togglePanel('skillPanel');else if(k==='m')toggleFullMap();else if(k==='j')togglePanel('questPanel');
