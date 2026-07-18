@@ -69,6 +69,7 @@
     pointer-events:auto;box-shadow:0 8px 40px rgba(0,0,0,.7);display:none;z-index:5}
   .closeX{position:absolute;top:8px;right:10px;width:26px;height:26px;border-radius:6px;border:1px solid #3a4a72;background:#1a2036;color:#cdd6e6;cursor:pointer;font-size:14px;line-height:22px;padding:0;text-align:center;pointer-events:auto;z-index:20}
   .closeX:hover{background:#2a3352;color:#fff}
+  .ilvlBadge{position:absolute;bottom:1px;right:2px;font-size:9px;font-weight:bold;color:#e8ecf6;background:rgba(0,0,0,.65);border-radius:3px;padding:0 2px;line-height:11px;pointer-events:none}
   #invPanel{right:14px}#charPanel{left:14px}
   #skillPanel{left:50%;transform:translate(-50%,-50%);width:440px;max-height:82vh;overflow:auto}
   #treePanel{left:50%;transform:translate(-50%,-50%);width:min(94vw,940px)}
@@ -367,16 +368,7 @@ const AFFIX=[
   {t:'vit',n:'+# Vitalité',min:2,max:10},{t:'ene',n:'+# Énergie',min:2,max:8},
   {t:'dmg',n:'+# Dégâts',min:2,max:8},{t:'def',n:'+# Défense',min:3,max:14},
   {t:'dmgpct',n:'+#% Dégâts',min:6,max:22},{t:'mf',n:'+#% Trouvaille magique',min:8,max:30},{t:'crit',n:'+#% Coup critique',min:3,max:12},{t:'leech',n:'+#% Vol de vie',min:2,max:8},{t:'cast',n:'+#% Vitesse d’incantation',min:4,max:15}];
-const GEAR={
- weapon:{white:[['Crosse fêlée du vestiaire','w_ash1'],['Crosse d\'entraînement râpée','w_ash2'],['Crosse de recrue','w_ash3'],['Crosse de titulaire','w_ash4']],magic:[['Crosse composite runique','w_comp1'],['Crosse sifflante','w_comp2'],['Crosse de la mise en échec','w_comp3'],['Crosse du power-play','w_comp4']],rare:[['Trancheuse de Givre','w_frost1'],['Fend-Glace','w_frost2'],['Mordante des Outlaws','w_frost3'],['Brise-Banquise','w_frost4'],['Rédemption Emberblue','w_ember1'],['Braise-Bleue','w_ember2'],['Crosse des Cendres Ardentes','w_ember3'],['Fléau Emberblue','w_ember4']],unique:[['Cendreglace, la Crosse Damnée','w_ash21'],['Cendreglace, Cœur de Suie','w_ash22'],['Cendreglace, Serment de Cendre','w_ash23'],['Cendreglace, l\'Ultime Damnation','w_ash24'],['Aile Brisée du Séraphin','w_wing1'],['Plume Déchue du Séraphin','w_wing2'],['Rémige du Jugement','w_wing3'],['Envergure du Séraphin Corrompu','w_wing4']]},
- armor:{white:[['Maillot rembourré des cadets','a_jersey1'],['Maillot rapiécé de Moreuil','a_jersey2'],['Maillot des Outlaws juniors','a_jersey3'],['Maillot de capitaine élimé','a_jersey4']],magic:[['Plastron d\'écailles givrées','a_scale1'],['Plastron écaillé runique','a_scale2'],['Cotte d\'écailles bleuies','a_scale3']],rare:[['Plastron du Gardien','a_plackart1'],['Plastron du Veilleur de Moreuil','a_plackart2'],['Cuirasse des Outlaws','a_plackart3'],['Plastron du Gardien Éternel','a_plackart4'],['Harnois ailé de l’Outlaw','a_harness1'],['Harnois des Ailes de Givre','a_harness2'],['Harnois du Serment Bleu','a_harness3'],['Harnois ailé du Grand Outlaw','a_harness4']],unique:[['Égide de la Patinoire Gelée','a_aegis1'],['Égide du Cercle Central','a_aegis2'],['Égide des Outlaws Déchus','a_aegis3'],['Égide de l\'Arène Éternelle','a_aegis4']]},
- amulet:{white:[['Jeton de vestiaire','m_token1'],['Jeton des Outlaws','m_token2'],['Médaillon d\'amateur','m_token3'],['Jeton de capitaine terni','m_token4']],magic:[['Amulette de Glacier','m_glacier1'],['Pendentif de Givre','m_glacier2'],['Amulette du Froid Runique','m_glacier3']],rare:[['Cœur de la Faille','m_heart1'],['Éclat de la Faille','m_heart2'],['Cœur Battant des Outlaws','m_heart3'],['Cœur Profond de la Faille','m_heart4']],unique:[['Larme du Séraphin','m_tear1'],['Larme de l\'Ange Déchu','m_tear2'],['Perle du Jugement','m_tear3'],['Larme Ultime du Séraphin','m_tear4']]},
- ring:{white:[['Anneau de fer brut','r_iron1'],['Anneau de fer poli','r_iron2'],['Anneau de recrue','r_iron3'],['Anneau de fer gravé','r_iron4']],magic:[['Anneau de givre-verre','r_frost1'],['Anneau de verre gelé','r_frost2'],['Anneau du Froid Runique','r_frost3'],['Anneau de givre-verre poli','r_frost4'],['Anneau du Patin Rapide','r_swift1'],['Anneau de la Glisse','r_swift2'],['Anneau du Contre-Rapide','r_swift3'],['Anneau du Patin Fulgurant','r_swift4']],rare:[['Chevalière du Pacte de Sang','r_blood1'],['Chevalière Écarlate','r_blood2'],['Chevalière du Serment de Sang','r_blood3'],['Chevalière du Pacte Damné','r_blood4'],['Boucle de la Faille','r_loop1'],['Anneau de la Brèche','r_loop2'],['Boucle des Outlaws','r_loop3'],['Boucle de la Faille Profonde','r_loop4']],unique:[['Anneau du Serment d\'Aldric','r_aldric1'],['Anneau du Dernier Serment','r_aldric2'],['Anneau de l’Outlaw Éternel','r_aldric3'],['Anneau du Serment Indéfectible','r_aldric4'],['Halo du Séraphin','r_halo1'],['Auréole Déchue','r_halo2'],['Halo du Jugement Corrompu','r_halo3']]},
- skates:{white:[['Patins usés du vestiaire','s_worn1'],['Patins de recrue','s_worn2'],['Patins des Outlaws juniors','s_worn3'],['Patins reconditionnés','s_worn4']],magic:[['Patins composites','s_comp1'],['Patins givrés','s_comp2'],['Patins runiques','s_comp3'],['Patins du power-play','s_comp4']],rare:[['Lames de Givre','s_frost1'],['Lames Gelées des Outlaws','s_frost2'],['Lames de la Banquise','s_frost3'],['Lames de l\'Hiver','s_frost4'],['Patins Emberglide','s_ember1'],['Patins Braise-Bleue','s_ember2'],['Patins des Cendres Ardentes','s_ember3'],['Patins Emberglide Suprêmes','s_ember4'],['Patins du Gardien','s_warden1'],['Patins du Veilleur','s_warden2'],['Patins des Outlaws','s_warden3'],['Patins du Gardien Éternel','s_warden4']],unique:[['Coureurs de Glacier','s_glacier1'],['Ailes de Moreuil','s_wings1']]},
- helm:{white:[['Casque de cuir bosselé','h1'],['Casque de cuir rembourré','h2'],['Casque de gardien amateur','h3'],['Casque de cuir clouté','h4']],magic:[['Casque d\'acier trempé','h5'],['Heaume givré','h6'],['Casque d\'acier runique','h7'],['Heaume du power-play','h8']],rare:[['Heaume du Gardien','h9'],['Heaume du Veilleur','h10'],['Heaume des Outlaws','h11'],['Heaume du Gardien Éternel','h12']],unique:[['Couronne de Givre','h13'],['Couronne du Roi Déchu','h14'],['Diadème de la Faille','h15'],['Couronne de l\'Hiver Sans Fin','h16']]},
- gloves:{white:[['Gants matelassés troués','gl1'],['Gants matelassés de recrue','gl2'],['Mitaines des Outlaws juniors','gl3'],['Gants matelassés renforcés','gl4']],magic:[['Gantelets d\'écailles givrées','gl5'],['Gantelets écaillés runiques','gl6'],['Gantelets de la mise en échec','gl7'],['Gantelets d\'écailles bleuies','gl8']],rare:[['Gantelets de l’Outlaw','gl9'],['Poignes du Veilleur','gl10'],['Gantelets des Outlaws','gl11'],['Gantelets du Grand Outlaw','gl12']],unique:[['Poignes de Glace','gl13'],['Serres de Givre','gl14'],['Étreinte de l\'Abîme','gl15'],['Poignes de l\'Hiver Éternel','gl16']]},
- belt:{white:[['Ceinturon élimé','be1'],['Ceinturon de recrue','be2'],['Ceinture des Outlaws juniors','be3'],['Ceinturon clouté usé','be4']],magic:[['Ceinture cloutée givrée','be5'],['Ceinture runique','be6'],['Ceinture de la mise en échec','be7'],['Ceinture cloutée bleuie','be8']],rare:[['Ceinture du Gardien','be9'],['Ceinture du Veilleur','be10'],['Ceinture des Outlaws','be11'],['Ceinture du Gardien Éternel','be12']],unique:[['Ceinture de l\'Abîme','be13'],['Étreinte de la Faille','be14'],['Ceinture du Pacte Brisé','be15'],['Ceinture des Profondeurs Gelées','be16']]},
-};
+const GEAR={"weapon":{"white":[["Crosse fêlée du vestiaire","w_ash1"],["Crosse d'entraînement râpée","w_ash2"],["Crosse de recrue","w_ash3"],["Crosse de titulaire","w_ash4"]],"magic":[["Crosse composite runique","w_comp1"],["Crosse sifflante","w_comp2"],["Crosse de la mise en échec","w_comp3"],["Crosse du power-play","w_comp4"],["Crosse givrée","w_frost1"],["Crosse de glace runique","w_frost2"]],"rare":[["Mordante des Outlaws","w_frost3"],["Brise-Banquise","w_frost4"],["Rédemption Emberblue","w_ember1"],["Braise-Bleue","w_ember2"],["Crosse des Cendres Ardentes","w_ember3"],["Fléau Emberblue","w_ember4"]],"unique":[["Cendreglace, la Crosse Damnée","w_ash21"],["Cendreglace, Cœur de Suie","w_ash22"],["Cendreglace, Serment de Cendre","w_ash23"],["Cendreglace, l'Ultime Damnation","w_ash24"],["Aile Brisée du Séraphin","w_wing1"],["Plume Déchue du Séraphin","w_wing2"],["Rémige du Jugement","w_wing3"],["Envergure du Séraphin Corrompu","w_wing4"]]},"armor":{"white":[["Maillot rembourré des cadets","a_jersey1"],["Maillot rapiécé de Moreuil","a_jersey2"],["Maillot des Outlaws juniors","a_jersey3"],["Maillot de capitaine élimé","a_jersey4"]],"magic":[["Plastron d'écailles givrées","a_scale1"],["Plastron écaillé runique","a_scale2"],["Cotte d'écailles bleuies","a_scale3"],["Plastron d'écailles renforcé","a_plackart1"],["Plastron runique du Veilleur","a_plackart2"]],"rare":[["Cuirasse des Outlaws","a_plackart3"],["Plastron du Gardien Éternel","a_plackart4"],["Harnois ailé de l’Outlaw","a_harness1"],["Harnois des Ailes de Givre","a_harness2"],["Harnois du Serment Bleu","a_harness3"],["Harnois ailé du Grand Outlaw","a_harness4"]],"unique":[["Égide de la Patinoire Gelée","a_aegis1"],["Égide du Cercle Central","a_aegis2"],["Égide des Outlaws Déchus","a_aegis3"],["Égide de l'Arène Éternelle","a_aegis4"]]},"amulet":{"white":[["Jeton de vestiaire","m_token1"],["Jeton des Outlaws","m_token2"],["Médaillon d'amateur","m_token3"],["Jeton de capitaine terni","m_token4"]],"magic":[["Amulette de Glacier","m_glacier1"],["Pendentif de Givre","m_glacier2"],["Amulette du Froid Runique","m_glacier3"]],"rare":[["Cœur de la Faille","m_heart1"],["Éclat de la Faille","m_heart2"],["Cœur Battant des Outlaws","m_heart3"],["Cœur Profond de la Faille","m_heart4"]],"unique":[["Larme du Séraphin","m_tear1"],["Larme de l'Ange Déchu","m_tear2"],["Perle du Jugement","m_tear3"],["Larme Ultime du Séraphin","m_tear4"]]},"ring":{"white":[["Anneau de fer brut","r_iron1"],["Anneau de fer poli","r_iron2"],["Anneau de recrue","r_iron3"],["Anneau de fer gravé","r_iron4"]],"magic":[["Anneau de givre-verre","r_frost1"],["Anneau de verre gelé","r_frost2"],["Anneau du Froid Runique","r_frost3"],["Anneau de givre-verre poli","r_frost4"],["Anneau du Patin Rapide","r_swift1"],["Anneau de la Glisse","r_swift2"],["Anneau du Contre-Rapide","r_swift3"],["Anneau du Patin Fulgurant","r_swift4"]],"rare":[["Chevalière du Pacte de Sang","r_blood1"],["Chevalière Écarlate","r_blood2"],["Chevalière du Serment de Sang","r_blood3"],["Chevalière du Pacte Damné","r_blood4"],["Boucle de la Faille","r_loop1"],["Anneau de la Brèche","r_loop2"],["Boucle des Outlaws","r_loop3"],["Boucle de la Faille Profonde","r_loop4"]],"unique":[["Anneau du Serment d'Aldric","r_aldric1"],["Anneau du Dernier Serment","r_aldric2"],["Anneau de l’Outlaw Éternel","r_aldric3"],["Anneau du Serment Indéfectible","r_aldric4"],["Halo du Séraphin","r_halo1"],["Auréole Déchue","r_halo2"],["Halo du Jugement Corrompu","r_halo3"]]},"skates":{"white":[["Patins usés du vestiaire","s_worn1"],["Patins de recrue","s_worn2"],["Patins des Outlaws juniors","s_worn3"],["Patins reconditionnés","s_worn4"]],"magic":[["Patins composites","s_comp1"],["Patins givrés","s_comp2"],["Patins runiques","s_comp3"],["Patins du power-play","s_comp4"],["Patins givrés renforcés","s_warden2"],["Patins gravés du Gardien","s_warden3"],["Patins d'acier trempé","s_warden4"]],"rare":[["Lames de Givre","s_frost1"],["Lames Gelées des Outlaws","s_frost2"],["Lames de la Banquise","s_frost3"],["Patins Emberglide","s_ember1"],["Patins des Cendres Ardentes","s_ember3"],["Patins Emberglide Suprêmes","s_ember4"],["Patins du Gardien","s_warden1"]],"unique":[["Lames de l'Hiver Éternel","s_frost4"],["Patins des Cendres Damnées","s_ember2"],["Coureurs de Glacier","s_glacier1"],["Ailes de Moreuil","s_wings1"]]},"helm":{"white":[["Casque de cuir bosselé","h9"],["Casque de recrue","h10"],["Casque matelassé","h11"],["Casque de cuir clouté","h12"]],"magic":[["Casque d'acier givré","h13"],["Heaume runique","h14"],["Casque d'acier trempé","h15"],["Heaume enchanté","h16"]],"rare":[["Heaume du Veilleur","h5"],["Heaume des Outlaws","h6"],["Armet du Gardien","h7"],["Heaume du Gardien Éternel","h8"]],"unique":[["Heaume du Serment Brisé","h1"],["Couronne de l'Hiver Éternel","h2"],["Diadème du Falcon","h3"],["Couronne du Dernier Outlaw","h4"]]},"gloves":{"white":[["Gants matelassés troués","gl5"],["Gants de recrue","gl6"],["Mitaines usées","gl7"],["Gants matelassés renforcés","gl8"]],"magic":[["Gantelets givrés","gl1"],["Gants runiques","gl2"],["Mitaines enchantées","gl3"],["Gantelets d'écailles bleuies","gl4"]],"rare":[["Gantelets de Givre","gl13"],["Poignes des Outlaws","gl14"],["Gantelets du Veilleur","gl15"],["Poignes gelées du Gardien","gl16"]],"unique":[["Poignes du Dernier Outlaw","gl9"],["Serres du Falcon","gl10"],["Étreinte de la Faille","gl11"],["Gantelets du Grand Serment","gl12"]]},"belt":{"white":[["Ceinturon élimé","be13"],["Ceinturon de recrue","be14"],["Ceinture usée","be15"],["Ceinturon clouté usé","be16"]],"magic":[["Ceinture cloutée givrée","be5"],["Ceinture runique","be6"],["Ceinture de la mise en échec","be7"],["Ceinture cloutée bleuie","be8"]],"rare":[["Ceinture du Gardien","be9"],["Ceinture du Veilleur","be10"],["Ceinture des Outlaws","be11"],["Ceinture du Gardien Éternel","be12"]],"unique":[["Ceinture du Dernier Outlaw","be1"],["Étreinte de la Faille","be2"],["Ceinture du Pacte Brisé","be3"],["Ceinture des Profondeurs Gelées","be4"]]}};
 let uidCounter=1;
 const GEMS=[
  {name:'Grenat',ico:'🔴',t:'str',v:6},{name:'Saphir',ico:'🔵',t:'ene',v:6},
@@ -394,12 +386,13 @@ function makeGear(slot,rarity,ilvl){
   const pool=(GEAR[slot]&&GEAR[slot][rarity]&&GEAR[slot][rarity].length?GEAR[slot][rarity]:(GEAR[slot]&&GEAR[slot].white))||[['Objet',null]];
   const g=pick(pool);
   const [amin,amax]=RAR[rarity].aff;const naff=randi(amin,amax);const p=[...AFFIX];const affixes=[];
-  for(let i=0;i<naff&&p.length;i++){const a=p.splice(randi(0,p.length-1),1)[0];affixes.push({t:a.t,v:Math.max(1,Math.round(randi(a.min,a.max)*lv))});}
+  const RMUL={white:1,magic:1.15,rare:1.35,unique:1.65}[rarity]||1;
+  for(let i=0;i<naff&&p.length;i++){const a=p.splice(randi(0,p.length-1),1)[0];affixes.push({t:a.t,v:Math.max(1,Math.round(randi(a.min,a.max)*lv*RMUL))});}
   const ico={weapon:'🏒',armor:'🛡️',amulet:'📿',ring:'💍',skates:'⛸️',helm:'🪖',gloves:'🧤',belt:'🎗️'}[slot]||'❔';
   const bd=Math.round((slot==='weapon'?({white:5,magic:10,rare:16,unique:22}[rarity]||0):0)*lv);
   const DEFBY={armor:{white:6,magic:12,rare:20,unique:30},amulet:{white:2,magic:4,rare:6,unique:9},skates:{white:4,magic:6,rare:9,unique:13},helm:{white:3,magic:6,rare:10,unique:16},gloves:{white:2,magic:4,rare:7,unique:11},belt:{white:2,magic:4,rare:6,unique:10}};
   const df=Math.round(((DEFBY[slot]&&DEFBY[slot][rarity])||0)*lv);
-  const it={uid:uidCounter++,slot,name:g[0],ico:ico,img:g[1]||null,rarity,plus:0,req:Math.max(1,ilvl-randi(1,3)),baseDmg:bd,baseDef:df,affixes};
+  const it={uid:uidCounter++,slot,name:g[0],ico:ico,img:g[1]||null,rarity,plus:0,ilvl:ilvl,req:Math.max(1,ilvl-randi(1,3)),baseDmg:bd,baseDef:df,affixes};
   if(slot==='skates')it.spd={white:0.15,magic:0.3,rare:0.5,unique:0.75}[rarity]||0;
   if(slot==='belt')it.pot={white:0.1,magic:0.2,rare:0.35,unique:0.5}[rarity]||0;
   const _ms={white:1,magic:2,rare:2,unique:3}[rarity]||0;const _ns=randi(0,_ms);if(_ns>0)it.sockets=new Array(_ns).fill(null);
@@ -413,7 +406,7 @@ const SALVAGE={white:1,magic:3,rare:7,unique:14};
 const sellValue=it=>Math.round((SELL[it.rarity]||6)*(1+(it.plus||0)*0.5));
 const salvageValue=it=>(SALVAGE[it.rarity]||1)+(it.plus||0);
 const upgradeCost=it=>({frags:2+(it.plus||0)*2, gold:30+(it.plus||0)*45});
-const itemLabel=it=>`<span class="rar-${it.rarity}">${it.name}${it.plus?' <span style="color:#7dff9a">+'+it.plus+'</span>':''}</span>`;
+const itemLabel=it=>`<span class="rar-${it.rarity}">${it.name}${it.plus?' <span style="color:#7dff9a">+'+it.plus+'</span>':''}</span>${it.slot&&it.slot!=='gem'?' <span style="opacity:.55;font-size:10px">niv '+(it.ilvl||it.req||1)+'</span>':''}`;
 function affixText(a){const def=AFFIX.find(x=>x.t===a.t);
   const nm=def?def.n:(a.t==='dmg'?'+# Dégâts':a.t);return nm.replace('#',a.v);}
 const inventory=[];const INV_MAX=18;
@@ -575,7 +568,7 @@ const ACT_START=[1,14,20,26,32];   // niveau attendu à l'ENTRÉE de chaque acte
 const ACT_END=[14,20,26,32,38];    // niveau attendu en FIN d'acte = niveau du boss
 function makeActBoss(n,x,y,blvl){const b=ACT_BOSSES[n]||ACT_BOSSES[ACT_BOSSES.length-1];
  const dm=1+difficulty*0.8,xm=1+difficulty*0.5;const L=blvl||ACT_END[n];
- const sh=Math.pow(1.09,L-ACT_END[n]), shd=Math.pow(1.05,L-ACT_END[n]);
+ const sh=Math.pow(1.115,L-ACT_END[n]), shd=Math.pow(1.07,L-ACT_END[n]);
  const hp=Math.round(b.hp*dm*sh);
  return {kind:'boss',x,y,r:38,hp,hpMax:hp,dmg:Math.round(b.dmg*dm*shd),spd:0.95,xp:Math.round(b.xp*xm),lvl:L,
   col:b.col,wcol:b.wcol,bkind:b.bkind,name:b.name,res:b.res||{},hitCd:0,hurt:0,boss:true,special:3,aggro:false,path:null,pcd:0,slow:0};
@@ -737,21 +730,21 @@ function openChest(ch){
 }
 function makeEnemy(kind,x,y,depth,elvl){
   if(kind==='falcon'){const L=elvl||ACT_END[4];const dm=1+difficulty*0.8;
-    const sh=Math.pow(1.09,L-ACT_END[4]), shd=Math.pow(1.05,L-ACT_END[4]);
+    const sh=Math.pow(1.115,L-ACT_END[4]), shd=Math.pow(1.07,L-ACT_END[4]);
     const hp=Math.round(1700*dm*sh);
     return {kind:'falcon',x,y,r:56,hp,hpMax:hp,dmg:Math.round(34*dm*shd),spd:1.0,xp:Math.round(1400*(1+difficulty*0.5)),lvl:L,
       col:'#2fbf4f',name:'Green Falcon',res:{phys:25,cold:20,holy:-25},hitCd:0,hurt:0,boss:true,finalBoss:true,special:3,
       aggro:false,path:null,pcd:0,slow:0};
   }
   if(kind==='boss'){const L=elvl||12;const dm=1+difficulty*0.8;
-    const sh=Math.pow(1.09,L-12), shd=Math.pow(1.05,L-12);
+    const sh=Math.pow(1.115,L-12), shd=Math.pow(1.07,L-12);
     const hp=Math.round(700*dm*sh);
     return {kind:'boss',x,y,r:40,hp,hpMax:hp,dmg:Math.round(24*dm*shd),spd:0.95,xp:Math.round(400*(1+difficulty*0.5)+L*20),lvl:L,
       col:'#8a5ad0',name:'Gardien du Repaire',wcol:'rgba(138,90,208,0.32)',res:{phys:20,cold:20,holy:-30},hitCd:0,hurt:0,boss:true,special:3,
       aggro:false,path:null,pcd:0,slow:0};
   }
   const t=ENEMY_TYPES[kind];const dm=1+difficulty*0.8,xm=1+difficulty*0.5;
-  const L=Math.max(1,elvl||1);const hpF=Math.pow(1.09,L-1),dmgF=Math.pow(1.05,L-1);
+  const L=Math.max(1,elvl||1);const hpF=Math.pow(1.115,L-1),dmgF=Math.pow(1.07,L-1);
   const hp0=Math.round(t.hp*hpF*dm);
   return {kind,x,y,r:t.r,hp:hp0,hpMax:hp0,lvl:L,
     dmg:Math.round(t.dmg*dmgF*dm),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
@@ -1056,7 +1049,9 @@ function rollLoot(en){
   if(Math.random()>chance)return;
   const r=Math.random();let rar='white';
   const mf=Math.min(1.2,(P().mf||0)/100)+difficulty*0.15;
-  if(en.boss)rar='rare';else if(r<0.0005*(1+mf))rar='unique';else if(r<0.0055*(1+mf))rar='rare';else if(r<0.0555)rar='magic';
+  if(en.boss)rar='rare';
+  else if(en.elite){if(r<0.02*(1+mf))rar='unique';else if(r<0.16*(1+mf))rar='rare';else if(r<0.55)rar='magic';}
+  else{if(r<0.007*(1+mf))rar='rare';else if(r<0.07)rar='magic';}
   dropItem(en.x+rand(-10,10),en.y+rand(-6,6),makeItem(rar));
   if(en.finalBoss){dropItem(en.x+30,en.y,makeItem('unique','weapon'));dropItem(en.x-30,en.y,makeItem('unique','armor'));}else if(en.boss){dropItem(en.x,en.y+14,makeItem('unique'));}
 }
@@ -1368,7 +1363,7 @@ const THEMEPAT={};
   for(const kind of['floor','wall']){const src=THEME_TEX[th][kind];if(!src)continue;
     const im=new Image();im.onload=(function(oo,kk,image){return function(){try{oo[kk]=ctx.createPattern(image,'repeat');}catch(e){}};})(o,kind,im);im.src=src;}}})();
 let curTP=null;
-function setCellIcon(cell,it){if(it.img&&typeof MISC_ICON!=="undefined"&&MISC_ICON[it.img]){cell.innerHTML='<img src="'+MISC_ICON[it.img]+'" style="width:32px;height:32px">';}else if(it.img&&ITEM_ICON_URL[it.img]){cell.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';}else{cell.textContent=it.ico;}}
+function setCellIcon(cell,it){if(it.img&&typeof MISC_ICON!=="undefined"&&MISC_ICON[it.img]){cell.innerHTML='<img src="'+MISC_ICON[it.img]+'" style="width:32px;height:32px">';}else if(it.img&&ITEM_ICON_URL[it.img]){cell.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';}else{cell.textContent=it.ico;}if(it.slot&&it.slot!=='gem'){cell.style.position='relative';const _b=document.createElement('span');_b.className='ilvlBadge';_b.textContent=(it.ilvl||it.req||1);cell.appendChild(_b);}}
 const HERO_IMG={};
 for(const k in HERO_ATLAS){const im=new Image();im.src=HERO_ATLAS[k];HERO_IMG[k]=im;}
 const ANIMDEF={Idle:{fps:6,loop:true},move:{fps:14,loop:true},
@@ -1960,7 +1955,7 @@ const tip=document.getElementById('tip');
 function showTip(e,it,equipped){
   const m=UPMULT(it.plus);const up=it.plus?` <span style="color:#7dff9a">+${it.plus}</span>`:'';
   let html=`<div class="tname rar-${it.rarity}">${it.name}${up}</div>`;
-  html+=`<div style="color:#8ea0c8;font-size:11px;margin-bottom:4px">${slotName(it.slot)} · ${RAR[it.rarity].name}${it.plus?' · amélioré':''}</div>`;if(it.req>1)html+=`<div style="font-size:11px;color:${player.lvl<it.req?'#ff8a8a':'#8ea0c8'}">Niveau requis : ${it.req}</div>`;
+  html+=`<div style="color:#8ea0c8;font-size:11px;margin-bottom:4px">${slotName(it.slot)} · ${RAR[it.rarity].name}${it.slot&&it.slot!=='gem'?' · Objet niv. '+(it.ilvl||it.req||1):''}${it.plus?' · amélioré':''}</div>`;if(it.req>1)html+=`<div style="font-size:11px;color:${player.lvl<it.req?'#ff8a8a':'#8ea0c8'}">Niveau requis : ${it.req}</div>`;
   if(it.baseDmg)html+=`<div>Dégâts d'arme : +${Math.round(it.baseDmg*m)}</div>`;
   if(it.baseDef)html+=`<div>Défense : +${Math.round(it.baseDef*m)}</div>`;
   for(const a of it.affixes)html+=`<div class="taff">${affixText({t:a.t,v:Math.round(a.v*m)})}</div>`;
@@ -2240,6 +2235,7 @@ function toggleStash(){
 function _stashCell(it,onClick){
   const c=document.createElement('div');c.className='cell';c.style.borderColor=RAR[it.rarity].col;
   if(it.img&&ITEM_ICON_URL[it.img])c.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';else c.textContent=it.ico;
+  if(it.slot&&it.slot!=='gem'){c.style.position='relative';const _b=document.createElement('span');_b.className='ilvlBadge';_b.textContent=(it.ilvl||it.req||1);c.appendChild(_b);}
   c.onclick=onClick;c.onmouseenter=e=>showTip(e,it);c.onmousemove=moveTip;c.onmouseleave=hideTip;return c;
 }
 function renderStash(){
