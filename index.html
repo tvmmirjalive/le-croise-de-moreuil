@@ -2110,26 +2110,26 @@ try{[['icoPot','pot_heal'],['icoMana','pot_mana'],['icoShard','res_shard'],['abP
 function drawNpc(npc){
   const sx=npc.tx*TS+TS/2-cam.x,sy=npc.ty*TS+TS/2-cam.y;
   if(sx<-40||sx>W+40||sy<-40||sy>H+40)return;
-  ctx.fillStyle='rgba(0,0,0,0.4)';ctx.beginPath();ctx.ellipse(sx,sy+14,13,5,0,0,6.28);ctx.fill();
+  const _shadow=(oy,rx,ry)=>{ctx.fillStyle='rgba(0,0,0,0.38)';ctx.beginPath();ctx.ellipse(sx,sy+oy,rx,ry,0,0,6.28);ctx.fill();};
   const _spk=NPC_KEY[npc.name]||(npc.type==='waypoint'?'balise':null);const _ani=_spk&&NPC_ANIM_IMG[_spk];const _spi=_spk&&NPC_IMG[_spk];
   const _lbl=npc.type==='smith'?'Forgeronne':npc.type==='waypoint'?'Balise':npc.type==='return'?'Portail':npc.type==='stash'?'Coffre':npc.type==='quest'?'Parler':'Marchand';
   if(npc.type==='return'&&typeof MISC_ICON!=='undefined'&&MISC_ICON.portal_town){
     if(!drawNpc._pt){drawNpc._pt=new Image();drawNpc._pt.src=MISC_ICON.portal_town;}
     const pi=drawNpc._pt;
-    if(pi.complete&&pi.naturalWidth){const DR=64,bob=Math.sin(performance.now()/420)*2;ctx.imageSmoothingEnabled=false;ctx.drawImage(pi,sx-DR/2,sy-DR*0.72+bob,DR,DR);
+    if(pi.complete&&pi.naturalWidth){const DR=64,bob=Math.sin(performance.now()/420)*2;_shadow(DR*0.28,15,6);ctx.imageSmoothingEnabled=false;ctx.drawImage(pi,sx-DR/2,sy-DR*0.72+bob,DR,DR);
       const gl=0.5+0.3*Math.sin(performance.now()/250);ctx.fillStyle='rgba(127,208,255,'+gl+')';ctx.font='13px Trebuchet MS';ctx.textAlign='center';ctx.fillText('▼',sx,sy-60);
       ctx.fillStyle='#e8ecf6';ctx.font='11px Trebuchet MS';ctx.fillText('Portail',sx,sy+24);ctx.textAlign='left';return;}
   }
   if(npc.type==='stash'){
     const im=(typeof CHEST_IMG!=='undefined')&&CHEST_IMG['closed'];
-    if(im&&im.complete&&im.naturalWidth){const DR=42;ctx.imageSmoothingEnabled=false;ctx.drawImage(im,sx-DR/2,sy-DR*0.62,DR,DR);}
+    if(im&&im.complete&&im.naturalWidth){const DR=42;_shadow(DR*0.30,14,5);ctx.imageSmoothingEnabled=false;ctx.drawImage(im,sx-DR/2,sy-DR*0.62,DR,DR);}
     else{ctx.font='30px serif';ctx.textAlign='center';ctx.fillText('🧰',sx,sy+6);ctx.textAlign='left';}
     const gl=0.5+0.3*Math.sin(performance.now()/250);ctx.fillStyle='rgba(244,211,94,'+gl+')';ctx.font='13px Trebuchet MS';ctx.textAlign='center';ctx.fillText('▼',sx,sy-54);
     ctx.fillStyle='#e8ecf6';ctx.font='11px Trebuchet MS';ctx.fillText('Coffre',sx,sy+24);ctx.textAlign='left';return;
   }
   if(_ani&&_ani.complete&&_ani.naturalWidth){
     const DR=128;ctx.imageSmoothingEnabled=false;
-    ctx.fillStyle='rgba(0,0,0,0.35)';ctx.beginPath();ctx.ellipse(sx,sy+3,17,6,0,0,6.28);ctx.fill();
+    _shadow(DR*0.01,18,7);
     const cw=_ani.naturalWidth/NPC_ANIM_N,fr=Math.floor(performance.now()/180)%NPC_ANIM_N;
     ctx.drawImage(_ani,fr*cw,0,cw,_ani.naturalHeight,sx-DR/2,sy-DR*0.74,DR,DR);
     const gl=0.5+0.3*Math.sin(performance.now()/250);ctx.fillStyle='rgba(244,211,94,'+gl+')';ctx.font='13px Trebuchet MS';ctx.textAlign='center';ctx.fillText('▼',sx,sy-84);
@@ -2138,7 +2138,7 @@ function drawNpc(npc){
   }
   if(_spi&&_spi.complete&&_spi.naturalWidth){
     const DR=128;ctx.imageSmoothingEnabled=false;
-    ctx.fillStyle='rgba(0,0,0,0.35)';ctx.beginPath();ctx.ellipse(sx,sy+3,17,6,0,0,6.28);ctx.fill();
+    _shadow(DR*0.01,18,7);
     const _bh=DR*(npc.type==='waypoint'?1:(1+0.022*Math.sin(performance.now()/650)));
     ctx.drawImage(_spi,sx-DR/2,sy-_bh*0.74,DR,_bh);
     const gl=0.5+0.3*Math.sin(performance.now()/250);ctx.fillStyle='rgba(244,211,94,'+gl+')';ctx.font='13px Trebuchet MS';ctx.textAlign='center';ctx.fillText('▼',sx,sy-84);
@@ -2146,6 +2146,7 @@ function drawNpc(npc){
     return;
   }
   // corps stylisé
+  _shadow(14,13,5);
   ctx.fillStyle=npc.type==='smith'?'#7a4a2a':npc.type==='waypoint'?'#1f6f88':npc.type==='quest'?'#6a4a8a':'#3a5a8a';
   ctx.beginPath();ctx.moveTo(sx-9,sy-4);ctx.lineTo(sx+9,sy-4);ctx.lineTo(sx+7,sy+14);ctx.lineTo(sx-7,sy+14);ctx.closePath();ctx.fill();
   ctx.fillStyle='#c9b28a';ctx.beginPath();ctx.arc(sx,sy-11,6,0,6.28);ctx.fill();
@@ -2234,19 +2235,30 @@ function drawBossBar(){
 const mini=document.getElementById('mini'),mctx=mini.getContext('2d');
 function drawMinimap(){
   const MW=mini.width,MH=mini.height;mctx.clearRect(0,0,MW,MH);
-  const R=44;const pt=tileAt(player.x,player.y);const sc=MW/(R*2);
+  const R=44;const pt=tileAt(player.x,player.y);
   const x0=pt.tx-R,y0=pt.ty-R;
+  const isoOn=(typeof ISO!=='undefined'&&ISO);
+  // projection : losange isométrique (cohérent avec la vue 3/4) ou grille classique
+  const TWm=MW/(R*2)*1.35, THm=TWm*0.5, cxm=MW/2, cym=MH/2;
+  const P=(gx,gy)=>{ if(!isoOn){const sc=MW/(R*2);return{x:(gx-x0)*sc,y:(gy-y0)*sc,w:Math.ceil(sc),h:Math.ceil(sc)};}
+    const fx=gx-pt.tx,fy=gy-pt.ty;
+    return{x:cxm+(fx-fy)*(TWm/2), y:cym+(fx+fy)*(THm/2), w:TWm, h:THm}; };
+  const cell=(gx,gy,col)=>{const p=P(gx,gy);mctx.fillStyle=col;
+    if(!isoOn){mctx.fillRect(p.x,p.y,p.w,p.h);return;}
+    mctx.beginPath();mctx.moveTo(p.x,p.y-p.h/2);mctx.lineTo(p.x+p.w/2,p.y);
+    mctx.lineTo(p.x,p.y+p.h/2);mctx.lineTo(p.x-p.w/2,p.y);mctx.closePath();mctx.fill();};
+  const dot=(gx,gy,col,r)=>{const p=P(gx,gy);mctx.fillStyle=col;mctx.beginPath();mctx.arc(p.x+(isoOn?0:p.w/2),p.y+(isoOn?0:p.h/2),r,0,6.28);mctx.fill();};
   for(let yy=0;yy<R*2;yy++)for(let xx=0;xx<R*2;xx++){
     const gx=x0+xx,gy=y0+yy;if(gx<0||gy<0||gx>=level.w||gy>=level.h)continue;
     if(!level.seen[idx(level.w,gx,gy)])continue;
     const c=level.grid[idx(level.w,gx,gy)];let col;
     if(c===T_WALL)col='#2a2f40';else if(c===T_CHASM)col='#14345f';else if(c===T_CAVE)col='#c98a3d';else if(c===T_STAIR)col='#f4d35e';else if(c===T_GATE)col='#7dff9a';else col='#0c1424';
-    mctx.fillStyle=col;mctx.fillRect(xx*sc,yy*sc,Math.ceil(sc),Math.ceil(sc));}
+    cell(gx,gy,col);}
   const inW=(tx,ty)=>tx>=x0&&ty>=y0&&tx<x0+R*2&&ty<y0+R*2;
-  if(level.chests)for(const ch of level.chests){if(ch.opened||level.seen[idx(level.w,ch.tx,ch.ty)]!==1||!inW(ch.tx,ch.ty))continue;mctx.fillStyle='#f4d35e';mctx.fillRect((ch.tx-x0)*sc-1,(ch.ty-y0)*sc-1,3,3);}
-  if(level.npcs)for(const np of level.npcs){if(!inW(np.tx,np.ty))continue;mctx.fillStyle=np.type==='waypoint'?'#7dff9a':'#7dc8ff';mctx.fillRect((np.tx-x0)*sc-1,(np.ty-y0)*sc-1,3,3);}
-  for(const en of level.enemies){if(!en._visible)continue;const et=tileAt(en.x,en.y);if(!inW(et.tx,et.ty))continue;mctx.fillStyle=en.boss?'#ff8a3d':'#ff4d4d';mctx.fillRect((et.tx-x0)*sc-1,(et.ty-y0)*sc-1,3,3);}
-  mctx.fillStyle='#5ec8ff';mctx.beginPath();mctx.arc((pt.tx-x0)*sc,(pt.ty-y0)*sc,3,0,6.28);mctx.fill();
+  if(level.chests)for(const ch of level.chests){if(ch.opened||level.seen[idx(level.w,ch.tx,ch.ty)]!==1||!inW(ch.tx,ch.ty))continue;dot(ch.tx,ch.ty,'#f4d35e',2);}
+  if(level.npcs)for(const np of level.npcs){if(!inW(np.tx,np.ty))continue;dot(np.tx,np.ty,np.type==='waypoint'?'#7dff9a':'#7dc8ff',2);}
+  for(const en of level.enemies){if(!en._visible)continue;const et=tileAt(en.x,en.y);if(!inW(et.tx,et.ty))continue;dot(et.tx,et.ty,en.boss?'#ff8a3d':'#ff4d4d',2);}
+  dot(pt.tx,pt.ty,'#5ec8ff',3);
 }
 
 /* full map */
