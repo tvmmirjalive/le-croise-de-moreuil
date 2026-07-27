@@ -191,7 +191,7 @@ canvas#game{touch-action:none}
       <div id="zoneName">Plaines de Cendre</div>
       <div>Niveau <b id="tLvl">1</b> · Outlaw de Moreuil</div>
       <div id="statLine">Démons purgés : 0 · XP totale : 0</div>
-      <div id="resLine"><span class="gi g16"></span> <b id="hGold">0</b> &nbsp;<img id="rIcoFrag" class="resIco"> <b id="hFrags">0</b> &nbsp;<img id="rIcoPot" class="resIco"> <b id="hPot">0</b> &nbsp;<img id="rIcoMana" class="resIco"> <b id="hMana">0</b></div>
+      <div id="resLine"><span class="gi g16"></span> <b id="hGold">0</b> &nbsp;<img id="rIcoFrag" class="resIco"> <b id="hFrags">0</b> &nbsp;<img id="rIcoPot" class="resIco"> <b id="hPot">0</b> &nbsp;<img id="rIcoMana" class="resIco"> <b id="hMana">0</b> &nbsp;<img id="rIcoScroll" class="resIco"> <b id="hScrolls">0</b></div>
     </div>
 
     <div id="hint">Clic : <b>marcher / frapper</b> · <b>1-4</b> skills · <b>I</b> sac · <b>S</b> skills · <b>M</b> carte · <b>Espace</b> soin · <b>A</b> mana · <b>R</b> portail · <b>P</b> pause · <b>E/D</b> équiper/démonter</div>
@@ -221,7 +221,7 @@ canvas#game{touch-action:none}
     </div>
 
     <div class="panel" id="invPanel">
-      <h2>SAC — <span id="potCount">3</span><img id="icoPot" style="width:14px;height:14px;vertical-align:-2px"> · <span id="manaCount">2</span><img id="icoMana" style="width:14px;height:14px;vertical-align:-2px"> · <span style="color:#f4d35e"><span class="gi"></span><span id="invGold">0</span></span> · <img id="icoShard" style="width:13px;height:13px;vertical-align:-2px"><span id="invFrags" style="color:#7dd0ff">0</span></h2>
+      <h2>SAC — <span id="potCount">3</span><img id="icoPot" style="width:14px;height:14px;vertical-align:-2px"> · <span id="manaCount">2</span><img id="icoMana" style="width:14px;height:14px;vertical-align:-2px"> · <span style="color:#f4d35e"><span class="gi"></span><span id="invGold">0</span></span> · <img id="icoShard" style="width:13px;height:13px;vertical-align:-2px"><span id="invFrags" style="color:#7dd0ff">0</span> · <img id="icoScroll" style="width:14px;height:14px;vertical-align:-2px"><span id="invScrolls" style="color:#ffd35e">0</span></h2>
       <div id="invGrid"></div>
       <div id="invActions"></div>
       <div style="font-size:10px;color:#6b789c;margin-top:6px">Clic sur un objet → équiper / démonter (❄ fragments) / jeter.</div>
@@ -1132,6 +1132,7 @@ function bindLongPress(el,it,equipped){
     tid=setTimeout(()=>{showTip({clientX:t.clientX,clientY:t.clientY},it,equipped);},380);},{passive:true});
   const cancel=()=>{if(tid){clearTimeout(tid);tid=null;}};
   el.addEventListener('touchend',()=>{cancel();setTimeout(hideTip,2600);},{passive:true});
+  el.addEventListener('touchcancel',cancel,{passive:true});
   el.addEventListener('touchmove',cancel,{passive:true});
 }
 // rendu net sur écran haute densité
@@ -1724,7 +1725,7 @@ function identifyItem(it){
   if((player.scrollsId||0)<=0){toast('Aucun Parchemin d’Identification — achète-en au marchand 🛒',2.6);return false;}
   player.scrollsId--; it.identified=true; delete it.unid;
   toast('🔎 Identifié : '+it.name.replace(/<[^>]+>/g,''),2.2); SFX.pickup&&SFX.pickup();
-  renderInventory&&renderInventory(); refreshHud&&refreshHud(); return true;
+  renderInventory&&renderInventory(); renderShop&&(document.getElementById('shopPanel')||{}).style&&document.getElementById('shopPanel').style.display==='block'&&renderShop(); refreshHud&&refreshHud(); return true;
 }
 /* --- Durabilité --- */
 function initDura(it){
@@ -2562,7 +2563,7 @@ const MISC_ICON={"rune0": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAA
 (function(){var st=document.createElement('style');st.textContent='.gi{background-image:url("'+MISC_ICON.gold_coin+'")}';document.head.appendChild(st);})();
 
 const MISC_IMG={};for(const k in MISC_ICON){const im=new Image();im.src=MISC_ICON[k];MISC_IMG[k]=im;}
-try{[['icoPot','pot_heal'],['icoMana','pot_mana'],['icoShard','res_shard'],['abPotImg','pot_heal'],['abManaImg','pot_mana'],['abPortalImg','scroll_return'],['rIcoPot','pot_heal'],['rIcoMana','pot_mana'],['rIcoFrag','res_shard']].forEach(a=>{const el=document.getElementById(a[0]);if(el&&MISC_ICON[a[1]])el.src=MISC_ICON[a[1]];});}catch(e){}
+try{[['icoPot','pot_heal'],['icoMana','pot_mana'],['icoShard','res_shard'],['abPotImg','pot_heal'],['abManaImg','pot_mana'],['abPortalImg','scroll_return'],['rIcoPot','pot_heal'],['rIcoMana','pot_mana'],['rIcoFrag','res_shard'],['rIcoScroll','parchemin_identification'],['icoScroll','parchemin_identification']].forEach(a=>{const el=document.getElementById(a[0]);if(el&&MISC_ICON[a[1]])el.src=MISC_ICON[a[1]];});}catch(e){}
 function drawNpc(npc){
   let sx=npc.tx*TS+TS/2-cam.x,sy=npc.ty*TS+TS/2-cam.y;
   if(sx<-40||sx>W+40||sy<-40||sy>H+40)return;
@@ -2786,7 +2787,7 @@ function refreshHud(){
   document.getElementById('tLvl').textContent=player.lvl;
   document.getElementById('xpFill').style.width=(player.xp/player.xpNext*100)+'%';
   document.getElementById('lvlText').textContent='Niv. '+player.lvl+' — '+player.xp+' / '+player.xpNext+' XP';
-  document.getElementById('potCount').textContent=player.potions;setTxt('manaCount',player.manaPots);
+  document.getElementById('potCount').textContent=player.potions;setTxt('manaCount',player.manaPots);setTxt('hScrolls',player.scrollsId||0);setTxt('invScrolls',player.scrollsId||0);
   document.getElementById('statPts').textContent=player.statPts;
   document.getElementById('sStr').textContent=st.str;document.getElementById('sDex').textContent=st.dex;
   document.getElementById('sVit').textContent=st.vit;document.getElementById('sEne').textContent=st.ene;
@@ -2842,6 +2843,10 @@ function renderInventory(){
     const it=inventory[i];
     if(it){setCellIcon(cell,it);cell.style.boxShadow='inset 0 0 0 2px '+(i===invSel?'#f4d35e':RAR[it.rarity].col);
       cell.onclick=()=>{invSel=(invSel===i?-1:i);renderInventory();};
+      cell.oncontextmenu=e=>{e.preventDefault();if(needsId(it)){hideTip();identifyItem(it);}else toast('Objet déjà identifié',1);return false;};
+      if(IS_TOUCH&&needsId(it)){let _lt=0;
+        cell.addEventListener('touchend',()=>{const t=Date.now();
+          if(t-_lt<340){hideTip();identifyItem(it);_lt=0;}else _lt=t;},{passive:true});}
       cell.onmouseenter=e=>showTip(e,it);bindLongPress(cell,it);cell.onmousemove=moveTip;cell.onmouseleave=hideTip;}
     g.appendChild(cell);}
   renderInvActions();
@@ -2868,6 +2873,14 @@ function renderInvActions(){
     bulk.appendChild(b);});
   box.appendChild(bulk);
   const it=inventory[invSel];if(!it){const s=document.createElement('span');s.style.cssText='font-size:11px;color:#6b789c;align-self:center';s.textContent='Sélectionne un objet · E = équiper · D = démonter';box.appendChild(s);return;}
+  if(needsId(it)){
+    const bId=document.createElement('button');bId.className='eq';
+    bId.style.cssText='background:#3a2f10;border:1px solid #caa53a;color:#ffd35e;'+(IS_TOUCH?'min-height:44px;padding:0 14px;font-size:14px':'');
+    bId.innerHTML='🔎 Identifier ('+(player.scrollsId||0)+')';
+    bId.disabled=(player.scrollsId||0)<=0;
+    bId.onclick=()=>{identifyItem(it);renderInventory();};
+    box.appendChild(bId);
+  }
   const bEq=document.createElement('button');bEq.className='eq';bEq.textContent='Équiper';
   bEq.onclick=()=>equipItem(invSel);
   const bSal=document.createElement('button');bSal.className='sal';bSal.textContent='Démonter ❄'+salvageValue(it);
@@ -3019,9 +3032,18 @@ function comparisonHTML(it){
 const tip=document.getElementById('tip');
 function showTip(e,it,equipped){
   const m=UPMULT(it.plus);const up=it.plus?` <span style="color:#7dff9a">+${it.plus}</span>`:'';
-  let html=`<div class="tname rar-${it.rarity}">${it.name}${up}</div>`;
+  const _ni=needsId(it);
+  let html=`<div class="tname rar-${it.rarity}">${_ni?'Objet non identifié':it.name+up}</div>`;
   html+=`<div style="color:#8ea0c8;font-size:11px;margin-bottom:4px">${slotName(it.slot)} · ${RAR[it.rarity].name}${it.slot&&it.slot!=='gem'?' · Objet niv. '+(it.ilvl||it.req||1):''}${it.plus?' · amélioré':''}</div>`;if(it.req>1)html+=`<div style="font-size:11px;color:${player.lvl<it.req?'#ff8a8a':'#8ea0c8'}">Niveau requis : ${it.req}</div>`;
-  if(needsId(it))html+=`<div style="color:#ffd35e">❓ Objet non identifié — un Parchemin d’Identification le révélera</div>`;
+  if(_ni){
+    html+=`<div style="color:#ffd35e;margin:4px 0">❓ Propriétés inconnues</div>`;
+    html+=`<div style="color:#8ea0c8;font-size:11px">Un Parchemin d’Identification révélera son nom et ses affixes.</div>`;
+    if(it.duraMax!=null){const p0=Math.round(100*it.dura/it.duraMax);
+      html+=`<div style="color:${p0<=0?'#ff6b6b':p0<35?'#ffb45e':'#8ea0c8'}">Durabilité : ${it.dura}/${it.duraMax}${p0<=0?' — HORS D’USAGE':''}</div>`;}
+    html+=`<div style="color:#6b789c;font-size:10px;margin-top:5px">Vente : <span class="gi"></span>${sellValue(it)} · Démontage : ❄${salvageValue(it)}</div>`;
+    html+=`<div style="color:#6b789c;font-size:10px">${IS_TOUCH?'Double-tap':'Clic droit'} : identifier (${player.scrollsId||0} parchemin${(player.scrollsId||0)>1?'s':''})</div>`;
+    tip.innerHTML=html;tip.style.display='block';moveTip(e);return;
+  }
   if(it.duraMax!=null){const p=Math.round(100*it.dura/it.duraMax);
     html+=`<div style="color:${p<=0?'#ff6b6b':p<35?'#ffb45e':'#8ea0c8'}">Durabilité : ${it.dura}/${it.duraMax}${p<=0?' — HORS D’USAGE':''}</div>`;}
   {const rw=runewordOf(it);if(rw)html+=`<div style="color:#c8a2ff">✦ MOT RUNIQUE « ${rw.mot} » — ${rw.desc}</div>`;}
