@@ -3026,14 +3026,16 @@ function comparisonHTML(it){
     if(d===0)continue;
     const col=d>0?'#7dff9a':'#ff8a8a';const sign=d>0?'▲ +':'▼ ';
     rows+=`<div style="color:${col}">${sign}${d}${k==='dmgpct'?'%':''} ${AGGLBL[k]}</div>`;}
-  const head=`<div style="margin-top:6px;padding-top:5px;border-top:1px solid #2a3350;color:#8ea0c8;font-size:10px">vs équipé (${cur.ico}${cur.plus?' +'+cur.plus:''}) :</div>`;
+  const head=`<div style="margin-top:6px;padding-top:5px;border-top:1px solid #2a3350;color:#8ea0c8;font-size:10px">vs équipé (${itemIco(cur)}${cur.plus?' +'+cur.plus:''}) :</div>`;
   return rows?head+rows:`<div style="margin-top:6px;padding-top:5px;border-top:1px solid #2a3350;color:#6b789c;font-size:10px">Équivalent à l'équipé actuel</div>`;
 }
 const tip=document.getElementById('tip');
 function showTip(e,it,equipped){
   const m=UPMULT(it.plus);const up=it.plus?` <span style="color:#7dff9a">+${it.plus}</span>`:'';
   const _ni=needsId(it);
-  let html=`<div class="tname rar-${it.rarity}">${_ni?'Objet non identifié':it.name+up}</div>`;
+  const _tic=itemIco(it);
+  const _tim=/^<img/.test(_tic)?_tic.replace('style="','style="width:30px;height:30px;vertical-align:-7px;margin-right:6px;image-rendering:pixelated;'):'';
+  let html=`<div class="tname rar-${it.rarity}">${_tim}${_ni?'Objet non identifié':it.name+up}</div>`;
   html+=`<div style="color:#8ea0c8;font-size:11px;margin-bottom:4px">${slotName(it.slot)} · ${RAR[it.rarity].name}${it.slot&&it.slot!=='gem'?' · Objet niv. '+(it.ilvl||it.req||1):''}${it.plus?' · amélioré':''}</div>`;if(it.req>1)html+=`<div style="font-size:11px;color:${player.lvl<it.req?'#ff8a8a':'#8ea0c8'}">Niveau requis : ${it.req}</div>`;
   if(_ni){
     html+=`<div style="color:#ffd35e;margin:4px 0">❓ Propriétés inconnues</div>`;
@@ -3053,7 +3055,7 @@ function showTip(e,it,equipped){
   for(const a of it.affixes)html+=`<div class="taff">${affixText({t:a.t,v:Math.round(a.v*m)})}</div>`;
   if(!equipped)html+=comparisonHTML(it);
   if(it.sock)html+=`<div class="taff">Serti : ${affixText({t:it.sock.t,v:it.sock.v})}</div>`;
-  if(it.sockets){for(const _g of it.sockets){if(_g&&_g.sock)html+=`<div class="taff" style="color:#8fd0ff">◈ ${affixText({t:_g.sock.t,v:_g.sock.v})} — ${_g.name}</div>`;}
+  if(it.sockets){for(const _g of it.sockets){if(_g&&_g.sock)html+=`<div class="taff" style="color:#8fd0ff">${itemIco(_g)} ${affixText({t:_g.sock.t,v:_g.sock.v})} — ${_g.name}</div>`;}
     html+=`<div style="color:#8ea0c8;font-size:11px">Châsses : ${it.sockets.map(s=>s?'●':'○').join(' ')}</div>`;}
   html+=`<div style="color:#6b789c;font-size:10px;margin-top:5px">Vente : <span class="gi"></span>${sellValue(it)} · Démontage : ❄${salvageValue(it)}</div>`;
   html+=`<div style="color:#6b789c;font-size:10px">${equipped?'Clic pour retirer':'Clic pour sélectionner'}</div>`;
@@ -3156,8 +3158,9 @@ function itemIco(it){
   return it.ico;
 }
 function gemIco(gr){
-  const g=GEMS.find(x=>x.name===gr.base);
-  if(g&&g.img&&MISC_ICON[g.img])return '<img src="'+MISC_ICON[g.img]+'" style="width:22px;height:22px;vertical-align:middle;image-rendering:pixelated">';
+  const key=gr.img||((GEMS.find(x=>x.name===gr.base)||{}).img);
+  if(key&&MISC_ICON[key])return '<img src="'+MISC_ICON[key]+'" style="width:22px;height:22px;vertical-align:middle;image-rendering:pixelated">';
+  if(key&&typeof ITEM_ICON_URL!=='undefined'&&ITEM_ICON_URL[key])return '<img src="'+ITEM_ICON_URL[key]+'" style="width:22px;height:22px;vertical-align:middle">';
   return gr.ico;
 }
 function openShop(npc){
@@ -3288,7 +3291,7 @@ function renderShop(){
     if(!anyR)body.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:#6b789c">Aucun objet à reforger dans le sac.</div>');
     // démonter
     const secF=document.createElement('div');secF.className='shopSec';secF.innerHTML='Fusionner les gemmes (3 identiques → 1 supérieure) <span class="gi"></span>';body.appendChild(secF);
-    const grps={};inventory.forEach(g=>{if(g.slot!=='gem')return;const bs=g._base||g.name,tr=g.tier||1,k=bs+'|'+tr;grps[k]=grps[k]||{base:bs,tier:tr,ico:g.ico,v:g.sock.v,t:g.sock.t,n:0};grps[k].n++;});
+    const grps={};inventory.forEach(g=>{if(g.slot!=='gem')return;const bs=g._base||g.name,tr=g.tier||1,k=bs+'|'+tr;grps[k]=grps[k]||{base:bs,tier:tr,ico:g.ico,img:g.img,v:g.sock.v,t:g.sock.t,n:0};grps[k].n++;});
     let anyF=false;
     Object.values(grps).forEach(gr=>{if(gr.n<3)return;anyF=true;const cost=Math.round(80*Math.pow(2,gr.tier-1)),nv=Math.round(gr.v*1.7);
       const row=document.createElement('div');row.className='shopItem';
@@ -3338,8 +3341,7 @@ function toggleStash(){
 }
 function _stashCell(it,onClick){
   const c=document.createElement('div');c.className='cell';c.style.boxShadow='inset 0 0 0 2px '+RAR[it.rarity].col;
-  if(it.img&&ITEM_ICON_URL[it.img])c.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';else c.textContent=it.ico;
-  if(it.slot&&it.slot!=='gem'){c.style.position='relative';const _b=document.createElement('span');_b.className='ilvlBadge';_b.textContent=(it.ilvl||it.req||1);c.appendChild(_b);}
+  setCellIcon(c,it);
   c.onclick=onClick;c.onmouseenter=e=>showTip(e,it);bindLongPress(c,it);c.onmousemove=moveTip;c.onmouseleave=hideTip;return c;
 }
 function renderStash(){
@@ -3395,12 +3397,27 @@ function victory(){running=false;saveGame();const ov=document.getElementById('ov
   ov.style.display='flex';}
 const SAVE_KEY='croise_moreuil_save_v1';let saveTimer=6;
 function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId}));}catch(e){}}
+/* Migration : réassocie un sprite aux objets d'anciennes sauvegardes */
+function migrateIcons(list){
+  if(!list)return;
+  for(const it of list){
+    if(!it||it.img)continue;
+    if(it.slot==='gem'&&it.kind==='gem'){const g=GEMS.find(x=>x.name===(it._base||it.name));if(g&&g.img)it.img=g.img;}
+    else if(it.slot==='gem'&&it.kind==='rune'){const ri=RUNES.findIndex(x=>x.name===(it._base||it.name));if(ri>=0)it.img='rune'+ri;}
+    else if(it.charm){const c=CHARMS.find(x=>x.nom===it.name||x.nom===it._base);if(c&&c.img)it.img=c.img;}
+  }
+}
+function migrateAllIcons(){
+  migrateIcons(inventory);migrateIcons(stash);
+  if(player&&player.equip)migrateIcons(Object.keys(player.equip).map(k=>player.equip[k]).filter(Boolean));
+  for(const l of [inventory,stash])if(l)for(const it of l)if(it&&it.sockets)migrateIcons(it.sockets.filter(Boolean));
+}
 function hasSave(){try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
 function loadGame(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(!s)return false;
   ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','gold','frags','potions','manaPots','kills','totalDmg','portals'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
   if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
   if(s.equip)player.equip=Object.assign({weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},s.equip);
-  inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;if(s.bossCleared)bossCleared=s.bossCleared;if(s.stashCap)stashCap=s.stashCap;if(s.keys)player.keys=s.keys;if(s.arenaBossKills!=null)player.arenaBossKills=s.arenaBossKills;if(s.relics)for(let i=0;i<5;i++)relicDestroyed[i]=!!s.relics[i];if(s.arenaBest)player.arenaBest=s.arenaBest;if(s.scrollsId!=null)player.scrollsId=s.scrollsId;return true;}catch(e){return false;}}
+  inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;if(s.bossCleared)bossCleared=s.bossCleared;if(s.stashCap)stashCap=s.stashCap;if(s.keys)player.keys=s.keys;if(s.arenaBossKills!=null)player.arenaBossKills=s.arenaBossKills;if(s.relics)for(let i=0;i<5;i++)relicDestroyed[i]=!!s.relics[i];if(s.arenaBest)player.arenaBest=s.arenaBest;if(s.scrollsId!=null)player.scrollsId=s.scrollsId;migrateAllIcons();return true;}catch(e){return false;}}
 window.addEventListener('beforeunload',()=>{if(running)saveGame();});
 function beginNew(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}startGame(false);}
 (function initMenu(){var b=document.getElementById('startBtn');
