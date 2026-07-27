@@ -191,6 +191,7 @@ canvas#game{touch-action:none}
       <div id="zoneName">Plaines de Cendre</div>
       <div>Niveau <b id="tLvl">1</b> · Outlaw de Moreuil</div>
       <div id="statLine">Démons purgés : 0 · XP totale : 0</div>
+      <div id="buildTag" style="font-size:10px;color:#5b6684;margin-top:2px"></div>
       <div id="resLine"><span class="gi g16"></span> <b id="hGold">0</b> &nbsp;<img id="rIcoFrag" class="resIco"> <b id="hFrags">0</b> &nbsp;<img id="rIcoPot" class="resIco"> <b id="hPot">0</b> &nbsp;<img id="rIcoMana" class="resIco"> <b id="hMana">0</b> &nbsp;<img id="rIcoScroll" class="resIco"> <b id="hScrolls">0</b></div>
     </div>
 
@@ -2239,8 +2240,21 @@ function fuseLevel(it){
   const m=/\u2605\s*(\d)/.exec(it.name||'');
   return m?Math.max(1,Math.min(4,+m[1])):1;
 }
-function gemPx(it,base){const t=fuseLevel(it);return Math.round(base*[1,1,1.20,1.38,1.52][t]);}
-function setCellIcon(cell,it){if(it.img&&typeof MISC_ICON!=="undefined"&&MISC_ICON[it.img]){const _s=gemPx(it,32);cell.innerHTML='<img src="'+MISC_ICON[it.img]+'" style="width:'+_s+'px;height:'+_s+'px;image-rendering:pixelated">';}else if(it.img&&ITEM_ICON_URL[it.img]){cell.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';}else{cell.textContent=it.ico;}if(it.slot&&it.slot!=='gem'){cell.style.position='relative';const _b=document.createElement('span');_b.className='ilvlBadge';_b.textContent=(it.ilvl||it.req||1);cell.appendChild(_b);}}
+/* Le skin de case fait 52 px mais son ouverture utile n'en fait que 40.
+   Palier 4 = 38 px de boîte, soit ~36 px d'art : il reste 2 px de marge de chaque côté. */
+function gemPx(it,base){const t=fuseLevel(it);
+  if(!it||it.slot!=='gem'||it.kind!=='gem')return base;
+  return Math.round(base*[0,0.75,0.88,1.03,1.19][t]);}
+function gemBadge(cell,it){
+  const f=fuseLevel(it); if(f<2)return;
+  cell.style.position='relative';
+  const b=document.createElement('span');
+  b.textContent='★'+f;
+  b.style.cssText='position:absolute;left:7px;bottom:6px;font-size:10px;line-height:10px;color:#ffe89a;'
+    +'text-shadow:0 0 3px #000,0 1px 0 #000;pointer-events:none';
+  cell.appendChild(b);
+}
+function setCellIcon(cell,it){if(it.img&&typeof MISC_ICON!=="undefined"&&MISC_ICON[it.img]){const _s=gemPx(it,32);cell.innerHTML='<img src="'+MISC_ICON[it.img]+'" style="width:'+_s+'px;height:'+_s+'px;image-rendering:pixelated">';}else if(it.img&&ITEM_ICON_URL[it.img]){cell.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';}else{cell.textContent=it.ico;}if(it.slot&&it.slot!=='gem'){cell.style.position='relative';const _b=document.createElement('span');_b.className='ilvlBadge';_b.textContent=(it.ilvl||it.req||1);cell.appendChild(_b);}gemBadge(cell,it);}
 const HERO_IMG={};
 for(const k in HERO_ATLAS){const im=new Image();im.src=HERO_ATLAS[k];HERO_IMG[k]=im;}
 const ANIMDEF={Idle:{fps:6,loop:true},move:{fps:14,loop:true},
@@ -2786,8 +2800,10 @@ function toggleFullMap(){
 /* ---------------- HUD ---------------- */
 let toastTimer=0;
 function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t||1.5;}
+const BUILD='v5.3 — '+'2026-07-27';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
+  {const _bv=document.getElementById('buildTag');if(_bv&&!_bv._set){_bv.textContent='build '+BUILD;_bv._set=1;}}
   const st=P();player.hp=Math.min(player.hp,st.hpMax);player.mp=Math.min(player.mp,st.mpMax);
   document.getElementById('hpFill').style.height=(clamp(player.hp/st.hpMax,0,1)*100)+'%';
   document.getElementById('mpFill').style.height=(clamp(player.mp/st.mpMax,0,1)*100)+'%';
