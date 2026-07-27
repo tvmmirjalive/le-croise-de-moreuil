@@ -2231,7 +2231,15 @@ const THEMEPAT={};
   for(const kind of['floor','wall']){const src=THEME_TEX[th][kind];if(!src)continue;
     const im=new Image();im.onload=(function(oo,kk,image){return function(){try{oo[kk]=ctx.createPattern(image,'repeat');}catch(e){}};})(o,kind,im);im.src=src;}}})();
 let curTP=null;
-function gemPx(it,base){if(!it||it.slot!=='gem')return base;const t=Math.max(1,Math.min(4,it.tier||1));return Math.round(base*[1,1,1.20,1.38,1.52][t]);}
+function fuseLevel(it){
+  /* "tier" est surchargé : les runes hautes valent 2 par rareté, pas par fusion.
+     On ne se fie qu'au champ "fuse", posé par la fusion, avec repli sur l'étoile du nom. */
+  if(!it||it.slot!=='gem'||it.kind!=='gem')return 1;
+  if(it.fuse)return Math.max(1,Math.min(4,it.fuse|0));
+  const m=/\u2605\s*(\d)/.exec(it.name||'');
+  return m?Math.max(1,Math.min(4,+m[1])):1;
+}
+function gemPx(it,base){const t=fuseLevel(it);return Math.round(base*[1,1,1.20,1.38,1.52][t]);}
 function setCellIcon(cell,it){if(it.img&&typeof MISC_ICON!=="undefined"&&MISC_ICON[it.img]){const _s=gemPx(it,32);cell.innerHTML='<img src="'+MISC_ICON[it.img]+'" style="width:'+_s+'px;height:'+_s+'px;image-rendering:pixelated">';}else if(it.img&&ITEM_ICON_URL[it.img]){cell.innerHTML='<img src="'+ITEM_ICON_URL[it.img]+'" style="width:34px;height:34px">';}else{cell.textContent=it.ico;}if(it.slot&&it.slot!=='gem'){cell.style.position='relative';const _b=document.createElement('span');_b.className='ilvlBadge';_b.textContent=(it.ilvl||it.req||1);cell.appendChild(_b);}}
 const HERO_IMG={};
 for(const k in HERO_ATLAS){const im=new Image();im.src=HERO_ATLAS[k];HERO_IMG[k]=im;}
@@ -3035,7 +3043,7 @@ function showTip(e,it,equipped){
   const m=UPMULT(it.plus);const up=it.plus?` <span style="color:#7dff9a">+${it.plus}</span>`:'';
   const _ni=needsId(it);
   const _tic=itemIco(it);
-  const _tim=/^<img/.test(_tic)?_tic.replace('style="','style="width:30px;height:30px;vertical-align:-7px;margin-right:6px;image-rendering:pixelated;'):'';
+  const _tim=/^<img/.test(_tic)?_tic.replace(/style="[^"]*"/,'style="width:30px;height:30px;vertical-align:-7px;margin-right:6px;image-rendering:pixelated"'):'';
   let html=`<div class="tname rar-${it.rarity}">${_tim}${_ni?'Objet non identifié':it.name+up}</div>`;
   html+=`<div style="color:#8ea0c8;font-size:11px;margin-bottom:4px">${slotName(it.slot)} · ${RAR[it.rarity].name}${it.slot&&it.slot!=='gem'?' · Objet niv. '+(it.ilvl||it.req||1):''}${it.plus?' · amélioré':''}</div>`;if(it.req>1)html+=`<div style="font-size:11px;color:${player.lvl<it.req?'#ff8a8a':'#8ea0c8'}">Niveau requis : ${it.req}</div>`;
   if(_ni){
@@ -3160,7 +3168,7 @@ function itemIco(it){
 }
 function gemIco(gr){
   const key=gr.img||((GEMS.find(x=>x.name===gr.base)||{}).img);
-  const _s=gemPx({slot:'gem',tier:gr.tier},22);
+  const _s=gemPx({slot:'gem',kind:gr.kind||'gem',fuse:gr.fuse},22);
   if(key&&MISC_ICON[key])return '<img src="'+MISC_ICON[key]+'" style="width:'+_s+'px;height:'+_s+'px;vertical-align:middle;image-rendering:pixelated">';
   if(key&&typeof ITEM_ICON_URL!=='undefined'&&ITEM_ICON_URL[key])return '<img src="'+ITEM_ICON_URL[key]+'" style="width:22px;height:22px;vertical-align:middle">';
   return gr.ico;
@@ -3180,7 +3188,7 @@ function fuseGems(base,tier){
   const cost=Math.round(80*Math.pow(2,tier-1));
   if(player.gold<cost){toast('Pas assez d\'or',1.2);return;}
   player.gold-=cost;const src=inventory[idxs[0]];
-  const ng={uid:uidCounter++,slot:'gem',kind:src.kind,_base:base,tier:tier+1,ico:src.ico,rarity:src.rarity,img:src.img||null,plus:0,affixes:[],sock:{t:src.sock.t,v:Math.round(src.sock.v*1.7)}};
+  const ng={uid:uidCounter++,slot:'gem',kind:src.kind,_base:base,tier:tier+1,fuse:(src.kind==='gem'?tier+1:1),ico:src.ico,rarity:src.rarity,img:src.img||null,plus:0,affixes:[],sock:{t:src.sock.t,v:Math.round(src.sock.v*1.7)}};
   ng.name=base+' ★'+(tier+1);
   idxs.slice(0,3).sort((a,b)=>b-a).forEach(i=>inventory.splice(i,1));
   inventory.push(ng);toast('Fusion : '+ng.name+' ('+affixText({t:ng.sock.t,v:ng.sock.v}).replace(/<[^>]+>/g,'')+')',2.4);SFX.pickup();
@@ -3293,7 +3301,7 @@ function renderShop(){
     if(!anyR)body.insertAdjacentHTML('beforeend','<div style="font-size:11px;color:#6b789c">Aucun objet à reforger dans le sac.</div>');
     // démonter
     const secF=document.createElement('div');secF.className='shopSec';secF.innerHTML='Fusionner les gemmes (3 identiques → 1 supérieure) <span class="gi"></span>';body.appendChild(secF);
-    const grps={};inventory.forEach(g=>{if(g.slot!=='gem')return;const bs=g._base||g.name,tr=g.tier||1,k=bs+'|'+tr;grps[k]=grps[k]||{base:bs,tier:tr,ico:g.ico,img:g.img,v:g.sock.v,t:g.sock.t,n:0};grps[k].n++;});
+    const grps={};inventory.forEach(g=>{if(g.slot!=='gem')return;const bs=g._base||g.name,tr=g.tier||1,k=bs+'|'+tr;grps[k]=grps[k]||{base:bs,tier:tr,ico:g.ico,img:g.img,kind:g.kind,fuse:fuseLevel(g),v:g.sock.v,t:g.sock.t,n:0};grps[k].n++;});
     let anyF=false;
     Object.values(grps).forEach(gr=>{if(gr.n<3)return;anyF=true;const cost=Math.round(80*Math.pow(2,gr.tier-1)),nv=Math.round(gr.v*1.7);
       const row=document.createElement('div');row.className='shopItem';
@@ -3403,7 +3411,11 @@ function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:pl
 function migrateIcons(list){
   if(!list)return;
   for(const it of list){
-    if(!it||it.img)continue;
+    if(!it)continue;
+    if(it.slot==='gem'&&it.kind==='gem'&&!it.fuse){
+      const m=/\u2605\s*(\d)/.exec(it.name||'');it.fuse=m?Math.max(1,Math.min(4,+m[1])):1;
+    }
+    if(it.img)continue;
     if(it.slot==='gem'&&it.kind==='gem'){const g=GEMS.find(x=>x.name===(it._base||it.name));if(g&&g.img)it.img=g.img;}
     else if(it.slot==='gem'&&it.kind==='rune'){const ri=RUNES.findIndex(x=>x.name===(it._base||it.name));if(ri>=0)it.img='rune'+ri;}
     else if(it.charm){const c=CHARMS.find(x=>x.nom===it.name||x.nom===it._base);if(c&&c.img)it.img=c.img;}
