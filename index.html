@@ -1688,7 +1688,7 @@ function updateMusicMode(){
 function followPath(st,dt){
   // interactions de proximité (PNJ / coffres), quelle que soit la progression
   if(player._npc){const n=player._npc,nx=n.tx*TS+TS/2,ny=n.ty*TS+TS/2;
-    if(dist(player.x,player.y,nx,ny)<TS*1.6){player.path=null;(n.type==='return'?usePortal():n.type==='stash'?toggleStash():n.type==='waypoint'?openWaypoint():n.type==='quest'?openDialogue(n):openShop(n));player._npc=null;return;}}
+    if(dist(player.x,player.y,nx,ny)<TS*1.6){player.path=null;(n.type==='arenamaster'?openDialogue(n):n.type==='arena'?openArena():n.type==='return'?usePortal():n.type==='stash'?toggleStash():n.type==='waypoint'?openWaypoint():n.type==='quest'?openDialogue(n):openShop(n));player._npc=null;return;}}
   if(player._chest){const ch=player._chest;
     if(ch.opened){player._chest=null;} else if(dist(player.x,player.y,ch.x,ch.y)<TS*1.4){player.path=null;openChest(ch);player._chest=null;return;}}
   if(player._shrine){const sh=player._shrine;
