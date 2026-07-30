@@ -2,20 +2,34 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Le Dernier Outlaw — Diablo-like exploration</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;background:#04060b;color:#cdd6e6;
-    font-family:"Trebuchet MS","Segoe UI",sans-serif;overflow:hidden;user-select:none}
-  #wrap{position:relative;width:100vw;height:100vh}
+    font-family:"Trebuchet MS","Segoe UI",sans-serif;overflow:hidden;user-select:none;
+    /* WebView iOS : pas de rebond élastique, pas de loupe, pas de menu contextuel,
+       pas de surbrillance au toucher, pas d'ajustement automatique du texte. */
+    position:fixed;width:100%;overscroll-behavior:none;touch-action:none;
+    -webkit-user-select:none;-webkit-touch-callout:none;
+    -webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+  #wrap{position:relative;width:100%;height:100%}
   canvas{display:block;width:100%;height:100%;background:#05070d;cursor:crosshair}
 
+  /* Marges du HUD : on prend le maximum entre une marge de confort et la safe area
+     iOS (encoche en paysage, barre d'accueil). Tout le HUD s'ancre sur ces variables. */
+  :root{
+    --sa-l:env(safe-area-inset-left,0px); --sa-r:env(safe-area-inset-right,0px);
+    --sa-t:env(safe-area-inset-top,0px);  --sa-b:env(safe-area-inset-bottom,0px);
+    --mL:max(14px,var(--sa-l)); --mR:max(10px,var(--sa-r));
+    --mT:max(12px,var(--sa-t)); --mB:max(12px,var(--sa-b));
+    --orb:152px; --slot:52px; --nav:62px; --act:48px;
+  }
   #hud{position:absolute;inset:0;pointer-events:none}
-  .orb{position:absolute;bottom:14px;width:152px;height:152px;border-radius:50%;
+  .orb{position:absolute;bottom:var(--mB);width:var(--orb);height:var(--orb);border-radius:50%;
     border:3px solid #1b2438;box-shadow:0 0 18px rgba(0,0,0,.7),inset 0 0 20px rgba(0,0,0,.8);
     overflow:hidden;background:#0c1120}
-  #hpOrb{left:18px}#mpOrb{right:18px}
+  #hpOrb{left:var(--mL)}#mpOrb{right:var(--mR)}
   .orb .fill{position:absolute;left:0;right:0;bottom:0}
   #hpFill{background:radial-gradient(circle at 50% 20%,#ff5a5a,#a01010)}
   #mpFill{background:radial-gradient(circle at 50% 20%,#4aa8ff,#123a9c)}
@@ -26,7 +40,7 @@
      Les sorts en arc sous le pouce droit, les consommables sous le pouce gauche,
      la navigation repliée en colonne au bord droit, l'XP seule au centre.
      Plus rien n'est aligné sur une seule rangée au milieu de l'écran. */
-  #centerBar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  #centerBar{position:absolute;bottom:var(--mB);left:50%;transform:translateX(-50%);
     display:flex;flex-direction:column;align-items:stretch;gap:3px;width:min(520px,46vw)}
   /* le conteneur interne doit s'étirer, sinon la barre se réduit à la largeur du texte */
   #centerBar>div{width:100%}
@@ -37,8 +51,10 @@
   /* navigation : colonne d'icônes au bord droit, hors de la zone de jeu */
   /* Navigation ancrée en haut à droite : centrée verticalement, son dernier
      bouton arrivait à 8 px du 4e sort et pile à la même hauteur. */
-  #tabBar{position:absolute;right:10px;top:14px;
+  #tabBar{position:absolute;right:var(--mR);top:var(--mT);
     display:flex;flex-direction:column;gap:5px;z-index:3}
+  button,.tab,.abtn,.slot,.cell,.eqSlot,.ptab,.pbody{touch-action:manipulation}
+  .pbody{touch-action:pan-y}
   .tab{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:0px;
     width:62px;padding:5px 4px 4px;border:1px solid #2a3350;border-radius:8px;background:#0e1424e6;
     color:#aab6d4;cursor:pointer;font-size:10px;line-height:1.15;box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
@@ -53,7 +69,7 @@
      Rayon 175 px, angles 6/30/54/78 deg -> 21 px de jeu franc entre deux cases,
      138 px de dégagement avec l'orbe, et l'arc reste bas : même sur une fenêtre
      de 620 px de haut, le 4e sort garde ses distances avec la colonne de navigation. */
-  #skillBar{position:absolute;right:0;bottom:0;width:296px;height:289px;
+  #skillBar{position:absolute;right:var(--mR);bottom:var(--mB);width:296px;height:289px;
     pointer-events:none;z-index:2}
   #skillBar .slot{position:absolute;pointer-events:auto;margin:0}
   #skillBar .slot:nth-child(1){right:242px;bottom:82px}
@@ -62,12 +78,62 @@
   #skillBar .slot:nth-child(4){right:104px;bottom:235px}
 
   /* Consommables : colonne verticale au-dessus de l'orbe de vie (pouce gauche) */
-  #actBar{position:absolute;left:16px;bottom:198px;
+  #actBar{position:absolute;left:var(--mL);bottom:calc(var(--mB) + var(--orb) + 34px);
     display:flex;flex-direction:column;gap:7px;pointer-events:auto;z-index:2;margin:0}
 
-  @media (max-height:640px){
-    #tabBar{top:8px;gap:3px}
-    #actBar{bottom:150px;left:12px}
+  @media (max-height:640px) and (min-height:521px){
+    #tabBar{gap:3px}
+    #actBar{bottom:calc(var(--mB) + var(--orb) + 20px)}
+  }
+
+  /* ============ PROFIL COMPACT — iPhone en paysage ============
+     393 points de haut : l'arc de sorts (289 px) et la colonne de navigation
+     (301 px) n'y tiennent pas. On passe en grilles 2x2 et en rangée de navigation. */
+  @media (max-height:520px){
+    :root{--orb:92px; --slot:44px; --nav:46px; --act:40px; --mT:max(6px,var(--sa-t)); --mB:max(6px,var(--sa-b))}
+    .orb .lbl{font-size:10px}
+
+    /* navigation : rangée horizontale en haut à gauche, sous le bloc d'infos */
+    #tabBar{top:auto;right:auto;left:var(--mL);bottom:calc(var(--mB) + var(--orb) + 16px);
+      flex-direction:row;gap:4px}
+    .tab{width:46px;padding:4px 2px 3px;font-size:0;line-height:0;gap:0}
+    .tab .ti{font-size:17px;width:22px;height:22px}
+    .tab .tk{font-size:8px;line-height:9px}
+    .tab .qbadge{top:-4px;right:2px}
+
+    /* sorts : grille 2x2 à droite de l'orbe de mana */
+    #skillBar{width:100px;height:100px;bottom:var(--mB);
+      right:calc(var(--mR) + var(--orb) + 12px)}
+    #skillBar .slot{width:var(--slot);height:var(--slot)}
+    #skillBar .slot:nth-child(1){right:56px;bottom:56px}
+    #skillBar .slot:nth-child(2){right:0;bottom:56px}
+    #skillBar .slot:nth-child(3){right:56px;bottom:0}
+    #skillBar .slot:nth-child(4){right:0;bottom:0}
+    #skillBar .slot .cd{font-size:13px}
+
+    /* consommables : grille 2x2 à droite de l'orbe de vie */
+    #actBar{left:calc(var(--mL) + var(--orb) + 12px);bottom:var(--mB);
+      flex-direction:row;flex-wrap:wrap;width:88px;gap:4px}
+    .abtn{width:var(--act);height:var(--act);font-size:18px}
+
+    /* XP : bandeau fin centré, entre les deux grappes */
+    #centerBar{width:min(300px,30vw);gap:1px}
+    #centerBar #xpWrap{min-width:150px;height:18px!important;padding:4px 18px!important}
+    #centerBar #lvlText{font-size:10px}
+    #centerBar #keyLine{font-size:10px}
+
+    /* minimap réduite, ancrée en haut à droite (la navigation a quitté le bord) */
+    #miniWrap{right:var(--mR);top:var(--mT)}
+    #mini{width:104px!important;height:104px!important}
+    #miniLbl{font-size:8px}
+
+    /* textes et panneaux resserrés */
+    #topLeft{font-size:10px;line-height:1.3}
+    #hint{display:none}
+    #buildTag{display:none}
+    #charPanel{width:min(320px,60vw);height:calc(100% - var(--mT) - var(--mB) - 16px);top:auto;
+      bottom:var(--mB);transform:none}
+    .panel{max-height:calc(100% - var(--mT) - var(--mB) - 12px);overflow:auto}
   }
   .slot{width:52px;height:52px;border:2px solid #2a3350;border-radius:8px;background:#0e1424;
     display:flex;align-items:center;justify-content:center;position:relative;
@@ -93,7 +159,7 @@
   #lvlText{position:absolute;top:-18px;left:50%;transform:translateX(-50%);
     font-size:11px;color:#f4d35e;white-space:nowrap}
 
-  #topLeft{position:absolute;top:12px;left:14px;font-size:13px;line-height:1.5;text-shadow:0 1px 2px #000}
+  #topLeft{position:absolute;top:var(--mT);left:var(--mL);font-size:13px;line-height:1.5;text-shadow:0 1px 2px #000}
   #topLeft b{color:#5ec8ff}
   #zoneName{font-size:18px;font-weight:bold;color:#e8ecf6;letter-spacing:1px}
   #statLine{font-size:11px;color:#7f8db0}
@@ -103,7 +169,7 @@
   #hint b{color:#cdd6e6}
 
   /* minimap */
-  #miniWrap{position:absolute;top:12px;right:104px;pointer-events:none}
+  #miniWrap{position:absolute;top:var(--mT);right:calc(var(--mR) + var(--nav) + 32px);pointer-events:none}
   #mini{border:2px solid #2a3350;border-radius:6px;background:rgba(6,9,16,.85);
     box-shadow:0 0 16px rgba(0,0,0,.6)}
   #miniLbl{text-align:center;font-size:10px;color:#7f8db0;margin-top:3px}
@@ -114,7 +180,7 @@
   .closeX{position:absolute;top:8px;right:10px;width:26px;height:26px;border-radius:6px;border:1px solid #3a4a72;background:#1a2036;color:#cdd6e6;cursor:pointer;font-size:14px;line-height:22px;padding:0;text-align:center;pointer-events:auto;z-index:20}
   .closeX:hover{background:#2a3352;color:#fff}
   .ilvlBadge{position:absolute;bottom:1px;right:2px;font-size:9px;font-weight:bold;color:#e8ecf6;background:rgba(0,0,0,.65);border-radius:3px;padding:0 2px;line-height:11px;pointer-events:none}
-  #invPanel{right:104px}#charPanel{left:14px;width:344px;height:min(560px,80vh);padding:12px 14px;box-sizing:border-box;
+  #invPanel{right:calc(var(--mR) + var(--nav) + 32px)}#charPanel{left:var(--mL);width:344px;height:min(560px,80vh);padding:12px 14px;box-sizing:border-box;
     flex-direction:column;overflow:hidden}
   #charPanel.on{display:flex}
   #charPanel h2{margin:0 0 6px;flex:0 0 auto}
@@ -3088,7 +3154,7 @@ function toggleFullMap(){
 /* ---------------- HUD ---------------- */
 let toastTimer=0;
 function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t||1.5;}
-const BUILD='v6.7 — '+'2026-07-27';
+const BUILD='v6.8 iOS — '+'2026-07-27';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   {const _bv=document.getElementById('buildTag');if(_bv&&!_bv._set){_bv.textContent='build '+BUILD;_bv._set=1;}}
@@ -3778,7 +3844,24 @@ function victory(){running=false;saveGame();const ov=document.getElementById('ov
   else{b.textContent='REJOUER';b.onclick=()=>location.reload();}
   ov.style.display='flex';}
 const SAVE_KEY='croise_moreuil_save_v1';let saveTimer=6;
-function saveGame(){try{localStorage.setItem(SAVE_KEY,JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId}));}catch(e){}}
+/* Dans un WebView iOS, localStorage peut être purgé quand l'espace manque.
+   Si la coque native fournit un pont (window.OutlawSave), on écrit et on lit
+   aussi dans un vrai fichier. En navigateur le pont est absent : rien ne change. */
+const SaveIO={
+  write(s){ try{localStorage.setItem(SAVE_KEY,s);}catch(e){}
+            try{ if(window.OutlawSave&&window.OutlawSave.write)window.OutlawSave.write(s);
+                 else if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.outlawSave)
+                   window.webkit.messageHandlers.outlawSave.postMessage(s); }catch(e){} },
+  read(){ let a=null,b=null;
+          try{a=localStorage.getItem(SAVE_KEY);}catch(e){}
+          try{ if(window.OutlawSave&&window.OutlawSave.read)b=window.OutlawSave.read(); }catch(e){}
+          if(!a)return b; if(!b)return a;
+          try{const pa=JSON.parse(a),pb=JSON.parse(b);
+              return ((pb.xpTotal||0)>(pa.xpTotal||0))?b:a;}catch(e){return a;} },
+  clear(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){}
+           try{ if(window.OutlawSave&&window.OutlawSave.clear)window.OutlawSave.clear(); }catch(e){} }
+};
+function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId}));}catch(e){}}
 /* Migration : réassocie un sprite aux objets d'anciennes sauvegardes */
 function migrateIcons(list){
   if(!list)return;
@@ -3798,14 +3881,14 @@ function migrateAllIcons(){
   if(player&&player.equip)migrateIcons(Object.keys(player.equip).map(k=>player.equip[k]).filter(Boolean));
   for(const l of [inventory,stash])if(l)for(const it of l)if(it&&it.sockets)migrateIcons(it.sockets.filter(Boolean));
 }
-function hasSave(){try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;}}
-function loadGame(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));if(!s)return false;
+function hasSave(){try{return !!SaveIO.read();}catch(e){return false;}}
+function loadGame(){try{const s=JSON.parse(SaveIO.read());if(!s)return false;
   ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','gold','frags','potions','manaPots','kills','totalDmg','portals'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
   if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
   if(s.equip)player.equip=Object.assign({weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},s.equip);
   inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;if(s.bossCleared)bossCleared=s.bossCleared;if(s.stashCap)stashCap=s.stashCap;if(s.keys)player.keys=s.keys;if(s.arenaBossKills!=null)player.arenaBossKills=s.arenaBossKills;if(s.relics)for(let i=0;i<5;i++)relicDestroyed[i]=!!s.relics[i];if(s.arenaBest)player.arenaBest=s.arenaBest;if(s.scrollsId!=null)player.scrollsId=s.scrollsId;migrateAllIcons();return true;}catch(e){return false;}}
 window.addEventListener('beforeunload',()=>{if(running)saveGame();});
-function beginNew(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}startGame(false);}
+function beginNew(){try{SaveIO.clear();}catch(e){}startGame(false);}
 (function initMenu(){var b=document.getElementById('startBtn');
   if(hasSave()){b.textContent='▶  CONTINUER';b.onclick=function(){startGame(true);};
     var nb=document.createElement('button');nb.textContent='Nouvelle partie (efface la sauvegarde)';
@@ -3896,6 +3979,14 @@ const SFX=(function(){
   let ctx=null,master=null,enabled=true;
   function ac(){ if(!ctx){try{ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=0.32;master.connect(ctx.destination);}catch(e){return null;}}
     if(ctx.state==='suspended')ctx.resume(); return ctx; }
+  /* iOS n'autorise la création et la reprise du contexte audio que pendant un
+     geste utilisateur. On le déverrouille au premier contact, une seule fois. */
+  (function unlock(){
+    const go=()=>{const c=ac(); if(c&&c.state!=='suspended'){
+        ['touchend','pointerdown','mousedown','keydown'].forEach(t=>document.removeEventListener(t,go,true));}};
+    ['touchend','pointerdown','mousedown','keydown'].forEach(t=>document.addEventListener(t,go,true));
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ctx&&ctx.state==='suspended')ctx.resume();});
+  })();
   function beep(freq,dur,type,vol,cut,slideTo){ const c=ac();if(!c||!enabled)return;const t=c.currentTime;
     const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
     o.type=type||'square';o.frequency.setValueAtTime(freq,t); if(slideTo)o.frequency.exponentialRampToValueAtTime(Math.max(30,slideTo),t+dur);
