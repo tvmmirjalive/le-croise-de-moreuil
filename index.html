@@ -27,11 +27,17 @@
      la navigation repliée en colonne au bord droit, l'XP seule au centre.
      Plus rien n'est aligné sur une seule rangée au milieu de l'écran. */
   #centerBar{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
-    display:flex;flex-direction:column;align-items:center;gap:4px;width:min(420px,42vw)}
-  #centerBar #xpWrap{width:100%}
+    display:flex;flex-direction:column;align-items:stretch;gap:3px;width:min(520px,46vw)}
+  /* le conteneur interne doit s'étirer, sinon la barre se réduit à la largeur du texte */
+  #centerBar>div{width:100%}
+  #centerBar #xpWrap{width:100%;min-width:260px;box-sizing:border-box}
+  #centerBar #lvlText,#centerBar #keyLine{text-align:center}
+  @media (max-width:1000px){#centerBar{width:min(420px,54vw)}}
 
   /* navigation : colonne d'icônes au bord droit, hors de la zone de jeu */
-  #tabBar{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  /* Navigation ancrée en haut à droite : centrée verticalement, son dernier
+     bouton arrivait à 8 px du 4e sort et pile à la même hauteur. */
+  #tabBar{position:absolute;right:10px;top:14px;
     display:flex;flex-direction:column;gap:5px;z-index:3}
   .tab{pointer-events:auto;display:flex;flex-direction:column;align-items:center;gap:0px;
     width:62px;padding:5px 4px 4px;border:1px solid #2a3350;border-radius:8px;background:#0e1424e6;
@@ -44,33 +50,42 @@
   .qbadge{display:none;position:absolute;top:-3px;right:6px;min-width:15px;height:15px;background:#e0403a;border-radius:8px;color:#fff;font-size:10px;font-weight:bold;line-height:15px;text-align:center;padding:0 2px;box-shadow:0 0 6px rgba(224,64,58,.8)}
   .tab .tk{font-size:9px;color:#6b789c}
   /* Sorts : quart de cercle autour de l'orbe de mana.
-     Rayon 124 px depuis le centre de l'orbe (rayon 76) : les 4 emplacements
-     restent à portée du pouce sans jamais recouvrir l'orbe ni sortir de l'écran. */
-  #skillBar{position:absolute;right:0;bottom:0;width:244px;height:242px;
+     Rayon 175 px, angles 6/30/54/78 deg -> 21 px de jeu franc entre deux cases,
+     138 px de dégagement avec l'orbe, et l'arc reste bas : même sur une fenêtre
+     de 620 px de haut, le 4e sort garde ses distances avec la colonne de navigation. */
+  #skillBar{position:absolute;right:0;bottom:0;width:296px;height:289px;
     pointer-events:none;z-index:2}
   #skillBar .slot{position:absolute;pointer-events:auto;margin:0}
-  #skillBar .slot:nth-child(1){right:188px;bottom:94px}
-  #skillBar .slot:nth-child(2){right:168px;bottom:137px}
-  #skillBar .slot:nth-child(3){right:134px;bottom:169px}
-  #skillBar .slot:nth-child(4){right:90px;bottom:186px}
+  #skillBar .slot:nth-child(1){right:242px;bottom:82px}
+  #skillBar .slot:nth-child(2){right:220px;bottom:152px}
+  #skillBar .slot:nth-child(3){right:171px;bottom:206px}
+  #skillBar .slot:nth-child(4){right:104px;bottom:235px}
 
   /* Consommables : colonne verticale au-dessus de l'orbe de vie (pouce gauche) */
-  #actBar{position:absolute;left:16px;bottom:178px;
+  #actBar{position:absolute;left:16px;bottom:198px;
     display:flex;flex-direction:column;gap:7px;pointer-events:auto;z-index:2;margin:0}
 
   @media (max-height:640px){
-    #tabBar{top:8px;transform:none}
+    #tabBar{top:8px;gap:3px}
     #actBar{bottom:150px;left:12px}
   }
   .slot{width:52px;height:52px;border:2px solid #2a3350;border-radius:8px;background:#0e1424;
     display:flex;align-items:center;justify-content:center;position:relative;
     box-shadow:inset 0 0 10px rgba(0,0,0,.6);pointer-events:auto;cursor:pointer}
   .slot.locked{opacity:.35;cursor:default}
+
   .slot .ico{font-size:22px}
   .slot .key{position:absolute;top:1px;left:3px;font-size:10px;color:#8ea0c8}
-  .slot .cd{position:absolute;inset:0;background:rgba(0,0,0,.6);border-radius:6px;
-    display:flex;align-items:center;justify-content:center;font-weight:bold;color:#fff}
+  .slot .cdFill{position:absolute;left:0;right:0;bottom:0;height:0;display:none;
+    background:rgba(4,8,18,.72);border-radius:6px;pointer-events:none}
+  .slot .cd{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);display:none;
+    text-align:center;font-size:15px;font-weight:bold;color:#e8ecf6;
+    text-shadow:0 1px 3px #000,0 0 6px #000;pointer-events:none}
   .slot.active{border-color:#5ec8ff;box-shadow:0 0 10px #2b7fff,inset 0 0 8px rgba(0,0,0,.6)}
+  .slot.locked{opacity:.35;cursor:default}
+  .slot.noMana{opacity:.62;filter:grayscale(.55)}
+  .slot.ready{opacity:1}
+  .slot.ready .ico{filter:drop-shadow(0 0 4px rgba(94,200,255,.55))}
 
   #xpWrap{width:420px;max-width:70vw;height:12px;background:#0c1120;border:1px solid #26304a;
     border-radius:6px;overflow:hidden;position:relative}
@@ -88,7 +103,7 @@
   #hint b{color:#cdd6e6}
 
   /* minimap */
-  #miniWrap{position:absolute;top:12px;right:82px;pointer-events:none}
+  #miniWrap{position:absolute;top:12px;right:104px;pointer-events:none}
   #mini{border:2px solid #2a3350;border-radius:6px;background:rgba(6,9,16,.85);
     box-shadow:0 0 16px rgba(0,0,0,.6)}
   #miniLbl{text-align:center;font-size:10px;color:#7f8db0;margin-top:3px}
@@ -99,7 +114,7 @@
   .closeX{position:absolute;top:8px;right:10px;width:26px;height:26px;border-radius:6px;border:1px solid #3a4a72;background:#1a2036;color:#cdd6e6;cursor:pointer;font-size:14px;line-height:22px;padding:0;text-align:center;pointer-events:auto;z-index:20}
   .closeX:hover{background:#2a3352;color:#fff}
   .ilvlBadge{position:absolute;bottom:1px;right:2px;font-size:9px;font-weight:bold;color:#e8ecf6;background:rgba(0,0,0,.65);border-radius:3px;padding:0 2px;line-height:11px;pointer-events:none}
-  #invPanel{right:82px}#charPanel{left:14px;width:344px;height:min(560px,80vh);padding:12px 14px;box-sizing:border-box;
+  #invPanel{right:104px}#charPanel{left:14px;width:344px;height:min(560px,80vh);padding:12px 14px;box-sizing:border-box;
     flex-direction:column;overflow:hidden}
   #charPanel.on{display:flex}
   #charPanel h2{margin:0 0 6px;flex:0 0 auto}
@@ -245,7 +260,7 @@ canvas#game{touch-action:none}
     <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="lbl" id="mpLbl">50/50</div></div>
 
     <div id="centerBar">
-      <div style="position:relative">
+      <div style="position:relative;width:100%">
         <div id="keyLine" style="font-size:12px;color:#ffd0a8;margin-bottom:2px"></div><div id="lvlText">Niv. 1 — 0 / 40 XP</div>
         <div id="xpWrap"><div id="xpFill"></div></div>
       </div>
@@ -723,11 +738,11 @@ const THEME={
  gym:{wall:['#5e3030','#421f1f'],floor:['#2b4a3a','#223d30']}
 };
 const ACTS=[
- {name:'Piscine de Moreuil',theme:'pool',depth:0},
- {name:'La Glacière',theme:'ice',depth:1},
- {name:'Bois de Moreuil',theme:'wood',depth:2},
- {name:'Église Saint-Vaast',theme:'church',depth:3},
- {name:'Gymnase du Collège',theme:'gym',depth:4,boss:true}
+ {name:'Piscine de Moreuil',court:'la Piscine',theme:'pool',depth:0},
+ {name:'La Glacière',court:'la Glacière',theme:'ice',depth:1},
+ {name:'Bois de Moreuil',court:'le Bois',theme:'wood',depth:2},
+ {name:'Église Saint-Vaast',court:'l’Église',theme:'church',depth:3},
+ {name:'Gymnase du Collège',court:'le Gymnase',theme:'gym',depth:4,boss:true}
 ];
 const ACT_SUB=['Le Sifflet du Pacte','La Rondelle Maudite','La Médaille de 1918','Le Calice Profané','La Coupe Maudite'];
 const ACT_DIM=[[500,360],[380,470],[650,280],[200,760],[450,450]];
@@ -1271,19 +1286,6 @@ function onClick(wx,wy){
     if(ch.opened)continue;
     if(dist(wx,wy,ch.x,ch.y)<TS*0.7){clearIntents();player._chest=ch;
       if(dist(player.x,player.y,ch.x,ch.y)<TS*1.5)openChest(ch);else setPathTo(ch.x,ch.y);return;}}
-  // panneau à l'embouchure de l'allée : on voit la sortie depuis la place centrale
-  if(level.alley){const A=level.alley,wx=(A.x0+A.x1+1)/2*TS,wy=(A.y0-0.2)*TS;
-    ent(wx,wy,()=>{const sx=wx-cam.x,sy=wy-cam.y,p=0.6+0.4*Math.sin(performance.now()/520);
-      ctx.save();ctx.textAlign='center';
-      ctx.fillStyle='rgba(10,14,26,'+(0.55+0.15*p)+')';
-      ctx.strokeStyle='rgba(244,211,94,'+(0.5+0.3*p)+')';ctx.lineWidth=1.5;
-      const tw=118,th=20;
-      ctx.beginPath();ctx.rect(sx-tw/2,sy-52,tw,th);ctx.fill();ctx.stroke();
-      ctx.fillStyle='rgba(244,211,94,0.95)';ctx.font='bold 11px Trebuchet MS';
-      ctx.fillText('SORTIE — LES ACTES',sx,sy-38);
-      ctx.fillStyle='rgba(244,211,94,'+(0.45+0.45*p)+')';ctx.font='bold 16px Trebuchet MS';
-      ctx.fillText('▼',sx,sy-20+2*p);
-      ctx.textAlign='left';ctx.restore();});}
   if(level.shrines)for(const sh of level.shrines){if(sh.used)continue;
     if(dist(wx,wy,sh.x,sh.y)<TS*0.7){clearIntents();player._shrine=sh;
       if(dist(player.x,player.y,sh.x,sh.y)<TS*1.5)activateShrine(sh);else setPathTo(sh.x,sh.y);return;}}
@@ -2105,6 +2107,7 @@ function update(dt){
   if((player._mpLock||0)>0)player._mpLock-=dt;else player.mp=Math.min(st.mpMax,player.mp+(2+st.ene*0.15)*dt);
   if((player._chargeLock||0)>0)player._chargeLock-=dt;
   for(const s in skillCd)skillCd[s]=Math.max(0,skillCd[s]-dt);
+  updateSkillBar();
   player.atkCd=Math.max(0,player.atkCd-dt);player.swing=Math.max(0,player.swing-dt);
   player.hurt=Math.max(0,player.hurt-dt);if(player.tempest)player.tempest=Math.max(0,player.tempest-dt);if(player.buffT>0)player.buffT=Math.max(0,player.buffT-dt);if(banner.t>0)banner.t=Math.max(0,banner.t-dt);
   if(travelLock>0)travelLock-=dt;
@@ -2316,7 +2319,7 @@ function drawExitMark(sx,sy,isStair){
   ctx.fillStyle=rgba(0.85);ctx.font='bold 15px Trebuchet MS';ctx.textAlign='center';
   ctx.fillText(isStair?'▲':'▼',sx,sy-30-3*pulse);
   ctx.fillStyle=rgba(0.9);ctx.font='11px Trebuchet MS';
-  ctx.fillText(isStair?'Sortie':(level&&level.kind==='village'?'Sortie de Moreuil':'Porte'),sx,sy+ISO_TH*0.42+13);
+  ctx.fillText(isStair?'Sortie':(level&&level.kind==='village'?((ACTS[0]&&ACTS[0].court)||'la Piscine'):'Porte'),sx,sy+ISO_TH*0.42+13);
   ctx.textAlign='left';ctx.restore();
 }
 
@@ -2371,6 +2374,20 @@ function renderIso(){
     if(cc!==T_STAIR&&cc!==T_GATE)continue; if(!isVil&&!level.seen[idx(w,tx,ty)])continue;
     const wx=tx*TS+TS/2,wy=ty*TS+TS/2,isStair=(cc===T_STAIR);
     ent(wx,wy,()=>drawExitMark(wx-cam.x,wy-cam.y,isStair));}
+  // panneau à l'embouchure de l'allée : on voit la sortie depuis la place centrale
+  if(level.alley){const A=level.alley,wx=(A.x0+A.x1+1)/2*TS,wy=(A.y0-0.2)*TS;
+    ent(wx,wy,()=>{const sx=wx-cam.x,sy=wy-cam.y,p=0.6+0.4*Math.sin(performance.now()/520);
+      ctx.save();ctx.textAlign='center';
+      ctx.fillStyle='rgba(10,14,26,'+(0.55+0.15*p)+')';
+      ctx.strokeStyle='rgba(244,211,94,'+(0.5+0.3*p)+')';ctx.lineWidth=1.5;
+      const tw=132,th=20;
+      ctx.beginPath();ctx.rect(sx-tw/2,sy-52,tw,th);ctx.fill();ctx.stroke();
+      ctx.fillStyle='rgba(244,211,94,0.95)';ctx.font='bold 12px Trebuchet MS';
+      ctx.fillText('Direction '+((ACTS[0]&&ACTS[0].court)||'la Piscine'),sx,sy-38);
+      ctx.fillStyle='rgba(244,211,94,'+(0.45+0.45*p)+')';ctx.font='bold 16px Trebuchet MS';
+      ctx.fillText('▼',sx,sy-20+2*p);
+      ctx.textAlign='left';ctx.restore();});}
+
   if(level.shrines)for(const sh of level.shrines)if(seenOK(sh.x,sh.y))ent(sh.x,sh.y,()=>drawShrine(sh));
   if(level.breakables)for(const b of level.breakables)if(!b.broken&&seenOK(b.x,b.y))ent(b.x,b.y,()=>drawBreakable(b));
   if(level.npcs)for(const npc of level.npcs){const wx=npc.vert?npc.tx*TS:npc.tx*TS+TS/2,wy=npc.vert?npc.ty*TS:npc.ty*TS+TS/2;ent(wx,wy,()=>drawNpc(npc));}
@@ -3105,7 +3122,7 @@ function toggleFullMap(){
 /* ---------------- HUD ---------------- */
 let toastTimer=0;
 function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t||1.5;}
-const BUILD='v6.0 — '+'2026-07-27';
+const BUILD='v6.5 — '+'2026-07-27';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   {const _bv=document.getElementById('buildTag');if(_bv&&!_bv._set){_bv.textContent='build '+BUILD;_bv._set=1;}}
@@ -3160,15 +3177,64 @@ function unequip(slot){const it=player.equip[slot];if(!it)return;
   if(inventory.length>=INV_MAX){toast('Sac plein !',1.4);return;}
   inventory.push(it);player.equip[slot]=null;hideTip();
   toast('Retiré : '+it.name.replace(/<[^>]+>/g,''),1.4);renderInventory();refreshHud();}
+/* La barre de sorts se construit une fois, puis se met à jour à CHAQUE IMAGE.
+   Avant, elle n'était reconstruite que sur événement : une fois le temps de
+   recharge écoulé, l'icône restait grisée jusqu'à ce qu'autre chose la redessine. */
+let _slotEls=[];
 function renderSkillBar(){
-  const bar=document.getElementById('skillBar');bar.innerHTML='';
+  const bar=document.getElementById('skillBar');bar.innerHTML='';_slotEls=[];
   for(let i=0;i<4;i++){const s=player.bar[i];
     const el=document.createElement('div');
-    const locked=!s||(player.skillRanks[s]||0)<=0;
-    el.className='slot'+(locked?' locked':'')+(s&&activeSkill===s?' active':'');
-    el.innerHTML='<span class="key">'+(i+1)+'</span><span class="ico">'+(s?skillIco(s,30):'·')+'</span>';
-    if(s&&skillCd[s]>0.05)el.innerHTML+='<div class="cd">'+skillCd[s].toFixed(1)+'</div>';
-    el.onclick=(function(sk){return ()=>{if(sk)selectSkill(sk);};})(s);bar.appendChild(el);}
+    el.className='slot';
+    el.innerHTML='<span class="key">'+(i+1)+'</span>'
+      +'<span class="ico">'+(s?skillIco(s,30):'·')+'</span>'
+      +'<div class="cdFill"></div><div class="cd"></div>';
+    el.onclick=(function(sk){return ()=>{if(sk)selectSkill(sk);};})(s);
+    bar.appendChild(el);
+    _slotEls.push({el:el,skill:s,fill:el.querySelector('.cdFill'),cd:el.querySelector('.cd'),
+                   _st:null,_txt:null,_h:null});}
+  updateSkillBar();
+}
+function updateSkillBar(){
+  if(!_slotEls.length)return;
+  const mp=player.mp;
+  for(let i=0;i<_slotEls.length;i++){
+    const o=_slotEls[i], s=o.skill;
+    // le sort assigné a pu changer sans passer par un rendu complet
+    if(s!==player.bar[i]){renderSkillBar();return;}
+    let etat='vide';
+    if(s){
+      const rank=player.skillRanks[s]||0;
+      const def=SKILLS[s];
+      const cout=def.manaBase+(s==='slap'?0:Math.max(0,rank));
+      if(s!=='slap'&&rank<=0)etat='verrouille';
+      else if((skillCd[s]||0)>0.05)etat='recharge';
+      else if(mp<cout)etat='mana';
+      else etat='pret';
+    }
+    if(etat!==o._st){
+      o._st=etat;
+      o.el.className='slot'
+        +(etat==='verrouille'||etat==='vide'?' locked':'')
+        +(etat==='mana'?' noMana':'')
+        +(etat==='pret'?' ready':'')
+        +(s&&activeSkill===s?' active':'');
+    } else if(s&&((activeSkill===s)!==o.el.classList.contains('active'))){
+      o.el.classList.toggle('active',activeSkill===s);
+    }
+    // jauge et compte à rebours
+    const cd=s?(skillCd[s]||0):0;
+    if(cd>0.05){
+      const def=SKILLS[s];
+      const total=Math.max(0.01,def.cdBase*(1-Math.min(0.6,(P().cast||0)/100)));
+      const h=Math.round(100*Math.min(1,cd/total));
+      if(h!==o._h){o._h=h;o.fill.style.height=h+'%';o.fill.style.display='block';}
+      const t=cd>=1?cd.toFixed(1):cd.toFixed(1);
+      if(t!==o._txt){o._txt=t;o.cd.textContent=t;o.cd.style.display='block';}
+    } else if(o._h!==0){
+      o._h=0;o._txt='';o.fill.style.display='none';o.cd.style.display='none';
+    }
+  }
 }
 let invSel=-1;
 function renderInventory(){
@@ -3942,7 +4008,9 @@ function applyUISkin(){
   if(rl)rl.innerHTML='<span class="resIco" style="background-image:url('+U.iGold+')"></span> <b id="hGold">0</b> &nbsp;'+
     '<span class="resIco" style="background-image:url('+U.iFrag+')"></span> <b id="hFrags">0</b> &nbsp;'+
     '<span class="resIco" style="background-image:url('+U.iPot+')"></span> <b id="hPot">0</b> &nbsp;'+
-    '<span class="resIco" style="background-image:url('+U.iMana+')"></span> <b id="hMana">0</b> &nbsp;🌀 <b id="hPortal">0</b>';
+    '<span class="resIco" style="background-image:url('+U.iMana+')"></span> <b id="hMana">0</b> &nbsp;'+
+    '<img class="resIco" src="'+(MISC_ICON.parchemin_identification||'')+'"> <b id="hScrolls">0</b> &nbsp;'+
+    '<img class="resIco" src="'+(MISC_ICON.scroll_return||'')+'"> <b id="hPortal">0</b>';
 }
 applyUISkin();
 
