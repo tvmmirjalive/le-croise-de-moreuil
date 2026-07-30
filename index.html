@@ -81,60 +81,7 @@
   #actBar{position:absolute;left:var(--mL);bottom:calc(var(--mB) + var(--orb) + 34px);
     display:flex;flex-direction:column;gap:7px;pointer-events:auto;z-index:2;margin:0}
 
-  @media (max-height:640px) and (min-height:521px){
-    #tabBar{gap:3px}
-    #actBar{bottom:calc(var(--mB) + var(--orb) + 20px)}
-  }
-
-  /* ============ PROFIL COMPACT — iPhone en paysage ============
-     393 points de haut : l'arc de sorts (289 px) et la colonne de navigation
-     (301 px) n'y tiennent pas. On passe en grilles 2x2 et en rangée de navigation. */
-  @media (max-height:520px){
-    :root{--orb:92px; --slot:44px; --nav:46px; --act:40px; --mT:max(6px,var(--sa-t)); --mB:max(6px,var(--sa-b))}
-    .orb .lbl{font-size:10px}
-
-    /* navigation : rangée horizontale en haut à gauche, sous le bloc d'infos */
-    #tabBar{top:auto;right:auto;left:var(--mL);bottom:calc(var(--mB) + var(--orb) + 16px);
-      flex-direction:row;gap:4px}
-    .tab{width:46px;padding:4px 2px 3px;font-size:0;line-height:0;gap:0}
-    .tab .ti{font-size:17px;width:22px;height:22px}
-    .tab .tk{font-size:8px;line-height:9px}
-    .tab .qbadge{top:-4px;right:2px}
-
-    /* sorts : grille 2x2 à droite de l'orbe de mana */
-    #skillBar{width:100px;height:100px;bottom:var(--mB);
-      right:calc(var(--mR) + var(--orb) + 12px)}
-    #skillBar .slot{width:var(--slot);height:var(--slot)}
-    #skillBar .slot:nth-child(1){right:56px;bottom:56px}
-    #skillBar .slot:nth-child(2){right:0;bottom:56px}
-    #skillBar .slot:nth-child(3){right:56px;bottom:0}
-    #skillBar .slot:nth-child(4){right:0;bottom:0}
-    #skillBar .slot .cd{font-size:13px}
-
-    /* consommables : grille 2x2 à droite de l'orbe de vie */
-    #actBar{left:calc(var(--mL) + var(--orb) + 12px);bottom:var(--mB);
-      flex-direction:row;flex-wrap:wrap;width:88px;gap:4px}
-    .abtn{width:var(--act);height:var(--act);font-size:18px}
-
-    /* XP : bandeau fin centré, entre les deux grappes */
-    #centerBar{width:min(300px,30vw);gap:1px}
-    #centerBar #xpWrap{min-width:150px;height:18px!important;padding:4px 18px!important}
-    #centerBar #lvlText{font-size:10px}
-    #centerBar #keyLine{font-size:10px}
-
-    /* minimap réduite, ancrée en haut à droite (la navigation a quitté le bord) */
-    #miniWrap{right:var(--mR);top:var(--mT)}
-    #mini{width:104px!important;height:104px!important}
-    #miniLbl{font-size:8px}
-
-    /* textes et panneaux resserrés */
-    #topLeft{font-size:10px;line-height:1.3}
-    #hint{display:none}
-    #buildTag{display:none}
-    #charPanel{width:min(320px,60vw);height:calc(100% - var(--mT) - var(--mB) - 16px);top:auto;
-      bottom:var(--mB);transform:none}
-    .panel{max-height:calc(100% - var(--mT) - var(--mB) - 12px);overflow:auto}
-  }
+  
   .slot{width:52px;height:52px;border:2px solid #2a3350;border-radius:8px;background:#0e1424;
     display:flex;align-items:center;justify-content:center;position:relative;
     box-shadow:inset 0 0 10px rgba(0,0,0,.6);pointer-events:auto;cursor:pointer}
@@ -301,6 +248,88 @@ canvas#game{touch-action:none}
 .resIco{width:16px;height:16px;vertical-align:-3px;image-rendering:pixelated}
 .gi{display:inline-block;width:14px;height:14px;vertical-align:-3px;background-size:contain;background-repeat:no-repeat;background-position:center;image-rendering:pixelated}
 .gi.g16{width:16px;height:16px}
+
+
+  /* ============================================================
+     PROFILS DE MISE EN PAGE — PLACÉS EN DERNIER, VOLONTAIREMENT.
+     Une media query n'ajoute aucune spécificité : à sélecteur égal,
+     c'est l'ordre qui tranche. Placés plus haut, ces blocs étaient
+     écrasés par les règles racine de #actBar, .abtn, #topLeft et de la minimap.
+     ============================================================ */
+@media (max-height:640px) and (min-height:521px){
+    #tabBar{gap:3px}
+    #actBar{bottom:calc(var(--mB) + var(--orb) + 20px)}
+  }
+
+  /* ============ PROFIL COMPACT — iPhone en paysage ============
+     393 points de haut : l'arc de sorts (289 px) et la colonne de navigation
+     (301 px) n'y tiennent pas. On passe en grilles 2x2 et en rangée de navigation. */
+  @media (max-height:520px){
+    :root{--orb:92px; --slot:44px; --nav:46px; --act:40px; --mT:max(6px,var(--sa-t)); --mB:max(6px,var(--sa-b))}
+    .orb .lbl{font-size:10px}
+
+    /* navigation : rangée horizontale en haut à gauche, sous le bloc d'infos */
+    #tabBar{top:auto;right:auto;left:var(--mL);bottom:calc(var(--mB) + var(--orb) + 16px);
+      flex-direction:row;gap:4px}
+    .tab{width:46px!important;padding:4px 2px 3px!important;font-size:0;line-height:0;gap:0}
+    .tab .ti{font-size:17px;width:22px;height:22px}
+    .tab .tk{font-size:8px;line-height:9px}
+    .tab .qbadge{top:-4px;right:2px}
+
+    /* sorts : grille 2x2 à droite de l'orbe de mana */
+    #skillBar{width:100px;height:100px;bottom:var(--mB);
+      right:calc(var(--mR) + var(--orb) + 12px)}
+    #skillBar .slot{width:var(--slot);height:var(--slot)}
+    #skillBar .slot:nth-child(1){right:56px;bottom:56px}
+    #skillBar .slot:nth-child(2){right:0;bottom:56px}
+    #skillBar .slot:nth-child(3){right:56px;bottom:0}
+    #skillBar .slot:nth-child(4){right:0;bottom:0}
+    #skillBar .slot .cd{font-size:13px}
+
+    /* consommables : grille 2x2 à droite de l'orbe de vie */
+    #actBar{left:calc(var(--mL) + var(--orb) + 12px);bottom:var(--mB);
+      flex-direction:row;flex-wrap:wrap;width:88px;gap:4px}
+    .abtn{width:var(--act)!important;height:var(--act)!important;font-size:18px}
+    .abtn img{width:22px!important;height:22px!important}
+
+    /* XP : bandeau fin centré, entre les deux grappes */
+    #centerBar{width:min(300px,30vw);gap:1px}
+    #centerBar #xpWrap{min-width:150px;height:18px!important;padding:4px 18px!important}
+    #centerBar #lvlText{font-size:10px}
+    #centerBar #keyLine{font-size:10px}
+
+    /* Minimap : réduite et translucide pour ne plus manger l'écran ni cacher le jeu.
+       Elle redevient opaque au toucher. */
+    #miniWrap{right:var(--mR);top:var(--mT);opacity:.5;transition:opacity .18s;
+      pointer-events:auto;border-width:9px!important}
+    #miniWrap:active,#miniWrap:hover{opacity:1}
+    #mini{width:78px!important;height:78px!important}
+    #miniLbl{display:none}
+
+    /* textes et panneaux resserrés */
+    #topLeft{font-size:10px;line-height:1.3;max-width:42vw}
+    #zoneName{font-size:13px!important}
+    #hint{display:none}
+    #buildTag{display:none}
+    /* Panneaux : un seul à l'écran, centré, jamais plus haut que la zone sûre. */
+    .panel{left:50%!important;right:auto!important;top:var(--mT)!important;bottom:auto!important;
+      transform:translateX(-50%)!important;
+      width:min(600px,86vw)!important;
+      max-height:calc(100% - var(--mT) - var(--mB))!important;
+      overflow:auto;padding:10px 12px!important;font-size:12px}
+    .panel h2{font-size:14px!important;margin:0 0 6px!important}
+    #charPanel{height:calc(100% - var(--mT) - var(--mB))!important;overflow:hidden!important;
+      width:min(360px,78vw)!important}
+    /* 6 colonnes de 44 + 5 écarts de 4 = 284 px de grille : 420 suffit largement */
+    #invPanel{width:min(420px,80vw)!important}
+    #dialoguePanel{width:min(460px,82vw)!important}
+    #shopPanel,#stashPanel{width:min(520px,86vw)!important}
+    .cell{width:44px!important;height:44px!important}
+    #invGrid{gap:4px!important}
+    .eqSlot{padding:4px 6px!important;font-size:11px}
+    .statRow{padding:3px 0!important}
+    .closeX{width:30px;height:30px;line-height:26px}
+  }
 </style>
 </head>
 <body>
@@ -3154,7 +3183,16 @@ function toggleFullMap(){
 /* ---------------- HUD ---------------- */
 let toastTimer=0;
 function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t||1.5;}
-const BUILD='v6.8 iOS — '+'2026-07-27';
+/* Prévisualisation sans appareil : ?safe=gauche,droite,haut,bas force les safe areas.
+   Exemple iPhone 15 en paysage : ?safe=59,59,0,21 — sans ce paramètre, rien ne change. */
+(function(){try{
+  const m=/[?&]safe=([\d.]+),([\d.]+),([\d.]+),([\d.]+)/.exec(location.search);
+  if(!m)return;
+  const r=document.documentElement.style;
+  r.setProperty('--sa-l',m[1]+'px'); r.setProperty('--sa-r',m[2]+'px');
+  r.setProperty('--sa-t',m[3]+'px'); r.setProperty('--sa-b',m[4]+'px');
+}catch(e){}})();
+const BUILD='v7.1 iOS — '+'2026-07-27';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   {const _bv=document.getElementById('buildTag');if(_bv&&!_bv._set){_bv.textContent='build '+BUILD;_bv._set=1;}}
@@ -3575,10 +3613,14 @@ function openDialogue(npc){
   if(typeof updateTabs==='function')updateTabs();
 }
 const _showMode=id=>(id==='charPanel'?'flex':'block');
+/* Sur un écran court (iPhone en paysage), ouvrir Perso ET Sac côte à côte
+   masque tout le jeu et tronque les deux. On n'en ouvre qu'un. */
+const ECRAN_COURT=()=>{try{return matchMedia('(max-height:520px)').matches;}catch(e){return false;}};
 function togglePanel(id){const el=document.getElementById(id);const open=el.style.display&&el.style.display!=='none';
   closeAllPanels();if(!open){el.style.display=_showMode(id);
-    if(id==='invPanel'){renderInventory();document.getElementById('charPanel').style.display='flex';}
-    if(id==='charPanel'){document.getElementById('invPanel').style.display='block';renderInventory();setCharTab(charTab||'eq');}
+    const _duo=!ECRAN_COURT();
+    if(id==='invPanel'){renderInventory();if(_duo)document.getElementById('charPanel').style.display='flex';}
+    if(id==='charPanel'){if(_duo)document.getElementById('invPanel').style.display='block';renderInventory();setCharTab(charTab||'eq');}
     if(id==='skillPanel')renderSkillPanel();if(id==='treePanel')renderTree();if(id==='questPanel'){questNew=0;updateQuestBadge();renderQuests();}refreshHud();}
   if(typeof updateTabs==='function')updateTabs();}
 /* Onglets internes du panneau Perso : chaque section tient dans la hauteur fixe. */
@@ -4056,7 +4098,17 @@ function applyUISkin(){
   '.tab[data-act="questPanel"] .ti{background-image:url('+U.tTree+')}'+
   '.tab[data-act="music"] .ti{background-image:url('+U.tSound+');opacity:.45}'+
   '.tab.on[data-act="music"] .ti{opacity:1}'+
-  '.resIco{display:inline-block;width:16px;height:16px;background-size:100% 100%;vertical-align:-3px}'+'#miniWrap{border:20px solid transparent!important;border-image:url('+U.panel+') 70 / 20px stretch!important;background:#0a0e18!important;padding:0!important}';
+  '.resIco{display:inline-block;width:16px;height:16px;background-size:100% 100%;vertical-align:-3px}'+'#miniWrap{border:20px solid transparent!important;border-image:url('+U.panel+') 70 / 20px stretch!important;background:#0a0e18!important;padding:0!important}'+
+  /* Profil compact : ces règles sont injectées EN DERNIER, donc elles l'emportent
+     sur le reste du skin, qui impose sinon des tailles en !important. */
+  '@media (max-height:520px){'+
+    '#miniWrap{border-width:9px!important;opacity:.5}'+
+    '#miniWrap:active{opacity:1}'+
+    '#xpWrap{height:16px!important;padding:3px 14px!important}'+
+    '.abtn{width:40px!important;height:40px!important}'+
+    '#actBar .abtn img{width:22px!important;height:22px!important}'+
+    '.tab .ti{width:20px!important;height:20px!important}'+
+  '}';
   const st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
   ['hpOrb','mpOrb'].forEach(function(id){const o=document.getElementById(id);if(!o)return;
     const f=o.querySelector('.fill');
