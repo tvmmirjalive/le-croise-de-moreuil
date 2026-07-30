@@ -250,7 +250,7 @@ canvas#game{touch-action:none}
       <div id="resLine"><span class="gi g16"></span> <b id="hGold">0</b> &nbsp;<img id="rIcoFrag" class="resIco"> <b id="hFrags">0</b> &nbsp;<img id="rIcoPot" class="resIco"> <b id="hPot">0</b> &nbsp;<img id="rIcoMana" class="resIco"> <b id="hMana">0</b> &nbsp;<img id="rIcoScroll" class="resIco"> <b id="hScrolls">0</b></div>
     </div>
 
-    <div id="hint">Clic : <b>marcher / frapper</b> · <b>1-4</b> skills · <b>I</b> sac · <b>S</b> skills · <b>M</b> carte · <b>Espace</b> soin · <b>A</b> mana · <b>R</b> portail · <b>P</b> pause · <b>E/D</b> équiper/démonter</div>
+    <div id="hint">Clic : <b>marcher / frapper</b> · <b>1-4</b> skills · <b>I</b> sac · <b>S</b> skills · <b>M</b> carte · <b>Espace</b> soin · <b>A</b> mana · <b>R</b> portail · <b>P</b> pause · <b>B</b> coffre · <b>E/D</b> équiper/démonter</div>
     <div id="toast"></div>
     <div id="pauseOv">⏸ PAUSE<br><span style="font-size:13px;color:#9fb0d6">P pour reprendre</span></div>
 
@@ -1204,16 +1204,15 @@ function selectSkill(s){
 const mouse={x:0,y:0};
 cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;});
 cv.addEventListener('mousedown',e=>{if(!running)return;const r=cv.getBoundingClientRect();
-  const mx=e.clientX-r.left,my=e.clientY-r.top;let wx,wy;
-  if(level&&ISO){const a=2*(mx-isoOX)/ISO_TW,b=2*(my-isoOY)/ISO_TH;wx=((a+b)/2)*TS;wy=((b-a)/2)*TS;}
-  else{wx=mx+cam.x;wy=my+cam.y;}
-  onClick(wx,wy);});
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  const w=screenToWorld(mx,my);
+  onClick(w.x,w.y);});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 /* ================= SUPPORT TABLETTE (paysage) ================= */
 const IS_TOUCH=(('ontouchstart' in window)||navigator.maxTouchPoints>0);
 function screenToWorld(mx,my){
-  if(level&&typeof ISO!=='undefined'&&ISO){const a=2*(mx-isoOX)/ISO_TW,b=2*(my-isoOY)/ISO_TH;return{x:((a+b)/2)*TS,y:((b-a)/2)*TS};}
-  return {x:mx+cam.x,y:my+cam.y};
+  const a=2*(mx-isoOX)/ISO_TW, b=2*(my-isoOY)/ISO_TH;
+  return {x:((a+b)/2)*TS, y:((b-a)/2)*TS};
 }
 // tap = viser + agir ; maintien = marcher en continu
 let _touchHold=null,_touchMoved=false;
@@ -1260,10 +1259,7 @@ function bindLongPress(el,it,equipped){
   cv.style.width=W+'px';cv.style.height=H+'px';ctx.setTransform(d,0,0,d,0,0);};resize();})();
 
 // position MONDE sous le curseur (inverse iso si vue iso, sinon top-down)
-function mouseWorld(){
-  if(level&&typeof ISO!=='undefined'&&ISO){const a=2*(mouse.x-isoOX)/ISO_TW,b=2*(mouse.y-isoOY)/ISO_TH;return{x:((a+b)/2)*TS,y:((b-a)/2)*TS};}
-  return {x:mouse.x+cam.x,y:mouse.y+cam.y};
-}
+function mouseWorld(){ return screenToWorld(mouse.x,mouse.y); }
 
 function _walkNear(tx,ty){
   if(walkableCode(level.grid[idx(level.w,tx,ty)]))return{x:tx*TS+TS/2,y:ty*TS+TS/2};
@@ -1338,7 +1334,6 @@ addEventListener('keydown',e=>{
   else if(k==='a')useManaPotion();else if(k==='b')toggleStash();
   else if(k==='p'){paused=!paused;document.getElementById('pauseOv').style.display=paused?'flex':'none';}
   else if(k==='r')usePortal();
-  else if(k==='v'){ISO=!ISO;toast('Vue '+(ISO?'isométrique':'de dessus'),1.5);}
   else if(k==='e'){if(document.getElementById('invPanel').style.display==='block'&&invSel>=0&&inventory[invSel])equipItem(invSel);}
   else if(k==='d'){if(document.getElementById('invPanel').style.display==='block'&&invSel>=0&&inventory[invSel])salvageItem(invSel);}
   else if(k==='escape'){closeAllPanels();document.getElementById('fullmap').style.display='none';}
@@ -1935,15 +1930,14 @@ function updateZones(dt){
 }
 function drawZones(){
   const Z=level&&level.zones; if(!Z||!Z.length)return;
-  const cvt=(wx,wy)=>{ if(typeof ISO!=='undefined'&&ISO&&level&&level.kind!=='none'){
-      const fx=wx/TS,fy=wy/TS;return{x:(fx-fy)*(ISO_TW/2)+isoOX,y:(fx+fy)*(ISO_TH/2)+isoOY};}
-    return{x:wx-cam.x,y:wy-cam.y};};
+  const cvt=(wx,wy)=>{const fx=wx/TS,fy=wy/TS;
+    return{x:(fx-fy)*(ISO_TW/2)+isoOX,y:(fx+fy)*(ISO_TH/2)+isoOY};};
   ctx.save();
   for(const z of Z){
     const p=cvt(z.x,z.y);
     const grow=Math.min(1,z.t/Math.max(0.01,z.delay));
     const after=z.t>z.delay?(z.t-z.delay)/(z.dur-z.delay):0;
-    const rx=z.r*(typeof ISO!=='undefined'&&ISO?1:1), ry=z.r*(typeof ISO!=='undefined'&&ISO?0.5:1);
+    const rx=z.r, ry=z.r*0.5;   /* losange iso */
     if(!z.hit){
       ctx.globalAlpha=0.18+0.22*grow;
       ctx.fillStyle=z.col;
@@ -2244,7 +2238,7 @@ function followPath(st,dt){
    RENDER
    ================================================================ */
 /* ============ VUE ISOMÉTRIQUE (tout le jeu) ============ */
-let ISO=true; const ISO_TW=64, ISO_TH=32, ISO_WH=42; let isoOX=0, isoOY=0;
+const ISO=true; const ISO_TW=64, ISO_TH=32, ISO_WH=42; let isoOX=0, isoOY=0;   /* vue unique */
 function isoShade(hex,amt){let c=(hex||'#444').replace('#','');if(c.length===3)c=c.split('').map(x=>x+x).join('');
   let r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);
   const f=v=>Math.max(0,Math.min(255,v+amt));return 'rgb('+f(r)+','+f(g)+','+f(b)+')';}
@@ -2421,7 +2415,9 @@ function renderIso(){
     ctx.fillStyle='#e8ecf6';ctx.font='bold 30px Trebuchet MS';ctx.fillText(banner.text,W/2,H*0.34+8);
     if(banner.sub){ctx.fillStyle='#f4d35e';ctx.font='15px Trebuchet MS';ctx.fillText(banner.sub,W/2,H*0.34+34);}
     ctx.textAlign='left';ctx.globalAlpha=1;}
-  ctx.fillStyle='rgba(230,236,246,0.55)';ctx.font='12px Trebuchet MS';ctx.textAlign='left';ctx.fillText('Vue iso — V pour basculer',12,H-14);
+  /* Le rappel « V : vue » était dessiné sur le canvas en bas à gauche, donc sous
+     l'orbe de vie. Aucune position n'y est sûre : la barre d'XP se recentre selon
+     la largeur. Il vit désormais dans la ligne de rappels HTML, avec les autres touches. */
   if(level&&level.arena)drawArenaHud();
   drawZones();
   if(level&&level.relic)drawRelic();
@@ -2430,40 +2426,10 @@ function renderIso(){
 }
 
 function render(){
+  /* Le jeu est isométrique, sans alternative : la vue de dessus a été retirée. */
   ctx.clearRect(0,0,W,H);
-  if(!level){return;}
-  if(ISO){renderIso();return;}
-  drawTiles();
-  if(level.chests)for(const ch of level.chests)drawChest(ch);
-  if(level.caves)for(const cv of level.caves)drawCaveEntrance(cv);
-  if(level.shrines)for(const sh of level.shrines)drawShrine(sh);
-  if(level.breakables)for(const bk of level.breakables)drawBreakable(bk);
-  if(level.npcs)for(const npc of level.npcs)drawNpc(npc);
-  for(const d of level.drops)drawDrop(d);
-  for(const en of level.enemies)if(en._visible)drawEnemy(en);
-  for(const p of projectiles){const sx=p.x-cam.x,sy=p.y-cam.y;
-    ctx.beginPath();ctx.fillStyle=p.col;ctx.shadowBlur=14;ctx.shadowColor=p.col;
-    ctx.arc(sx,sy,p.r,0,6.28);ctx.fill();ctx.shadowBlur=0;}
-  drawPlayer();
-  for(const q of particles){const sx=q.x-cam.x,sy=q.y-cam.y;
-    ctx.globalAlpha=clamp(1-q.t/q.life,0,1);ctx.fillStyle=q.col;ctx.fillRect(sx-2,sy-2,4,4);ctx.globalAlpha=1;}
-  ctx.textAlign='center';
-  for(const f of floaters){ctx.globalAlpha=clamp(1-f.t/f.life,0,1);ctx.fillStyle=f.col;
-    ctx.font='bold '+(f.big?17:15)+'px Trebuchet MS';ctx.fillText(f.txt,f.x-cam.x,f.y-cam.y);ctx.globalAlpha=1;}
-  ctx.textAlign='left';
-  if(level.boss&&level.enemies.indexOf(level.boss)>=0&&level.boss.aggro)drawBossBar();
-  if(player.buffT>0){ctx.fillStyle=player.buffType==='power'?'#ff7a5a':'#7fd0ff';ctx.font='bold 13px Trebuchet MS';ctx.textAlign='center';ctx.fillText((player.buffType==='power'?'⚔ Puissance ':'➤ Célérité ')+Math.ceil(player.buffT)+'s',W/2,86);ctx.textAlign='left';}
-  if(banner.t>0){let al=1;if(banner.t>2.4)al=(2.8-banner.t)/0.4;else if(banner.t<0.6)al=banner.t/0.6;
-    ctx.globalAlpha=clamp(al,0,1);ctx.textAlign='center';
-    ctx.fillStyle='#05070d';ctx.fillRect(0,H*0.30,W,72);
-    ctx.fillStyle='#e8ecf6';ctx.font='bold 30px Trebuchet MS';ctx.fillText(banner.text,W/2,H*0.34+8);
-    if(banner.sub){ctx.fillStyle='#f4d35e';ctx.font='15px Trebuchet MS';ctx.fillText(banner.sub,W/2,H*0.34+34);}
-    ctx.textAlign='left';ctx.globalAlpha=1;}
-  if(level&&level.arena)drawArenaHud();
-  drawZones();
-  if(level&&level.relic)drawRelic();
-  drawArenaBanner();
-  drawMinimap();
+  if(!level)return;
+  renderIso();
 }
 
 function drawTiles(){
@@ -3122,7 +3088,7 @@ function toggleFullMap(){
 /* ---------------- HUD ---------------- */
 let toastTimer=0;
 function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t||1.5;}
-const BUILD='v6.5 — '+'2026-07-27';
+const BUILD='v6.7 — '+'2026-07-27';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   {const _bv=document.getElementById('buildTag');if(_bv&&!_bv._set){_bv.textContent='build '+BUILD;_bv._set=1;}}
