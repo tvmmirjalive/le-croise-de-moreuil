@@ -209,9 +209,10 @@
     background:rgba(6,10,20,.75);font-size:11px;line-height:1.45;overflow:auto;min-height:0}
   #invFiche.on{display:block}
   #invFiche .tname{font-weight:bold;font-size:12.5px;margin-bottom:2px}
-  #invPanel{display:flex;flex-direction:column}
-  #invPanel #invGrid,#invPanel #invActions,#invPanel #invAide{flex:0 0 auto}
+  #invPanel{flex-direction:column;max-height:min(86vh,760px);box-sizing:border-box}
+  #invPanel > h2,#invPanel #invGrid,#invPanel #invActions,#invPanel #invAide{flex:0 0 auto}
   #invPanel #invFiche.on{flex:1 1 auto}
+  #invPanel > .closeX{position:absolute;top:8px;right:10px;float:none;margin:0}
   #invActions{display:flex;gap:6px;margin-top:8px;min-height:30px}
   #invActions button{pointer-events:auto;flex:1;font-size:11px;padding:5px 4px;border-radius:5px;
     border:1px solid #3a4a72;background:#1b2440;color:#cdd6e6;cursor:pointer}
@@ -444,7 +445,7 @@ canvas#game{touch-action:none}
       <div id="invGrid"></div>
       <div id="invFiche"></div>
       <div id="invActions"></div>
-      <div id="invAide" style="font-size:10px;color:#6b789c;margin-top:6px">Clic sur un objet → équiper / démonter (❄ fragments) / jeter.</div>
+      <div id="invAide" style="font-size:10px;color:#6b789c;margin-top:6px">Touche un objet : ses stats s'affichent ci-dessus, puis équiper / démonter (❄) / jeter.</div>
     </div>
 
     <div class="panel" id="charPanel">
@@ -1484,7 +1485,7 @@ setInterval(()=>{ if(!running||!_tHold||player.attackTarget)return;
 function bindLongPress(el,it,equipped){
   if(!IS_TOUCH)return; let tid=null;
   el.addEventListener('touchstart',ev=>{const t=ev.touches[0];
-    tid=setTimeout(()=>{showTip({clientX:t.clientX,clientY:t.clientY},it,equipped);},380);},{passive:true});
+    tid=setTimeout(()=>{showTip({clientX:t.clientX,clientY:t.clientY},it,equipped,true);},380);},{passive:true});
   const cancel=()=>{if(tid){clearTimeout(tid);tid=null;}};
   el.addEventListener('touchend',()=>{cancel();setTimeout(hideTip,2600);},{passive:true});
   el.addEventListener('touchcancel',cancel,{passive:true});
@@ -1772,18 +1773,21 @@ const SAC_PART_OR=0.5;      // moitié du pécule
 
 function sacZoneCourante(){
   if(!level)return null;
-  if(level.arena)return{zone:'village',act:-1};                       // la Fosse n'existe plus après coup
+  if(level.arena)return null;   // la Fosse a ses propres règles : voir deposerSacMort
   if(level.kind==='act')return{zone:'act',act:level.actNum};
   if(level.kind==='cave'&&level.parent&&level.parent.lvl&&level.parent.lvl.actNum!=null)
     return{zone:'act',act:level.parent.lvl.actNum};                   // la grotte peut être régénérée : on remonte à l'acte
   return{zone:'village',act:-1};
 }
 function deposerSacMort(){
+  /* LA FOSSE EST UNE MORT FACTICE. La règle y est fixée depuis longtemps :
+     on ne perd QUE le butin du run, tenu à part dans A.bag, et arenaLeave(false)
+     s'en charge. Ni le sac, ni l'or, ni l'équipement ne bougent. Aucun sac de
+     mort n'est déposé ici — sinon la Fosse punirait deux fois. */
+  if(level&&level.arena)return;
   const z=sacZoneCourante(); if(!z)return;
   let x=player.x,y=player.y;
   if(level.kind==='cave'&&level.parent){x=level.parent.tx*TS+TS/2;y=level.parent.ty*TS+TS/2;}
-  if(z.zone==='village'&&level.kind!=='village'&&village&&village.spawn){
-    x=village.spawn[0]*TS+TS/2;y=village.spawn[1]*TS+TS/2;}
   const objets=inventory.splice(0,inventory.length);
   let or=Math.floor((player.gold||0)*SAC_PART_OR);
   player.gold=Math.max(0,(player.gold||0)-or);
@@ -3891,7 +3895,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.5 — '+'2026-08-01';
+const BUILD='v8.6 — '+'2026-08-01';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   if(typeof majRappelSac==='function')majRappelSac();
@@ -4031,20 +4035,27 @@ function updateSkillBar(){
   }
 }
 let invSel=-1;
+/* Un seul chemin de sélection, pour que la fiche et les boutons ne puissent
+   jamais se désynchroniser. */
+function selectionnerObjet(i){
+  invSel=(invSel===i?-1:i);
+  hideTip();
+  renderInventory();
+}
 function renderInventory(){
   const g=document.getElementById('invGrid');g.innerHTML='';
   if(invSel>=inventory.length)invSel=-1;
   for(let i=0;i<INV_MAX;i++){const cell=document.createElement('div');cell.className='cell'+(i===invSel?' sel':'');
     const it=inventory[i];
     if(it){setCellIcon(cell,it);cell.style.boxShadow='inset 0 0 0 2px '+(i===invSel?'#f4d35e':RAR[it.rarity].col);
-      cell.onclick=()=>{invSel=(invSel===i?-1:i);renderInventory();};
+      cell.onclick=()=>selectionnerObjet(i);
       cell.oncontextmenu=e=>{e.preventDefault();if(needsId(it)){hideTip();identifyItem(it);}else toast('Objet déjà identifié',1);return false;};
       if(IS_TOUCH&&needsId(it)){let _lt=0;
         cell.addEventListener('touchend',()=>{const t=Date.now();
           if(t-_lt<340){hideTip();identifyItem(it);_lt=0;}else _lt=t;},{passive:true});}
-      /* Pas de maintien-long ici : au doigt, la fiche s'affiche dans l'encart du
+      /* Ni maintien-long ni survol au doigt : la fiche vit dans l'encart du
          panneau. La bulle flottante reste réservée à la souris. */
-      cell.onmouseenter=e=>showTip(e,it);cell.onmousemove=moveTip;cell.onmouseleave=hideTip;}
+      if(!IS_TOUCH){cell.onmouseenter=e=>showTip(e,it);cell.onmousemove=moveTip;cell.onmouseleave=hideTip;}}
     g.appendChild(cell);}
   renderFicheObjet();
   renderInvActions();
@@ -4353,7 +4364,12 @@ function itemHTML(it,equipped){
   html+=`<div style="color:#6b789c;font-size:10px;margin-top:5px">Vente : <span class="gi"></span>${sellValue(it)} · Démontage : ❄${salvageValue(it)}</div>`;
   html+=`<div style="color:#6b789c;font-size:10px">${equipped?'Clic pour retirer':'Clic pour sélectionner'}</div>`;
   return html;}
-function showTip(e,it,equipped){
+/* Au doigt, un simple appui déclenche aussi mouseenter/mousemove : la bulle
+   surgissait sous le pouce et recouvrait la zone de stats du sac. Elle ne
+   s'affiche plus que par un geste explicite (maintien long), et jamais dans le
+   sac, qui a désormais son encart dédié. */
+function showTip(e,it,equipped,forcer){
+  if(IS_TOUCH&&!forcer)return;
   tip.innerHTML=itemHTML(it,equipped);tip.style.display='block';moveTip(e);}
 function moveTip(e){tip.style.left=Math.min(e.clientX+14,innerWidth-250)+'px';tip.style.top=Math.min(e.clientY+14,innerHeight-160)+'px';}
 function hideTip(){tip.style.display='none';}
@@ -4441,7 +4457,10 @@ function openDialogue(npc){
   document.getElementById('dialoguePanel').style.display='block';
   if(typeof updateTabs==='function')updateTabs();
 }
-const _showMode=id=>(id==='charPanel'?'flex':'block');
+/* charPanel ET invPanel sont des conteneurs flex à défilement interne : leur
+   pied (Équiper / Démonter / Jeter) doit rester visible quoi qu'il arrive.
+   Avec display:block, la fiche d'objet poussait les boutons hors du panneau. */
+const _showMode=id=>((id==='charPanel'||id==='invPanel')?'flex':'block');
 /* Ouvrir les Paramètres suspend la partie : d'une pierre deux coups, le bouton
    sert aussi de pause. On mémorise si la pause était déjà active pour ne pas
    la lever au mauvais moment. */
@@ -4459,7 +4478,7 @@ function togglePanel(id){const el=document.getElementById(id);const open=el.styl
   closeAllPanels();if(!open){el.style.display=_showMode(id);
     const _duo=!ECRAN_COURT();
     if(id==='invPanel'){renderInventory();if(_duo)document.getElementById('charPanel').style.display='flex';}
-    if(id==='charPanel'){if(_duo)document.getElementById('invPanel').style.display='block';renderInventory();setCharTab(charTab||'eq');updateBadges();}
+    if(id==='charPanel'){if(_duo)document.getElementById('invPanel').style.display=_showMode('invPanel');renderInventory();setCharTab(charTab||'eq');updateBadges();}
     if(id==='skillPanel')renderSkillPanel();if(id==='optPanel'){renderOptions();pauseOptions(true);}if(id==='treePanel')renderTree();if(id==='questPanel'){questNew=0;updateQuestBadge();renderQuests();}refreshHud();}
   if(typeof updateTabs==='function')updateTabs();}
 /* Onglets internes du panneau Perso : chaque section tient dans la hauteur fixe. */
