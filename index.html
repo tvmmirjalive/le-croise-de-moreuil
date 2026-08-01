@@ -179,11 +179,13 @@
   #treeInfo{margin-top:8px;font-size:12px;color:#cbd5f0;min-height:32px;line-height:1.5}
   #resLine{font-size:12px;color:#cdd6e6;margin-top:2px}
   #questPanel{max-height:80vh;overflow:auto}
-  #invPanel{width:392px}
+  /* largeur définie plus bas avec la mise en deux colonnes */
   #stashPanel{max-height:84vh;overflow:auto}
   .panel h2{font-size:15px;color:#f4d35e;margin-bottom:10px;letter-spacing:1px;padding-right:34px;
     border-bottom:1px solid #2a3350;padding-bottom:6px}
-  #invGrid{display:grid;grid-template-columns:repeat(6,44px);gap:5px}
+  /* Les colonnes suivent la taille réelle des cases : la piste était figée à
+     44 px alors que .cell passe à 52 px sur tablette, et les cases débordaient. */
+  #invGrid{display:grid;grid-template-columns:repeat(6,auto);justify-content:start;gap:5px}
   .cell{width:44px;height:44px;border:1px solid #232c44;border-radius:5px;background:#0d1322;
     display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;position:relative}
   .cell:hover{border-color:#5ec8ff}
@@ -202,16 +204,19 @@
   .shopItem button{pointer-events:auto;font-size:11px;padding:3px 9px;border-radius:5px;
     border:1px solid #3a4a72;background:#1b2440;color:#5ec8ff;cursor:pointer;white-space:nowrap}
   .shopItem button:disabled{opacity:.3;cursor:default}
-  /* Fiche de l'objet sélectionné, DANS le panneau. Elle repousse les boutons au
-     lieu de les recouvrir : au doigt, la bulle flottante tombait exactement
-     dessus et rendait Équiper / Démonter inatteignables. */
-  #invFiche{display:none;margin-top:8px;padding:8px 10px;border:1px solid #2a3350;border-radius:7px;
-    background:rgba(6,10,20,.75);font-size:11px;line-height:1.45;overflow:auto;min-height:0}
-  #invFiche.on{display:block}
-  #invFiche .tname{font-weight:bold;font-size:12.5px;margin-bottom:2px}
-  #invPanel{flex-direction:column;max-height:min(86vh,760px);box-sizing:border-box}
-  #invPanel > h2,#invPanel #invGrid,#invPanel #invActions,#invPanel #invAide{flex:0 0 auto}
-  #invPanel #invFiche.on{flex:1 1 auto}
+  /* Deux colonnes : la grille à gauche, la fiche de l'objet À DROITE.
+     Empilée sous la grille, la fiche n'avait qu'une ligne de haut sur téléphone —
+     illisible. Sur le côté, elle récupère toute la hauteur du panneau. */
+  #invCorps{display:flex;gap:10px;align-items:stretch;flex:1 1 auto;min-height:0;margin-top:4px}
+  #invGrid{align-self:flex-start}
+  #invFiche{flex:1 1 auto;min-width:0;min-height:0;overflow:auto;
+    padding:8px 10px;border:1px solid #2a3350;border-radius:7px;
+    background:rgba(6,10,20,.75);font-size:11.5px;line-height:1.5}
+  #invFiche .tname{font-weight:bold;font-size:13px;margin-bottom:3px}
+  #invFiche .vide{color:#6b789c;font-size:11px}
+  #invPanel{flex-direction:column;max-height:min(86vh,760px);box-sizing:border-box;
+    width:min(640px,94vw)}
+  #invPanel > h2,#invPanel #invActions,#invPanel #invAide{flex:0 0 auto}
   #invPanel > .closeX{position:absolute;top:8px;right:10px;float:none;margin:0}
   #invActions{display:flex;gap:6px;margin-top:8px;min-height:30px}
   #invActions button{pointer-events:auto;flex:1;font-size:11px;padding:5px 4px;border-radius:5px;
@@ -382,9 +387,11 @@ canvas#game{touch-action:none}
       width:min(360px,78vw)!important}
     /* 6 colonnes de 44 + 5 écarts de 4 = 284 px de grille : 420 suffit largement */
     /* Le sac pilote son propre défilement : sinon le panneau entier défile et la
-       rangée Équiper / Démonter sort de l'écran dès que la fiche est ouverte. */
-    #invPanel{width:min(420px,80vw)!important;overflow:hidden!important}
-    #invFiche{max-height:40vh;font-size:11px}
+       rangée Équiper / Démonter sort de l'écran dès que la fiche est ouverte.
+       Largeur : 284 px de grille (6 x 44 + 5 x 4) + la colonne de la fiche. */
+    #invPanel{width:min(580px,94vw)!important;overflow:hidden!important}
+    #invCorps{gap:8px}
+    #invFiche{font-size:11px}
     #dialoguePanel{width:min(460px,82vw)!important}
     #shopPanel,#stashPanel{width:min(520px,86vw)!important}
     .cell{width:44px!important;height:44px!important}
@@ -442,8 +449,10 @@ canvas#game{touch-action:none}
 
     <div class="panel" id="invPanel">
       <h2>SAC — <span id="potCount">3</span><img id="icoPot" style="width:14px;height:14px;vertical-align:-2px"> · <span id="manaCount">2</span><img id="icoMana" style="width:14px;height:14px;vertical-align:-2px"> · <span style="color:#f4d35e"><span class="gi"></span><span id="invGold">0</span></span> · <img id="icoShard" style="width:13px;height:13px;vertical-align:-2px"><span id="invFrags" style="color:#7dd0ff">0</span> · <img id="icoScroll" style="width:14px;height:14px;vertical-align:-2px"><span id="invScrolls" style="color:#ffd35e">0</span></h2>
-      <div id="invGrid"></div>
-      <div id="invFiche"></div>
+      <div id="invCorps">
+        <div id="invGrid"></div>
+        <div id="invFiche"></div>
+      </div>
       <div id="invActions"></div>
       <div id="invAide" style="font-size:10px;color:#6b789c;margin-top:6px">Touche un objet : ses stats s'affichent ci-dessus, puis équiper / démonter (❄) / jeter.</div>
     </div>
@@ -3895,7 +3904,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.6 — '+'2026-08-01';
+const BUILD='v8.7 — '+'2026-08-01';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   if(typeof majRappelSac==='function')majRappelSac();
@@ -4065,7 +4074,9 @@ function renderInventory(){
 function renderFicheObjet(){
   const f=document.getElementById('invFiche');if(!f)return;
   const it=inventory[invSel];
-  if(!it){f.className='';f.innerHTML='';return;}
+  if(!it){f.className='';
+    f.innerHTML='<div class="vide">Touche un objet du sac pour voir ses caractéristiques ici.</div>';
+    return;}
   f.className='on';f.innerHTML=itemHTML(it,false);
 }
 function salvageAllRarity(rar){
@@ -4474,9 +4485,13 @@ function pauseOptions(actif){
 /* Sur un écran court (iPhone en paysage), ouvrir Perso ET Sac côte à côte
    masque tout le jeu et tronque les deux. On n'en ouvre qu'un. */
 const ECRAN_COURT=()=>{try{return matchMedia('(max-height:520px)').matches;}catch(e){return false;}};
+/* Sac + Perso côte à côte : le sac est passé à deux colonnes et fait jusqu'à
+   640 px. En dessous de 1110 px de large, les deux panneaux se recouvriraient —
+   on n'en montre alors qu'un seul. 344 (Perso) + 640 (Sac) + navigation + marges. */
+const ECRAN_ETROIT=()=>{try{return matchMedia('(max-width:1109px)').matches;}catch(e){return false;}};
 function togglePanel(id){const el=document.getElementById(id);const open=el.style.display&&el.style.display!=='none';
   closeAllPanels();if(!open){el.style.display=_showMode(id);
-    const _duo=!ECRAN_COURT();
+    const _duo=!ECRAN_COURT()&&!ECRAN_ETROIT();
     if(id==='invPanel'){renderInventory();if(_duo)document.getElementById('charPanel').style.display='flex';}
     if(id==='charPanel'){if(_duo)document.getElementById('invPanel').style.display=_showMode('invPanel');renderInventory();setCharTab(charTab||'eq');updateBadges();}
     if(id==='skillPanel')renderSkillPanel();if(id==='optPanel'){renderOptions();pauseOptions(true);}if(id==='treePanel')renderTree();if(id==='questPanel'){questNew=0;updateQuestBadge();renderQuests();}refreshHud();}
