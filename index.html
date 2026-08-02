@@ -541,10 +541,11 @@ canvas#game{touch-action:none}
 
       <div class="psec" data-psec="attr">
       <div style="font-size:12px;color:#f4d35e;margin-bottom:6px">Points à répartir : <span id="statPts">0</span></div>
-      <div class="statRow"><span>Force <span style="color:#7f8db0">(dégâts)</span> : <b id="sStr">10</b></span><button class="plusBtn" data-stat="str">+</button></div>
-      <div class="statRow"><span>Dextérité <span style="color:#7f8db0">(vit. att.)</span> : <b id="sDex">10</b></span><button class="plusBtn" data-stat="dex">+</button></div>
-      <div class="statRow"><span>Vitalité <span style="color:#7f8db0">(PV)</span> : <b id="sVit">10</b></span><button class="plusBtn" data-stat="vit">+</button></div>
-      <div class="statRow"><span>Énergie <span style="color:#7f8db0">(mana)</span> : <b id="sEne">10</b></span><button class="plusBtn" data-stat="ene">+</button></div>
+      <div class="statRow"><span>Force <span style="color:#7f8db0">(dégâts d’arme)</span> : <b id="sStr">10</b></span><button class="plusBtn" data-stat="str">+</button></div>
+      <div class="statRow"><span>Agilité <span style="color:#7f8db0">(vitesse d’attaque, d’incantation et de course)</span> : <b id="sAgi">10</b></span><button class="plusBtn" data-stat="agi">+</button></div>
+      <div class="statRow"><span>Dextérité <span style="color:#7f8db0">(précision et coup critique)</span> : <b id="sDex">10</b></span><button class="plusBtn" data-stat="dex">+</button></div>
+      <div class="statRow"><span>Vitalité <span style="color:#7f8db0">(PV et défense)</span> : <b id="sVit">10</b></span><button class="plusBtn" data-stat="vit">+</button></div>
+      <div class="statRow"><span>Énergie <span style="color:#7f8db0">(dégâts des sorts, mana, coût réduit)</span> : <b id="sEne">10</b></span><button class="plusBtn" data-stat="ene">+</button></div>
       <div style="font-size:11px;color:#6b789c;margin-top:10px;line-height:1.6">
         Force : dégâts au corps à corps.<br>Dextérité : cadence d’attaque et précision.<br>
         Vitalité : points de vie.<br>Énergie : mana et régénération.</div>
@@ -674,7 +675,7 @@ const walkableCode=c=>c===T_FLOOR||c===T_CAVE||c===T_STAIR||c===T_GATE;
 /* ---------------- PLAYER ---------------- */
 const player={
   x:0,y:0,r:16,face:1,
-  baseStr:10,baseDex:10,baseVit:10,baseEne:10,
+  baseStr:10,baseDex:10,baseVit:10,baseEne:10,baseAgi:10,
   lvl:1,xp:0,xpNext:40,xpTotal:0,statPts:0,
   hp:100,mp:50,potions:3,manaPots:2,portals:0,gold:60,frags:0,arenaBossKills:0,scrollsId:2,chill:0,
   corpse:null,_sacFait:false,   /* sac laissé à la mort — voir la section SAC DE MORT */
@@ -692,8 +693,18 @@ const UPMULT=plus=>1+ (plus||0)*0.12;   // +12% par niveau d'amélioration
    exactement son rôle d'avant (courbe inchangée, donc équilibrage préservé) ;
    l'affixe « Vitesse d'attaque » s'ajoute par-dessus avec rendements décroissants. */
 const ATK_FPS=25, ATK_FRAMES_MIN=4, ATK_FRAMES_MAX=14;
-function dexFrames(dex){
-  const sec=clamp(0.55-dex*0.012,0.16,0.55);
+/* Cadence : la courbe descendait de 0,012 s par point et butait sur le plancher
+   de 4 images (6,25 att/s) dès 32 points d'attribut. Au-delà, l'attribut ne
+   servait plus à rien : c'est le défaut qu'on corrige.
+
+   Nouvelle courbe, à rendements décroissants : la même cadence maximale reste
+   atteignable, mais il faut environ 130 points au lieu de 32, et chaque point
+   continue de rapporter quelque chose sur presque toute la progression.
+   2,27 att/s à 10 points (identique à avant) · 3,13 à 32 · 4,17 à 60 ·
+   5,00 à 100 · 6,25 (maximum) à 130. */
+function dexFrames(agi){
+  const a=Math.max(0,agi-10);
+  const sec=clamp(0.16+0.28*Math.exp(-a/45),0.16,0.55);
   return clamp(Math.round(sec*ATK_FPS),ATK_FRAMES_MIN,ATK_FRAMES_MAX);
 }
 function eiasOf(ias){const i=Math.max(0,ias);return Math.floor(120*i/(120+i));}
@@ -715,14 +726,14 @@ function nextBreakpoint(dex,ias){
   return isFinite(need)?{frames:f-1,need:need,manque:Math.max(0,need-ias)}:null;
 }
 function P(){
-  let str=player.baseStr,dex=player.baseDex,vit=player.baseVit,ene=player.baseEne;
+  let str=player.baseStr,dex=player.baseDex,vit=player.baseVit,ene=player.baseEne,agi=(player.baseAgi||10);
   let flatDmg=0,def=0,dmgPct=0,mf=0,uc=0,crit=5,leech=0,cast=0,block=0,acc=0,ias=0;
   for(const slot of ['weapon','armor','amulet','ring','ring2','helm','gloves','belt','skates']){
     const it=player.equip[slot];if(!it)continue;
     const m=UPMULT(it.plus);
     for(const a of it.affixes){const v=Math.round(a.v*m);
       if(a.t==='str')str+=v;else if(a.t==='dex')dex+=v;
-      else if(a.t==='vit')vit+=v;else if(a.t==='ene')ene+=v;
+      else if(a.t==='vit')vit+=v;else if(a.t==='ene')ene+=v;else if(a.t==='agi')agi+=v;
       else if(a.t==='dmg')flatDmg+=v;else if(a.t==='def')def+=v;
       else if(a.t==='dmgpct')dmgPct+=v;else if(a.t==='mf')mf+=v;else if(a.t==='crit')crit+=v;else if(a.t==='leech')leech+=v;else if(a.t==='cast')cast+=v;else if(a.t==='block')block+=v;else if(a.t==='acc')acc+=v;else if(a.t==='ias')ias+=v;
     }
@@ -730,28 +741,28 @@ function P(){
     if(it.baseDmg)flatDmg+=Math.round(it.baseDmg*m);
     if(it.baseDef)def+=Math.round(it.baseDef*m);
     if(it.sockets)for(const g of it.sockets){if(!g||!g.sock)continue;const t=g.sock.t,gv=g.sock.v;
-      if(t==='str')str+=gv;else if(t==='dex')dex+=gv;else if(t==='vit')vit+=gv;else if(t==='ene')ene+=gv;
+      if(t==='str')str+=gv;else if(t==='dex')dex+=gv;else if(t==='vit')vit+=gv;else if(t==='ene')ene+=gv;else if(t==='agi')agi+=gv;
       else if(t==='dmg')flatDmg+=gv;else if(t==='def')def+=gv;else if(t==='dmgpct')dmgPct+=gv;
       else if(t==='mf')mf+=gv;else if(t==='crit')crit+=gv;else if(t==='leech')leech+=gv;else if(t==='block')block+=gv;else if(t==='acc')acc+=gv;else if(t==='ias')ias+=gv;}
     if(it.rarity==='unique')uc++;
   }
   // Panoplie de l’Outlaw : bonus selon le nombre d'uniques équipés
   if(uc>=2)dmgPct+=({2:5,3:10,4:18}[uc]||30);
-  if(uc>=3){str+=5;dex+=5;vit+=5;ene+=5;}
-  if(uc>=5){str+=5;dex+=5;vit+=5;ene+=5;def+=25;}
+  if(uc>=3){str+=5;dex+=5;vit+=5;ene+=5;agi+=5;}
+  if(uc>=5){str+=5;dex+=5;vit+=5;ene+=5;agi+=5;def+=25;}
   // mots runiques
   for(const slot of ['weapon','armor','amulet','ring','ring2','helm','gloves','belt','skates']){
     const it=player.equip[slot];if(!it)continue;const rw=runewordOf(it);if(!rw)continue;
     for(const k in rw.bonus){const v=rw.bonus[k];
-      if(k==='str')str+=v;else if(k==='dex')dex+=v;else if(k==='vit')vit+=v;else if(k==='ene')ene+=v;
+      if(k==='str')str+=v;else if(k==='dex')dex+=v;else if(k==='vit')vit+=v;else if(k==='ene')ene+=v;else if(k==='agi')agi+=v;
       else if(k==='dmg')flatDmg+=v;else if(k==='def')def+=v;else if(k==='dmgpct')dmgPct+=v;
       else if(k==='crit')crit+=v;else if(k==='leech')leech+=v;else if(k==='block')block+=v;else if(k==='mf')mf+=v;else if(k==='ias')ias+=v;}}
   // charmes (agissent depuis le sac)
   {const cb=charmBonus();for(const k in cb){const v=cb[k];
-    if(k==='str')str+=v;else if(k==='dex')dex+=v;else if(k==='vit')vit+=v;else if(k==='ene')ene+=v;
+    if(k==='str')str+=v;else if(k==='dex')dex+=v;else if(k==='vit')vit+=v;else if(k==='ene')ene+=v;else if(k==='agi')agi+=v;
     else if(k==='dmg')flatDmg+=v;else if(k==='def')def+=v;else if(k==='dmgpct')dmgPct+=v;
     else if(k==='crit')crit+=v;else if(k==='leech')leech+=v;else if(k==='mf')mf+=v;else if(k==='block')block+=v;}}
-  const TB=player.treeBonus||{};str+=(TB.str||0);dex+=(TB.dex||0);vit+=(TB.vit||0);ene+=(TB.ene||0);def+=(TB.def||0);crit+=(TB.crit||0);leech+=(TB.leech||0);mf+=(TB.mf||0);cast+=(TB.cast||0);dmgPct+=(TB.dmgPct||0);
+  const TB=player.treeBonus||{};str+=(TB.str||0);dex+=(TB.dex||0);vit+=(TB.vit||0);ene+=(TB.ene||0);agi+=(TB.agi||0);def+=(TB.def||0);crit+=(TB.crit||0);leech+=(TB.leech||0);mf+=(TB.mf||0);cast+=(TB.cast||0);dmgPct+=(TB.dmgPct||0);
   const hpMax=Math.round((60+vit*7+player.lvl*8)*(1+(TB.hpPct||0)/100));
   const mpMax=Math.round((20+ene*4+player.lvl*3)*(1+(TB.mpPct||0)/100));
   const dmgMin=Math.round((3+str*0.7+flatDmg)*(1+dmgPct/100));
@@ -762,12 +773,39 @@ function P(){
      Rendements décroissants : eias = 120·ias / (120+ias). */
   const iasRaw=Math.max(0,(TB.ias||0)+ias);
   const eias=eiasOf(iasRaw);
-  const atkFrames=iasFrames(dex,iasRaw);
+  /* ── RÉPARTITION DES RÔLES ────────────────────────────────────────────
+     La Dextérité faisait TROIS métiers : cadence, précision et déplacement.
+     Deux d'entre eux plafonnaient (cadence à 32 points, précision à 60), si
+     bien qu'au-delà de 32 points elle ne servait plus qu'à courir. On répartit :
+
+       Force      dégâts d'arme                        (inchangé)
+       AGILITÉ    cadence d'attaque, incantation,      (NOUVEAU)
+                  vitesse de déplacement
+       Dextérité  chance de toucher, coup critique     (récupère le critique)
+       Vitalité   points de vie, un peu de défense     (récupère la défense)
+       Énergie    mana, régénération, DÉGÂTS DES SORTS (devient offensive)
+     ------------------------------------------------------------------- */
+  const atkFrames=iasFrames(agi,iasRaw);
   const atkSpeed=atkFrames/ATK_FPS;
-  let moveSpeed=2.5+dex*0.02+((player.equip.skates&&player.equip.skates.spd)||0)+(TB.moveSpeed||0);
+  let moveSpeed=2.5+agi*0.02+((player.equip.skates&&player.equip.skates.spd)||0)+(TB.moveSpeed||0);
+  /* L'Agilité accélère aussi les incantations. Le plafond de 60 % est appliqué
+     au moment du lancer, comme pour l'affixe. */
+  cast+=agi*0.45;
+  /* La Dextérité récupère le coup critique : elle cesse d'être un péage qu'on
+     paie jusqu'à 32 points avant de l'abandonner. */
+  crit+=dex*0.09;
+  /* La Vitalité apporte un peu de défense : elle protège au lieu de seulement
+     rallonger la barre de vie. */
+  def+=Math.round(vit*0.8);
+  /* ÉNERGIE — c'est le chemin qu'a pris Diablo : dans II elle ne donnait que du
+     mana et personne n'en mettait ; dans III et IV l'attribut équivalent est
+     devenu l'attribut OFFENSIF des lanceurs de sorts. Ici elle augmente les
+     dégâts de toutes les compétences et réduit leur coût. */
+  const sortPct=ene*0.55;
+  const manaCoutPct=Math.min(40,ene*0.35);
   if((player.chill||0)>0)moveSpeed*=0.55;
   const _pw=(player.buffT>0&&player.buffType==='power')?1.5:1;const _ha=(player.buffT>0&&player.buffType==='haste');
-  return {str,dex,vit,ene,hpMax,mpMax,dmgMin:Math.round(dmgMin*_pw),dmgMax:Math.round(dmgMax*_pw),atkSpeed:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames)/ATK_FPS,ias:iasRaw,eias:eias,atkFrames:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames),moveSpeed:_ha?moveSpeed+1.2:moveSpeed,def,mf,uc,crit,leech,cast,block:Math.min(60,block+Math.floor(dex*0.10)),acc:acc};
+  return {str,dex,vit,ene,agi,sortPct,manaCoutPct,hpMax,mpMax,dmgMin:Math.round(dmgMin*_pw),dmgMax:Math.round(dmgMax*_pw),atkSpeed:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames)/ATK_FPS,ias:iasRaw,eias:eias,atkFrames:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames),moveSpeed:_ha?moveSpeed+1.2:moveSpeed,def,mf,uc,crit,leech,cast,block:Math.min(60,block+Math.floor(dex*0.10)),acc:acc};
 }
 
 /* ---------------- ITEMS ---------------- */
@@ -778,6 +816,7 @@ const RAR={legendary:{name:'Légendaire',col:'#ff6a3d',aff:[5,6]},
   unique:{name:'Unique',col:'#d98a3d',aff:[4,5]}};
 const AFFIX=[
   {t:'str',n:'+# Force',min:2,max:9},{t:'dex',n:'+# Dextérité',min:2,max:9},
+  {t:'agi',n:'+# Agilité',min:2,max:9},
   {t:'vit',n:'+# Vitalité',min:2,max:10},{t:'ene',n:'+# Énergie',min:2,max:8},
   {t:'dmg',n:'+# Dégâts',min:2,max:8},{t:'def',n:'+# Défense',min:3,max:14},
   {t:'dmgpct',n:'+#% Dégâts',min:6,max:22},{t:'mf',n:'+#% Trouvaille magique',min:8,max:30},{t:'crit',n:'+#% Coup critique',min:3,max:12},{t:'leech',n:'+#% Vol de vie',min:1,max:3},{t:'cast',n:'+#% Vitesse d’incantation',min:4,max:15},
@@ -1298,7 +1337,11 @@ function makeEnemy(kind,x,y,depth,elvl){
       aggro:false,path:null,pcd:0,slow:0};
   }
   const t=ENEMY_TYPES[kind];const dm=1+difficulty*0.8,xm=1+difficulty*0.5;
-  const L=Math.max(1,elvl||1);const hpF=Math.pow(1.115,L-1),dmgF=Math.pow(1.07,L-1);
+  const L=Math.max(1,elvl||1);
+  /* Les PV croissaient en 1,115 par niveau et les dégâts seulement en 1,07 :
+     sur 37 niveaux, x56 contre x12. Le monstre de fin de jeu était un sac de
+     frappe énorme et inoffensif. On resserre l'écart. */
+  const hpF=Math.pow(1.115,L-1),dmgF=Math.pow(1.105,L-1);
   const hp0=Math.round(t.hp*hpF*dm*1.6);
   return {kind,x,y,r:t.r,hp:hp0,hpMax:hp0,lvl:L,
     dmg:Math.round(t.dmg*dmgF*dm*1.5),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
@@ -1368,6 +1411,34 @@ function isWalkablePx(lvl,px,py){
   const tx=Math.floor(px/TS),ty=Math.floor(py/TS);
   if(tx<0||ty<0||tx>=lvl.w||ty>=lvl.h)return false;
   return walkableCode(lvl.grid[idx(lvl.w,tx,ty)]);
+}
+/* ── COLLISION DU CORPS ────────────────────────────────────────────────────
+   isWalkablePx ne teste QU'UN POINT. Au clavier ce n'est pas grave : le
+   déplacement suit un chemin calculé de centre de case en centre de case, donc
+   le héros ne peut pas entrer dans un mur. Au joystick, le déplacement est
+   libre et seul le centre du personnage était testé : son corps, large de 16 px
+   de rayon, s'enfonçait donc de 16 px dans chaque mur avant que quoi que ce
+   soit ne l'arrête. C'est ce qu'on voit sur téléphone, où le joystick est actif
+   par défaut — et qu'on verrait aussi sur ordinateur en l'activant.
+
+   On teste ici le DISQUE du personnage contre les cases non praticables qu'il
+   recouvre : intersection cercle / rectangle, exacte, sur 4 à 9 cases au plus. */
+function corpsLibre(lvl,px,py,r){
+  if(!lvl)return false;
+  r=(r==null?16:r);
+  const x0=Math.floor((px-r)/TS), x1=Math.floor((px+r)/TS);
+  const y0=Math.floor((py-r)/TS), y1=Math.floor((py+r)/TS);
+  const r2=r*r;
+  for(let ty=y0;ty<=y1;ty++)for(let tx=x0;tx<=x1;tx++){
+    if(tx<0||ty<0||tx>=lvl.w||ty>=lvl.h)return false;
+    if(walkableCode(lvl.grid[idx(lvl.w,tx,ty)]))continue;
+    // point de la case le plus proche du centre du personnage
+    const cx=Math.max(tx*TS,Math.min(px,(tx+1)*TS));
+    const cy=Math.max(ty*TS,Math.min(py,(ty+1)*TS));
+    const dx=px-cx, dy=py-cy;
+    if(dx*dx+dy*dy<r2)return false;   // le disque mord dans le mur
+  }
+  return true;
 }
 
 /* ================================================================
@@ -1719,17 +1790,21 @@ function trySkill(s,wx,wy){
   const rank=player.skillRanks[s];if(s!=='slap'&&rank<=0)return false;
   if(skillCd[s]>0)return false;
   if(s==='charge'&&(player._chargeLock||0)>0)return false;
-  const def=SKILLS[s];const mana=def.manaBase+(s==='slap'?0:rank);
+  const def=SKILLS[s];const _st0=P();
+  /* L'Énergie réduit le coût en mana, jusqu'à 40 %. */
+  const mana=Math.max(1,Math.round((def.manaBase+(s==='slap'?0:rank))*(1-(_st0.manaCoutPct||0)/100)));
   if(player.mp<mana){toast('Pas assez de mana',1);return false;}
   player.mp-=mana;skillCd[s]=def.cdBase*(1-Math.min(0.6,(P().cast||0)/100));({slap:SFX.slap,charge:SFX.charge,tempest:SFX.frost,holy:SFX.holy,whirl:SFX.whirl,warcry:SFX.warcry,multi:SFX.multi}[s]||function(){})();
   const st=P();const ang=Math.atan2(wy-player.y,wx-player.x);faceAngle(ang);playOnce('Attack1');const TBp=player.treeBonus||{};
+  /* Multiplicateur d'Énergie appliqué à TOUTES les compétences. */
+  const _SP=1+(st.sortPct||0)/100;
   if(s==='slap'){
     /* Les dégâts étaient appliqués instantanément sur 260 px, sans que rien ne
        parte : le sort ressemblait à l'attaque de base. C'est maintenant un vrai
        palet lancé, qui traverse et garde EXACTEMENT la même portée et les mêmes
        dégâts — seule la présentation change.
        Portée 260 px, vitesse 14 px/frame : la cible est atteinte en ~0,31 s. */
-    const dmg=randi(st.dmgMin,st.dmgMax)*(2.2+rank*0.15)*(1+(TBp.phys||0)/100);
+    const dmg=randi(st.dmgMin,st.dmgMax)*(2.2+rank*0.15)*(1+(TBp.phys||0)/100)*_SP;
     projectiles.push({x:player.x+Math.cos(ang)*18,y:player.y+Math.sin(ang)*18,
       vx:Math.cos(ang)*14,vy:Math.sin(ang)*14,dmg:dmg,
       perce:true,bounces:0,  // traverse les ennemis, s'arrête sur un mur
@@ -1743,7 +1818,7 @@ function trySkill(s,wx,wy){
     let dd=Math.min(200,dist(player.x,player.y,wx,wy));let nx=player.x,ny=player.y;
     for(let d=0;d<dd;d+=6){const tx=player.x+Math.cos(ang)*d,ty=player.y+Math.sin(ang)*d;
       if(!isWalkablePx(level,tx,ty))break;nx=tx;ny=ty;}
-    const dmg=randi(st.dmgMin,st.dmgMax)*(1.6+rank*0.15)*(1+(TBp.phys||0)/100);
+    const dmg=randi(st.dmgMin,st.dmgMax)*(1.6+rank*0.15)*(1+(TBp.phys||0)/100)*_SP;
     for(let t=0;t<=1;t+=0.08){const px=player.x+(nx-player.x)*t,py=player.y+(ny-player.y)*t;
       for(const en of level.enemies){if(en._chHit)continue;
         if(dist(px,py,en.x,en.y)<en.r+22){hitEnemy(en,dmg,'phys');en._chHit=true;}}}
@@ -1759,7 +1834,7 @@ function trySkill(s,wx,wy){
     burst(nx,ny,'#8fdcff',18,{r:2.6,forme:'eclat',rot:8});
     secouer(4,0.2);
   } else if(s==='tempest'){
-    const dmg=randi(st.dmgMin,st.dmgMax)*(1.4+rank*0.2)*(1+(TBp.cold||0)/100);
+    const dmg=randi(st.dmgMin,st.dmgMax)*(1.4+rank*0.2)*(1+(TBp.cold||0)/100)*_SP;
     for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<150){hitEnemy(en,dmg,'cold');en.slow=1.6;en.frozen=1.2;}
     for(let i=0;i<44;i++){const a=rand(0,6.28),v=rand(2,6);
       part({x:player.x,y:player.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.4,.9),
@@ -1771,13 +1846,13 @@ function trySkill(s,wx,wy){
     player.tempest=0.4;secouer(3.4,0.2);
   } else if(s==='holy'){
     projectiles.push({x:player.x,y:player.y,vx:Math.cos(ang)*7,vy:Math.sin(ang)*7,
-      dmg:randi(st.dmgMin,st.dmgMax)*(1.8+rank*0.2)*(1+(TBp.holy||0)/100),bounces:2+rank,r:9,life:2.5,t:0,
+      dmg:randi(st.dmgMin,st.dmgMax)*(1.8+rank*0.2)*(1+(TBp.holy||0)/100)*_SP,bounces:2+rank,r:9,life:2.5,t:0,
       hitSet:new Set(),type:'holy',col:'#ffe89a',forme:'palet',trail:[],spin:0,spinV:18});
     gerbe(player.x+Math.cos(ang)*22,player.y+Math.sin(ang)*22,'#fff2a0',7,ang,0.5,
           {vmin:1.5,vmax:4,tmin:.12,tmax:.28,g:0});
     secouer(1.4,0.10);}
   else if(s==='whirl'){
-    const dmg=randi(st.dmgMin,st.dmgMax)*(1.3+rank*0.15)*(1+(TBp.phys||0)/100);
+    const dmg=randi(st.dmgMin,st.dmgMax)*(1.3+rank*0.15)*(1+(TBp.phys||0)/100)*_SP;
     for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<130)hitEnemy(en,dmg,'phys');
     /* Arc de crosse : un balayage de 360° en 0,26 s, à la portée exacte du sort.
        Le joueur voit enfin ce qui est touché. */
@@ -1788,7 +1863,7 @@ function trySkill(s,wx,wy){
         col:'#ffd27f',r:rand(1.2,2.4),g:260,rot:rand(-10,10),forme:'eclat'});}
     player.swing=0.2;secouer(3,0.16);
   } else if(s==='multi'){
-    const base=randi(st.dmgMin,st.dmgMax)*(1.2+rank*0.15)*(1+(TBp.phys||0)/100);
+    const base=randi(st.dmgMin,st.dmgMax)*(1.2+rank*0.15)*(1+(TBp.phys||0)/100)*_SP;
     for(const off of [-0.15,0,0.15]){const aa=ang+off;
       projectiles.push({x:player.x,y:player.y,vx:Math.cos(aa)*8,vy:Math.sin(aa)*8,dmg:base,bounces:0,
         r:6.5,life:1.6,t:0,hitSet:new Set(),type:'holy',col:'#bfe3ff',
@@ -1936,10 +2011,25 @@ function usePotion(){
   playOnce('Drinking');
   floatText(player.x,player.y-30,'+SOIN','#7dff9a');burst(player.x,player.y,'#7dff9a',12);refreshHud();
 }
-function damagePlayer(dmg){
+/* Réduction de dégâts par la défense.
+   Ancienne formule : def/(def+80), plafond 70 %. Le plafond tombait à 187 de
+   défense, atteint dès le niveau 23 — après quoi toute l'armure ramassée ne
+   servait plus à rien, et un monstre de fin de jeu mettait 150 coups à tuer.
+   La constante suit maintenant le NIVEAU de l'agresseur : l'armure garde sa
+   valeur toute la partie, et une pièce trouvée à l'acte 5 est un vrai progrès. */
+function reductionDef(def,niveauAgresseur){
+  const seuil=60+14*Math.max(1,niveauAgresseur||1);
+  return clamp(def/(def+seuil),0,0.75);
+}
+function damagePlayer(dmg,niveauSource){
   if(player.dying)return;
   const st=P();
-  if(Math.random()*100<(st.block||0)){floatText(player.x,player.y-30,'BLOQUÉ','#9fd8ff',true);SFX.enemyHit&&SFX.enemyHit();vibrer(VIB.bloque);player.swing=0.12;return;}const red=Math.max(1,Math.round(dmg*(1-clamp(st.def/(st.def+80),0,0.7))));
+  /* Le blocage se cumulait multiplicativement avec la défense : deux plafonds
+     atteints laissaient passer 15 % des dégâts. Son apport est ramené à 40 %
+     effectifs au maximum. */
+  const bloc=Math.min(40,(st.block||0)*0.8);
+  if(Math.random()*100<bloc){floatText(player.x,player.y-30,'BLOQUÉ','#9fd8ff',true);SFX.enemyHit&&SFX.enemyHit();vibrer(VIB.bloque);player.swing=0.12;return;}
+  const red=Math.max(1,Math.round(dmg*(1-reductionDef(st.def,niveauSource||player.lvl))));
   if(Math.random()<0.22)wearGear(['armor','helm','gloves','belt','skates'],1);
   player.hp-=red;player.hurt=0.2;player._mpLock=1.5;floatText(player.x,player.y-28,red,'#ff6b6b');SFX.hurt();vibrer(VIB.degats);
   if(player.hp<=0){player.hp=0;player.dying=true;player.dyingT=0;player.path=null;player.attackTarget=null;player.anim='Idle';player.animOnce=false;SFX.death();vibrer(VIB.mort);SFX.hurt();burst(player.x,player.y,'#7fd0ff',26);burst(player.x,player.y,'#ff6b6b',16);}refreshHud();
@@ -2502,7 +2592,7 @@ function updateZones(dt){
   for(let i=Z.length-1;i>=0;i--){const z=Z[i]; z.t+=dt;
     if(!z.hit&&z.t>=z.delay){ z.hit=true;
       if(dist(player.x,player.y,z.x,z.y)<z.r+player.r*0.5){
-        damagePlayer(z.dmg);
+        damagePlayer(z.dmg,z.lvl);
         if(z.kind==='ice'){player.chill=2.4;floatText(player.x,player.y-40,'GELÉ','#7fd0ff');}
       }
       burst(z.x,z.y,z.col,16); SFX.hit&&SFX.hit();
@@ -2648,7 +2738,7 @@ function bossPhaseUpdate(en,dt){
     const nx=en.x+Math.cos(d.a)*sp, ny=en.y+Math.sin(d.a)*sp;
     if(isWalkablePx(level,nx,en.y))en.x=nx; else d.t=0;
     if(isWalkablePx(level,en.x,ny))en.y=ny; else d.t=0;
-    if(dist(en.x,en.y,player.x,player.y)<en.r+player.r+4){damagePlayer(d.dmg);d.t=0;}
+    if(dist(en.x,en.y,player.x,player.y)<en.r+player.r+4){damagePlayer(d.dmg,en.lvl);d.t=0;}
     if(d.t<=0)en._dash=null;
     return true;   // pendant la ruée, l'IA normale est suspendue
   }
@@ -2922,8 +3012,12 @@ function joyDeplacer(dt){
   wx/=n; wy/=n;
   const v=st.moveSpeed*60*dt*Math.min(1,joy.force);
   const nx=player.x+wx*v, ny=player.y+wy*v;
-  if(isWalkablePx(level,nx,player.y))player.x=nx;
-  if(isWalkablePx(level,player.x,ny))player.y=ny;
+  /* Axe par axe : longer un mur reste possible, on ne bloque que la composante
+     qui rentre dedans. Le rayon est réduit de 2 px pour que passer une porte
+     d'une seule case reste confortable. */
+  const R=Math.max(4,player.r-2);
+  if(corpsLibre(level,nx,player.y,R))player.x=nx;
+  if(corpsLibre(level,player.x,ny,R))player.y=ny;
   player.path=null;                       // le joystick prime sur le déplacement automatique
   /* On ne lâche la cible que si elle est HORS de portée : sinon tenir le pouce
      annulait la frappe à chaque image, et le bouton d'attaque restait sans effet. */
@@ -3148,7 +3242,7 @@ function update(dt){
         } else { const a=Math.atan2(player.y-en.y,player.x-en.x);
           const nxp=en.x+Math.cos(a)*spd,nyp=en.y+Math.sin(a)*spd;
           if(isWalkablePx(level,nxp,en.y))en.x=nxp; if(isWalkablePx(level,en.x,nyp))en.y=nyp; }
-      } else if(en.hitCd<=0){en.hitCd=1.0;damagePlayer(en.dmg);
+      } else if(en.hitCd<=0){en.hitCd=1.0;damagePlayer(en.dmg,en.lvl);
         if(en.vamp){en.hp=Math.min(en.hpMax,en.hp+Math.round(en.dmg*0.6));floatText(en.x,en.y-en.r-18,'+vol','#ff6b9a');}
         if(en.chill){player.chill=2.2;floatText(player.x,player.y-40,'GELÉ','#7fd0ff');}if(!en.boss){en._atkT=0.55;en._atkDur=0.55;en._atkIdx=randi(0,1);}}
       if(en.boss)bossPhaseUpdate(en,dt);
@@ -3183,7 +3277,7 @@ function update(dt){
        qui transforme un rond qui se téléporte en objet lancé. */
     if(p.trail){p.trail.unshift(p.x,p.y);if(p.trail.length>16)p.trail.length=16;}
     if(p.spin!=null)p.spin+=(p.spinV||16)*dt;
-    if(p.enemy){if(dist(p.x,p.y,player.x,player.y)<player.r+p.r){damagePlayer(p.dmg);projectiles.splice(i,1);continue;}}
+    if(p.enemy){if(dist(p.x,p.y,player.x,player.y)<player.r+p.r){damagePlayer(p.dmg,p.lvl);projectiles.splice(i,1);continue;}}
     else{for(const en of level.enemies){if(p.hitSet.has(en))continue;
       if(dist(p.x,p.y,en.x,en.y)<en.r+p.r){hitEnemy(en,p.dmg,p.type||'phys');p.hitSet.add(en);
         if(!p.perce)p.bounces--;}}}
@@ -4344,7 +4438,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.13 — '+'2026-08-02';
+const BUILD='v8.16 — '+'2026-08-02';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   if(typeof majRappelSac==='function')majRappelSac();
@@ -4361,12 +4455,13 @@ function refreshHud(){
   document.getElementById('statPts').textContent=player.statPts;
   document.getElementById('sStr').textContent=st.str;document.getElementById('sDex').textContent=st.dex;
   document.getElementById('sVit').textContent=st.vit;document.getElementById('sEne').textContent=st.ene;
+  {const e=document.getElementById('sAgi');if(e)e.textContent=st.agi;}
   document.getElementById('dDmg').textContent=st.dmgMin+' - '+st.dmgMax;
   document.getElementById('dHp').textContent=st.hpMax;document.getElementById('dMp').textContent=st.mpMax;
   document.getElementById('dDef').textContent=st.def;setTxt('dSet',st.uc>=2?st.uc+' uniques — bonus actif':st.uc+'/9 uniques');setTxt('dMF',(st.mf||0)+'%');setTxt('dCrit',(st.crit||0)+'%');setTxt('dLeech',(st.leech||0)+'%');setTxt('dCast',(st.cast||0)+'%');
   {const f=st.atkFrames||14, aps=(ATK_FPS/f);
    setTxt('dAtk',f+' images — '+aps.toFixed(2)+' att./s  ('+(st.ias||0)+'% brut, '+(st.eias||0)+'% effectif)');
-   const bp=nextBreakpoint(st.dex||10,st.ias||0);
+   const bp=nextBreakpoint(st.agi||10,st.ias||0);
    setTxt('dAtkNext', bp? ('Prochain palier à '+bp.need+'% de vitesse d’attaque ('+bp.manque+'% à trouver) → '+bp.frames+' images, '+(ATK_FPS/bp.frames).toFixed(2)+' att./s')
                         : 'Palier maximal atteint.');}
   document.getElementById('dTotalDmg').textContent=player.totalDmg.toLocaleString('fr-FR');
@@ -4613,7 +4708,7 @@ function computeTreeBonus(){
   if(player.bar)for(let i=0;i<player.bar.length;i++){const b=player.bar[i];if(b&&b!=='slap'&&(R[b]||0)<=0)player.bar[i]=null;}
 }
 function nodeReachable(id){if(player.tree[id])return true;for(const nb of TREE_ADJ[id]||[]){if(nb==='c'||player.tree[nb])return true;}return false;}
-const TBL={str:'Force',dex:'Dextérité',vit:'Vitalité',ene:'Énergie',def:'Défense',crit:'% Critique',leech:'% Vol de vie',mf:'% Trouvaille',cast:'% Incantation',phys:'% dégâts physiques',cold:'% dégâts de froid',holy:'% dégâts sacrés',dmgPct:'% dégâts',hpPct:'% Vie max',mpPct:'% Mana max',moveSpeed:'Vitesse dépl.'};
+const TBL={str:'Force',dex:'Dextérité',vit:'Vitalité',ene:'Énergie',agi:'Agilité',def:'Défense',crit:'% Critique',leech:'% Vol de vie',mf:'% Trouvaille',cast:'% Incantation',phys:'% dégâts physiques',cold:'% dégâts de froid',holy:'% dégâts sacrés',dmgPct:'% dégâts',hpPct:'% Vie max',mpPct:'% Mana max',moveSpeed:'Vitesse dépl.'};
 function bonusText(n){const o=[];if(n.skill)o.push('🔓 Débloque : '+SKILLS[n.skill].name);if(n.rk)o.push('+1 rang '+SKILLS[n.rk].name);for(const k in n.b)o.push('+'+n.b[k]+' '+(TBL[k]||k));return o.join(' · ')||'Nœud de départ';}
 let treeVB={x:-560,y:-560,w:1120,h:1120};let treeDrag=null;
 /* Nœud SÉLECTIONNÉ, pas encore appris. Toucher un nœud le dépensait aussitôt,
@@ -5063,6 +5158,15 @@ function gambleItem(){
   if(inventory.length<INV_MAX){inventory.push(it);toast('🎁 '+RAR[it.rarity].name+' : '+it.name.replace(/<[^>]+>/g,''),2.6);SFX.pickup();}
   else toast('Sac plein',1.4);
 }
+/* Vignette d'article de boutique. Les parchemins avaient leur sprite, les
+   potions et les charmes étaient restés en emoji : incohérent dans une même
+   liste. Une seule fonction pour tout le monde, avec repli sur l'emoji si
+   l'icône manque. */
+function icoBoutique(cle,secours){
+  const u=(typeof MISC_ICON!=='undefined')&&MISC_ICON[cle];
+  return u?('<img src="'+u+'" style="width:26px;height:26px;vertical-align:middle;image-rendering:pixelated">')
+          :(secours||'');
+}
 function renderShop(){
   const body=document.getElementById('shopBody');body.innerHTML='';
   if(!shopNpc)return;
@@ -5072,36 +5176,36 @@ function renderShop(){
     // acheter potion
     const sec1=document.createElement('div');sec1.className='shopSec';sec1.textContent='Acheter';body.appendChild(sec1);
     const pot=document.createElement('div');pot.className='shopItem';
-    pot.innerHTML=`<div class="info">🧪 <b>Potion de soin</b><br><span style="color:#8ea0c8">Rend 50% des PV</span></div>`;
+    pot.innerHTML='<div class="info">'+icoBoutique('pot_heal','🧪')+' <b>Potion de soin</b><br><span style="color:#8ea0c8">Rend 50% des PV</span></div>';
     const cPot=prixPotion();
     const bp=document.createElement('button');bp.innerHTML='Acheter <span class="gi"></span>'+cPot;bp.disabled=player.gold<cPot;
     bp.onclick=()=>{if(player.gold>=cPot){player.gold-=cPot;player.potions++;toast('Potion achetée',1.2);renderShop();refreshHud();}};
     pot.appendChild(bp);body.appendChild(pot);
     const potM=document.createElement('div');potM.className='shopItem';
-    potM.innerHTML='<div class="info">🔵 <b>Potion de mana</b><br><span style="color:#8ea0c8">Rend 50% du mana</span></div>';
+    potM.innerHTML='<div class="info">'+icoBoutique('pot_mana','🔵')+' <b>Potion de mana</b><br><span style="color:#8ea0c8">Rend 50% du mana</span></div>';
     const cMan=prixMana();
     const bpm=document.createElement('button');bpm.innerHTML='Acheter <span class="gi"></span>'+cMan;bpm.disabled=player.gold<cMan;
     bpm.onclick=()=>{if(player.gold>=cMan){player.gold-=cMan;player.manaPots++;toast('Potion de mana achetée',1.2);renderShop();refreshHud();}};
     potM.appendChild(bpm);body.appendChild(potM);
     const scr=document.createElement('div');scr.className='shopItem';
-    scr.innerHTML='<div class="info"><img src="'+(MISC_ICON.scroll_return||'')+'" style="width:26px;height:26px;vertical-align:middle;image-rendering:pixelated"> <b>Parchemin de Retour</b><br><span style="color:#8ea0c8">Ouvre un portail vers le village (touche R)</span></div>';
+    scr.innerHTML='<div class="info">'+icoBoutique('scroll_return','📜')+' <b>Parchemin de Retour</b><br><span style="color:#8ea0c8">Ouvre un portail vers le village (touche R)</span></div>';
     const cPor=prixPortail();
     const bsc=document.createElement('button');bsc.innerHTML='Acheter <span class="gi"></span>'+cPor;bsc.disabled=player.gold<cPor;
     bsc.onclick=()=>{if(player.gold>=cPor){player.gold-=cPor;player.portals++;toast('Parchemin acheté',1.2);renderShop();refreshHud();}};
     scr.appendChild(bsc);body.appendChild(scr);
     const sid=document.createElement('div');sid.className='shopItem';
-    sid.innerHTML='<div class="info"><img src="'+(MISC_ICON.parchemin_identification||'')+'" style="width:26px;height:26px;vertical-align:middle;image-rendering:pixelated"> <b>Parchemin d’Identification</b><br><span style="color:#8ea0c8">Révèle un objet rare ou mieux</span></div>';
+    sid.innerHTML='<div class="info">'+icoBoutique('parchemin_identification','🔎')+' <b>Parchemin d’Identification</b><br><span style="color:#8ea0c8">Révèle un objet rare ou mieux</span></div>';
     const cId=prixIdent();
     const bsi=document.createElement('button');bsi.innerHTML='Acheter <span class="gi"></span>'+cId;bsi.disabled=player.gold<cId;
     bsi.onclick=()=>{if(player.gold>=cId){player.gold-=cId;player.scrollsId=(player.scrollsId||0)+1;toast('Parchemin d’identification acheté',1.2);renderShop();refreshHud();}};
     sid.appendChild(bsi);body.appendChild(sid);
     const chm=document.createElement('div');chm.className='shopItem';const ccost=Math.round(600+player.lvl*60);
-    chm.innerHTML='<div class="info">🔷 <b>Charme inconnu</b><br><span style="color:#8ea0c8">Agit depuis le sac, sans être équipé</span></div>';
+    chm.innerHTML='<div class="info">'+icoBoutique('charme_moyen','🔷')+' <b>Charme inconnu</b><br><span style="color:#8ea0c8">Agit depuis le sac, sans être équipé</span></div>';
     const bch=document.createElement('button');bch.innerHTML='Acheter <span class="gi"></span>'+ccost;bch.disabled=player.gold<ccost||inventory.length>=INV_MAX;
     bch.onclick=()=>{if(player.gold>=ccost&&inventory.length<INV_MAX){player.gold-=ccost;inventory.push(makeCharm());toast('Charme acquis',1.4);renderShop();renderInventory();refreshHud();}};
     chm.appendChild(bch);body.appendChild(chm);
     const gam=document.createElement('div');gam.className='shopItem';const gcost=Math.round(200+player.lvl*25);
-    gam.innerHTML='<div class="info">🎁 <b>Objet mystère</b><br><span style="color:#8ea0c8">Objet inconnu, rareté aléatoire selon ton niveau</span></div>';
+    gam.innerHTML='<div class="info">'+icoBoutique('arena_chest_closed','🎁')+' <b>Objet mystère</b><br><span style="color:#8ea0c8">Objet inconnu, rareté aléatoire selon ton niveau</span></div>';
     const bg=document.createElement('button');bg.innerHTML='Tenter <span class="gi"></span>'+gcost;bg.disabled=player.gold<gcost;
     bg.onclick=()=>{if(player.gold>=gcost){player.gold-=gcost;gambleItem();renderShop();renderInventory();refreshHud();}};
     gam.appendChild(bg);body.appendChild(gam);
@@ -5252,7 +5356,8 @@ function renderStash(){
   }
 }
 document.querySelectorAll('.plusBtn').forEach(b=>{b.onclick=()=>{if(player.statPts<=0)return;const s=b.dataset.stat;
-  if(s==='str')player.baseStr++;else if(s==='dex')player.baseDex++;else if(s==='vit')player.baseVit++;else if(s==='ene')player.baseEne++;
+  if(s==='str')player.baseStr++;else if(s==='dex')player.baseDex++;else if(s==='vit')player.baseVit++;
+  else if(s==='ene')player.baseEne++;else if(s==='agi')player.baseAgi=(player.baseAgi||10)+1;
   player.statPts--;refreshHud();};});
 
 /* ---------------- STATE ---------------- */
@@ -5260,7 +5365,22 @@ function startGame(cont){
   document.getElementById('overlay').style.display='none';running=true;
   village=buildVillage();
   enterLevel(village,village.spawn[0]*TS+TS/2,village.spawn[1]*TS+TS/2);
-  if(cont&&loadGame()){toast('Progression chargée — bon retour, Outlaw !',2.4);}
+  if(cont&&loadGame()){
+    if(player._migrationAgi){
+      const n=player._migrationAgi;player._migrationAgi=0;
+      setTimeout(()=>{if(!running)return;ouvrirConfirmation({
+        titre:'Nouvel attribut : l’Agilité',
+        corps:'<p>Le personnage a désormais <b>cinq attributs</b>. L’<b>Agilité</b> gouverne la '+
+          'vitesse d’attaque, d’incantation et de course ; la <b>Dextérité</b> se recentre sur la '+
+          'précision et le coup critique ; l’<b>Énergie</b> augmente les dégâts de tes sorts et '+
+          'réduit leur coût.</p>'+
+          '<p>Tes <b>'+n+' points</b> d’attribut t’ont été rendus pour que tu les répartisses '+
+          'toi-même. Tu les trouveras dans l’onglet <b>Perso → Attributs</b>.</p>',
+        ok:'Compris',action:()=>{togglePanel('charPanel');setCharTab('attr');}
+      });},900);
+    }
+    toast('Progression chargée — bon retour, Outlaw !',2.4);
+  }
   else{inventory.length=0;player.corpse=null;player._sacFait=false;inventory.push(makeItem('white','weapon'));
        toast('Village de Moreuil — parle au Vieux Outlaw 🦅 pour ta mission',3);
        setTimeout(()=>{if(running)openDialogue({type:'quest',act:-1});},700);}
@@ -5324,7 +5444,7 @@ const SaveIO={
   clear(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){}
            try{ if(window.OutlawSave&&window.OutlawSave.clear)window.OutlawSave.clear(); }catch(e){} }
 };
-function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets}));}catch(e){}}
+function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets}));}catch(e){}}
 /* Migration : réassocie un sprite aux objets d'anciennes sauvegardes */
 function migrateIcons(list){
   if(!list)return;
@@ -5346,12 +5466,24 @@ function migrateAllIcons(){
 }
 function hasSave(){try{return !!SaveIO.read();}catch(e){return false;}}
 function loadGame(){try{const s=JSON.parse(SaveIO.read());if(!s)return false;
-  ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','gold','frags','potions','manaPots','kills','totalDmg','portals'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
+  ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','baseAgi','gold','frags','potions','manaPots','kills','totalDmg','portals'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
   if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
   if(s.equip)player.equip=Object.assign({weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},s.equip);
   inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;if(s.bossCleared)bossCleared=s.bossCleared;if(s.stashCap)stashCap=s.stashCap;if(s.keys)player.keys=s.keys;if(s.arenaBossKills!=null)player.arenaBossKills=s.arenaBossKills;if(s.relics)for(let i=0;i<5;i++)relicDestroyed[i]=!!s.relics[i];if(s.arenaBest)player.arenaBest=s.arenaBest;if(s.scrollsId!=null)player.scrollsId=s.scrollsId;
   /* Le sac de mort revient tel quel. `undefined` = ancienne sauvegarde,
      `null` = aucun sac : les deux donnent null, jamais une perte silencieuse. */
+  /* ── MIGRATION vers le système à cinq attributs ───────────────────────
+     Une sauvegarde antérieure n'a pas d'Agilité, et sa Dextérité avait été
+     investie pour la cadence d'attaque — laquelle dépend maintenant de
+     l'Agilité. Sans rien faire, le personnage perdrait toute sa vitesse.
+     On rend donc TOUS les points d'attribut, gratuitement et une seule fois :
+     le joueur redistribue comme il l'entend. */
+  if(s.baseAgi==null){
+    const depenses=Math.max(0,(player.baseStr-10)+(player.baseDex-10)+(player.baseVit-10)+(player.baseEne-10));
+    player.baseStr=player.baseDex=player.baseVit=player.baseEne=player.baseAgi=10;
+    player.statPts=(player.statPts||0)+depenses;
+    player._migrationAgi=depenses;
+  } else player.baseAgi=s.baseAgi;
   player.corpse=s.corpse||null;
   player.clesAchetees=s.clesAchetees||{};
   player.resets=s.resets||0;
@@ -5775,7 +5907,13 @@ const SFX=(function(){
         /* Le contexte était bloqué : la musique n'a pas pu démarrer au lancement.
            On la rattrape ici, une fois le déverrouillage obtenu. */
         try{ if(typeof OPT!=='undefined'&&OPT.musique&&!musicOn){musicOn=Music.start();
-             if(typeof updateTabs==='function')updateTabs();} }catch(e){}
+             if(typeof updateTabs==='function')updateTabs();}
+             /* Si la musique avait DÉJÀ démarré alors que le contexte était
+                encore suspendu, la boucle enregistrée a pu être planifiée dans
+                le vide. On la relance une fois le déverrouillage obtenu — c'est
+                sans effet si elle tourne déjà. */
+             else if(musicOn&&Music.rebasculer)Music.rebasculer();
+        }catch(e){}
         ['touchend','pointerdown','mousedown','keydown'].forEach(t=>document.removeEventListener(t,go,true));}};
     ['touchend','pointerdown','mousedown','keydown'].forEach(t=>document.addEventListener(t,go,true));
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ctx&&ctx.state==='suspended')ctx.resume();});
