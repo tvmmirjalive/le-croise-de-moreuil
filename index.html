@@ -909,7 +909,52 @@ const upgradeLocked=it=>echoesKilled()<upgradeNeed(it);
 const itemLabel=it=>needsId(it)?`<span class="rar-${it.rarity}">Objet non identifié</span>`:`<span class="rar-${it.rarity}">${it.name}${it.plus?' <span style="color:#7dff9a">+'+it.plus+'</span>':''}</span>${it.slot&&it.slot!=='gem'?' <span style="opacity:.55;font-size:10px">niv '+(it.ilvl||it.req||1)+'</span>':''}`;
 function affixText(a){const def=AFFIX.find(x=>x.t===a.t);
   const nm=def?def.n:(a.t==='dmg'?'+# Dégâts':a.t);return nm.replace('#',a.v);}
-const inventory=[];const INV_MAX=18;
+const inventory=[];
+/* ================================================================
+   LA BESACE
+
+   Deux manques : les gemmes, runes et charmes occupaient une case chacun
+   alors qu'ils sont interchangeables par lot, et la besace ne s'agrandissait
+   jamais — contrairement au coffre.
+
+   Empilement : l'inventaire reste une LISTE PLATE d'objets, pour que tout le
+   code existant continue de fonctionner. Ce qui change, c'est la façon de
+   compter la place : des objets identiques partagent une case. Un tas ne
+   consomme qu'un emplacement, quel que soit son effectif.
+   ================================================================ */
+let invCap=18;                       // sauvegardé
+const INV_CAP_MAX=40;
+const prixCaseBesace=cap=>Math.round(90*Math.pow(1.22,Math.max(0,cap-18)));
+/* Seuls les objets sans identité propre s'empilent : gemmes, runes, charmes.
+   Une arme a des affixes tirés au sort, deux exemplaires ne sont jamais
+   équivalents — elles ne s'empilent donc jamais. */
+function cleEmpilage(it){
+  if(!it)return null;
+  const empilable=(it.slot==='gem')||(it.slot==='charm')||it.charm;
+  if(!empilable)return null;
+  return [it.slot,it.kind||'',(it._base||it.name||''),(it.tier||1),(it.fuse||0),(it.plus||0)].join('|');
+}
+function groupesInventaire(){
+  const g=[],map=new Map();
+  for(const it of inventory){
+    const k=cleEmpilage(it);
+    if(k===null){g.push({cle:null,items:[it]});continue;}
+    let e=map.get(k);
+    if(!e){e={cle:k,items:[]};map.set(k,e);g.push(e);}
+    e.items.push(it);
+  }
+  return g;
+}
+const placesUtilisees=()=>groupesInventaire().length;
+/* « Le sac est-il plein POUR CET OBJET ? » — un objet qui rejoint un tas
+   existant ne demande aucune case libre. */
+function sacPlein(it){
+  if(placesUtilisees()<invCap)return false;
+  const k=cleEmpilage(it);
+  if(k===null)return true;
+  return !groupesInventaire().some(g=>g.cle===k);
+}
+const INV_MAX=18;   // conservé pour les anciens appels ; la vraie limite est invCap
 
 /* ---------------- ENEMY TYPES ---------------- */
 const ENEMY_TYPES={
@@ -1095,6 +1140,9 @@ function makeActBoss(n,x,y,blvl){const b=ACT_BOSSES[n]||ACT_BOSSES[ACT_BOSSES.le
   col:b.col,wcol:b.wcol,bkind:b.bkind,name:b.name,res:b.res||{},hitCd:0,hurt:0,boss:true,special:3,aggro:false,path:null,pcd:0,slow:0};
 }
 const acts={};const actDiscovered={};
+/* Sondes de test : simuler un lancement à froid et lire l'état des actes. */
+function oublierActes(){for(const k in acts)delete acts[k];for(const k in actDiscovered)delete actDiscovered[k];}
+function acteDecouvert(a){return !!actDiscovered[a];}
 function stamp(grid,w,h,x,y){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){grid[idx(w,clamp(x+dx,1,w-2),clamp(y+dy,1,h-2))]=T_FLOOR;}}
 function carveCorridor(grid,w,h,a,b){
   let x=a[0],y=a[1];const tx=b[0],ty=b[1];
@@ -1223,7 +1271,7 @@ function buildAct(n){
       for(let k=0;k<2;k++){const e=makeEnemy(A.depth>=2?'brute':'wraith',bx*TS+TS/2+rand(-20,20),by*TS+TS/2+rand(-20,20),A.depth,_el);makeElite(e);lvl.enemies.push(e);}
       lvl.chests.push({tx:bx,ty:by,x:bx*TS+TS/2,y:by*TS+TS/2,opened:false,depth:A.depth});
     } else {
-      for(let k=0;k<randi(2,4);k++){const q=nearFloor(bx+randi(-2,2),by+randi(-2,2));lvl.breakables.push({tx:q[0],ty:q[1],x:q[0]*TS+TS/2,y:q[1]*TS+TS/2,broken:false});}
+      for(let k=0;k<randi(2,4);k++){const q=nearFloor(bx+randi(-2,2),by+randi(-2,2));lvl.breakables.push({tx:q[0],ty:q[1],x:q[0]*TS+TS/2,y:q[1]*TS+TS/2,broken:false,r:14});}
     }
     // quelques branches profondes deviennent des grottes
     if((kind==='impasse'||kind==='gemme')&&_cav<3&&br.rr>=4){
@@ -1298,7 +1346,7 @@ function buildAct(n){
      }
    }}
   const nB=Math.min(60,Math.round(rf.length/1400)+10);
-  for(let i=0;i<nB;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<6)continue;lvl.breakables.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,broken:false});}
+  for(let i=0;i<nB;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<6)continue;lvl.breakables.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,broken:false,r:14});}
   // BOSS au point B
   {const bx=bpos[0],by=bpos[1];
     const bo=(n===ACTS.length-1)?makeEnemy('falcon',bx*TS+TS/2,by*TS+TS/2,A.depth,aEnd):makeActBoss(n,bx*TS+TS/2,by*TS+TS/2,aEnd);
@@ -1722,13 +1770,13 @@ const SKILL_ICON={slap:'skill_slap',charge:'skill_charge',whirl:'skill_whirl',te
 function skillIco(k,size){const im=SKILL_ICON[k]&&MISC_ICON&&MISC_ICON[SKILL_ICON[k]];
   return im?('<img src="'+im+'" style="width:'+(size||28)+'px;height:'+(size||28)+'px;image-rendering:pixelated;vertical-align:middle">'):(SKILLS[k]?SKILLS[k].ico:'·');}
 const SKILLS={
-  slap:{ico:'💥',name:'Slap Shot',desc:'Tir puissant qui perce en ligne (physique).',manaBase:6,cdBase:1.2,type:'phys',arch:'Mêlée'},
-  charge:{ico:'🌀',name:'Charge de l’Outlaw',desc:'Fonce vers le curseur et renverse les ennemis (physique).',manaBase:10,cdBase:3.4,type:'phys',arch:'Mêlée'},
-  whirl:{ico:'🌪️',name:'Moulinet',desc:'Frappe tournoyante : touche tous les ennemis autour (physique).',manaBase:14,cdBase:2.8,type:'phys',arch:'Mêlée'},
-  tempest:{ico:'❄️',name:'Tempête de Givre',desc:'Explosion de glace (froid), ralentit et gèle les ennemis.',manaBase:16,cdBase:5,type:'cold',arch:'Froid'},
-  holy:{ico:'✨',name:'Palet Sacré',desc:'Palet béni (sacré) qui rebondit et transperce.',manaBase:12,cdBase:2.2,type:'holy',arch:'Distance'},
-  multi:{ico:'🎯',name:'Triple Palet',desc:'Envoie 3 palets en éventail (physique).',manaBase:12,cdBase:2.4,type:'phys',arch:'Distance'},
-  warcry:{ico:'📣',name:'Cri de Guerre',desc:'Galvanise : dégâts +50% et soin pendant quelques secondes.',manaBase:18,cdBase:9,type:'buff',arch:'Défense'}};
+  slap:{ico:'💥',name:'Slap Shot',desc:'Tir puissant qui perce en ligne (physique).',manaBase:12,cdBase:1.2,type:'phys',arch:'Mêlée'},
+  charge:{ico:'🌀',name:'Charge de l’Outlaw',desc:'Fonce vers le curseur et renverse les ennemis (physique).',manaBase:22,cdBase:3.4,type:'phys',arch:'Mêlée'},
+  whirl:{ico:'🌪️',name:'Moulinet',desc:'Frappe tournoyante : touche tous les ennemis autour (physique).',manaBase:32,cdBase:2.8,type:'phys',arch:'Mêlée'},
+  tempest:{ico:'❄️',name:'Tempête de Givre',desc:'Explosion de glace (froid), ralentit et gèle les ennemis.',manaBase:38,cdBase:5,type:'cold',arch:'Froid'},
+  holy:{ico:'✨',name:'Palet Sacré',desc:'Palet béni (sacré) qui rebondit et transperce.',manaBase:27,cdBase:2.2,type:'holy',arch:'Distance'},
+  multi:{ico:'🎯',name:'Triple Palet',desc:'Envoie 3 palets en éventail (physique).',manaBase:27,cdBase:2.4,type:'phys',arch:'Distance'},
+  warcry:{ico:'📣',name:'Cri de Guerre',desc:'Galvanise : dégâts +50% et soin pendant quelques secondes.',manaBase:42,cdBase:9,type:'buff',arch:'Défense'}};
 const skillCd={slap:0,charge:0,tempest:0,holy:0,whirl:0,multi:0,warcry:0};
 let activeSkill='slap';
 function selectSkill(s){
@@ -1940,6 +1988,19 @@ function castSkillKey(s){
 }
 
 /* ---------------- SKILL EXEC ---------------- */
+/* Les tonneaux, caisses et urnes n'étaient cassés que par un clic dessus :
+   aucune compétence ne les touchait. Un Moulinet à côté d'un tonneau le
+   laissait intact, ce qui n'a aucun sens. Toute zone de dégâts passe
+   désormais par ici. */
+function casserAutour(x,y,r){
+  if(!level||!level.breakables)return 0;
+  let n=0;
+  for(const b of level.breakables){
+    if(b.broken)continue;
+    if(dist(x,y,b.x,b.y)<=r+10){breakBarrel(b);n++;}
+  }
+  return n;
+}
 function trySkill(s,wx,wy){
   const rank=player.skillRanks[s];if(s!=='slap'&&rank<=0)return false;
   if(skillCd[s]>0)return false;
@@ -1989,12 +2050,14 @@ function trySkill(s,wx,wy){
       fantomes.push({x:player.x+(nx-player.x)*t,y:player.y+(ny-player.y)*t,
         t:0,life:0.34,dir:player.dirRow|0});}
     gerbe(player.x,player.y,'#8fdcff',10,ang+3.14,0.7,{vmin:2,vmax:5,g:200,tmin:.2,tmax:.45});
+    for(let t=0;t<=1;t+=0.12)casserAutour(player.x+(nx-player.x)*t,player.y+(ny-player.y)*t,34);
     player.x=nx;player.y=ny;player.path=null;player.attackTarget=null;player._chargeLock=0.4;
     burst(nx,ny,'#8fdcff',18,{r:2.6,forme:'eclat',rot:8});
     secouer(4,0.2);
   } else if(s==='tempest'){
     const dmg=randi(st.dmgMin,st.dmgMax)*(1.4+rank*0.2)*(1+(TBp.cold||0)/100)*_SP;
     for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<150){hitEnemy(en,dmg,'cold');en.slow=1.6;en.frozen=1.2;}
+    casserAutour(player.x,player.y,150);
     for(let i=0;i<44;i++){const a=rand(0,6.28),v=rand(2,6);
       part({x:player.x,y:player.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.4,.9),
         col:i%3?'#7fd0ff':'#dff2ff',r:rand(1.6,3.4),g:i%2?150:0,rot:rand(-7,7),forme:'glace'});}
@@ -2013,6 +2076,7 @@ function trySkill(s,wx,wy){
   else if(s==='whirl'){
     const dmg=randi(st.dmgMin,st.dmgMax)*(1.3+rank*0.15)*(1+(TBp.phys||0)/100)*_SP;
     for(const en of level.enemies)if(dist(player.x,player.y,en.x,en.y)<130)hitEnemy(en,dmg,'phys');
+    casserAutour(player.x,player.y,130);
     /* Arc de crosse : un balayage de 360° en 0,26 s, à la portée exacte du sort.
        Le joueur voit enfin ce qui est touché. */
     player.moulinet={t:0,life:0.26,r:130,ang:ang};
@@ -2095,7 +2159,7 @@ function killEnemy(en){
   const g=en.boss?Math.round(randi(150,250)*(1+_pf*0.8)):randi(1,4)+_pf*2;
   if(level.arena)level.arena.goldBag+=g;else player.gold+=g;SFX.gold();floatText(en.x+16,en.y-en.r-6,'+'+g+' or','#f4d35e');
   rollLoot(en);
-  if(en.elite&&Math.random()<0.05&&inventory.length<INV_MAX){dropItem(en.x,en.y+8,makeCharm());}
+  if(en.elite&&Math.random()<0.05&&placesUtilisees()<invCap){dropItem(en.x,en.y+8,makeCharm());}
   if(en.elite){const eg=randi(8,16)+_pf*5;player.gold+=eg;floatText(en.x,en.y-6,'+'+eg+' or','#f4d35e');const _rr=Math.random();if(player.lvl>=RARE_LVL&&_rr<0.01)dropItem(en.x,en.y+10,makeItem('rare'));else if(player.lvl>=MAGIC_LVL&&_rr<0.51)dropItem(en.x,en.y+10,makeItem('magic'));}
   if(en.arenaBoss){player.arenaBossKills=(player.arenaBossKills||0)+1;
     toast('⚒ Écho terrassé ('+player.arenaBossKills+') — la forge se souvient',2.6);}
@@ -2138,7 +2202,7 @@ function grabDrop(drop){
   const _it=drop.item;
   if(_it.slot&&_it.slot!=='gem'&&autoSalv[_it.rarity]){const f=salvageValue(_it);player.frags+=f;
     floatText(drop.x,drop.y-10,'+❄'+f,'#7dd0ff');SFX.pickup();level.drops.splice(i,1);refreshHud();return;}
-  if(inventory.length>=INV_MAX){toast('Sac plein !',1.4);return;}
+  if(sacPlein(drop.item)){toast('Sac plein !',1.4);return;}
   inventory.push(drop.item);toast('Ramassé : '+drop.item.name.replace(/<[^>]+>/g,''),1.6);
   playOnce('Picking_Up');SFX.pickup();
   if(_it.rarity==='legendary'||_it.rarity==='unique')vibrer(VIB.butin);
@@ -2273,7 +2337,7 @@ function ramasserSac(){
   const c=sacIci(); if(!c)return false;
   if(dist(player.x,player.y,c.x,c.y)>TS*1.5)return false;
   let pris=0;const reste=[];
-  for(const it of (c.items||[])){ if(inventory.length<INV_MAX){inventory.push(it);pris++;} else reste.push(it); }
+  for(const it of (c.items||[])){ if(!sacPlein(it)){inventory.push(it);pris++;} else reste.push(it); }
   if(pris===0&&reste.length){
     /* RIEN n'a pu être pris : l'inventaire est plein. Cette fonction tourne à
        CHAQUE image tant qu'on est sur le sac — elle jouait donc le son de
@@ -2450,7 +2514,7 @@ function arenaLeave(win){
     if(A.tier.id===3&&!A.potUsed)qc.arenaNoPot=(qc.arenaNoPot||0)+1;
     for(const it of A.bag)if(it.rarity==='legendary')qc.legendary=(qc.legendary||0)+1;
     checkQuests&&checkQuests();
-    for(const it of A.bag){ if(inventory.length<INV_MAX)inventory.push(it); else stash.push(it); }
+    for(const it of A.bag){ if(!sacPlein(it))inventory.push(it); else stash.push(it); }
     player.gold+=A.goldBag;
     toast('🏆 Fosse vaincue — butin acquis ('+A.bag.length+' objet(s), '+A.goldBag+' or)',3.4);
     setTimeout(()=>toast(ANSELME.victoire,4.2),900);
@@ -3180,7 +3244,34 @@ function attaqueCible(){
          faceAngle(Math.atan2(c.y-player.y,c.x-player.x)); return true; }
   const p=interactifProche();
   if(p){ onClick(p.x,p.y); return true; }
-  const m=mouseWorld(); onClick(m.x,m.y); return false;
+  /* Plus rien à frapper ni à activer.
+     Avant : onClick(mouseWorld()). Or `mouse` n'est mis à jour que par un
+     toucher SUR LE CANEVAS — le bouton d'attaque est une surface HTML, il
+     n'y touche pas. Le héros partait donc vers le dernier point touché,
+     souvent en bas à droite de l'écran, c'est-à-dire plein SUD-EST en
+     isométrique. D'où la ruée de trois ou quatre cases sans raison.
+     On frappe sur place, on ne se déplace plus. */
+  frapperSurPlace();
+  return false;
+}
+/* Coup dans le vide, dans la direction où le héros regarde. Touche les
+   ennemis ET les objets destructibles à portée d'arme. */
+function frapperSurPlace(){
+  const st=P();
+  player.path=null;
+  playOnce('Attack1'); player.swing=0.18;
+  if(SFX&&SFX.slap)SFX.slap();
+  const a=(player.angMonde==null?0:player.angMonde);   // déjà tenu à jour par faceAngle
+  const portee=player.r+34;
+  const cx=player.x+Math.cos(a)*portee*0.6, cy=player.y+Math.sin(a)*portee*0.6;
+  const dmg=randi(st.dmgMin,st.dmgMax);
+  let touche=0;
+  if(level&&level.enemies)for(const en of level.enemies){
+    if(en.dying)continue;
+    if(dist(cx,cy,en.x,en.y)<en.r+portee*0.7){hitEnemy(en,dmg,'phys');touche++;}
+  }
+  casserAutour(cx,cy,portee*0.8);
+  return touche;
 }
 function majAttaqueAuto(dt){
   if(!OPT.attaqueAuto||player.dying)return;
@@ -3516,7 +3607,13 @@ function update(dt){
     if(p.enemy){if(dist(p.x,p.y,player.x,player.y)<player.r+p.r){damagePlayer(p.dmg,p.lvl);projectiles.splice(i,1);continue;}}
     else{for(const en of level.enemies){if(p.hitSet.has(en))continue;
       if(dist(p.x,p.y,en.x,en.y)<en.r+p.r){hitEnemy(en,p.dmg,p.type||'phys');p.hitSet.add(en);
-        if(!p.perce)p.bounces--;}}}
+        if(!p.perce)p.bounces--;}}
+      /* Un palet doit casser un tonneau qu'il percute, comme il blesse un
+         ennemi. Sans ça, seuls les clics directs détruisaient le décor. */
+      if(level.breakables)for(const b of level.breakables){
+        if(b.broken||(p.hitSet&&p.hitSet.has(b)))continue;
+        if(dist(p.x,p.y,b.x,b.y)<(b.r||14)+p.r+6){breakBarrel(b);if(p.hitSet)p.hitSet.add(b);
+          if(!p.perce)p.bounces--;}}}
     if(p.t>p.life||p.bounces<0)projectiles.splice(i,1);}
 
   for(let i=particles.length-1;i>=0;i--){const q=particles[i];q.t+=dt;
@@ -3527,7 +3624,7 @@ function update(dt){
     if(q.t>q.life)particles.splice(i,1);}
   for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.t+=dt;f.y-=22*dt;if(f.t>f.life)floaters.splice(i,1);}
   for(let _i=level.drops.length-1;_i>=0;_i--){const d=level.drops[_i];d.t+=dt;
-    if(inventory.length<INV_MAX&&dist(player.x,player.y,d.x,d.y)<RAYON_LOOT)grabDrop(d);}
+    if(!sacPlein(d.item)&&dist(player.x,player.y,d.x,d.y)<RAYON_LOOT)grabDrop(d);}
   for(let _e=level.enemies.length-1;_e>=0;_e--){if(level.enemies[_e].dying&&(level.enemies[_e].dieT||0)>=0.5)level.enemies.splice(_e,1);}
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)document.getElementById('toast').textContent='';}
   saveTimer-=dt;if(saveTimer<=0){saveTimer=6;saveGame();}
@@ -4904,7 +5001,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.30 — '+'2026-08-03';
+const BUILD='v8.32 — '+'2026-08-03';
 function refreshHud(){
   if(typeof updateBadges==='function')updateBadges();
   if(typeof majRappelSac==='function')majRappelSac();
@@ -4959,7 +5056,7 @@ function bindEquipSlot(slotId,valId,slot){
   el.onclick=it?(()=>unequip(slot)):null;
 }
 function unequip(slot){const it=player.equip[slot];if(!it)return;
-  if(inventory.length>=INV_MAX){toast('Sac plein !',1.4);return;}
+  if(sacPlein(it)){toast('Sac plein !',1.4);return;}
   inventory.push(it);player.equip[slot]=null;hideTip();
   toast('Retiré : '+it.name.replace(/<[^>]+>/g,''),1.4);renderInventory();refreshHud();}
 /* La barre de sorts se construit une fois, puis se met à jour à CHAQUE IMAGE.
@@ -5056,10 +5153,22 @@ function selectionnerObjet(i){
 function renderInventory(){
   const g=document.getElementById('invGrid');g.innerHTML='';
   if(invSel>=inventory.length)invSel=-1;
-  for(let i=0;i<INV_MAX;i++){const cell=document.createElement('div');cell.className='cell'+(i===invSel?' sel':'');
-    const it=inventory[i];
-    if(it){setCellIcon(cell,it);cell.style.boxShadow='inset 0 0 0 2px '+(i===invSel?'#f4d35e':RAR[it.rarity].col);
-      cell.onclick=()=>selectionnerObjet(i);
+  /* Une case par TAS. Les gemmes, runes et charmes identiques se regroupent :
+     l'inventaire reste une liste plate, seul le comptage change. */
+  const grp=groupesInventaire();
+  for(let i=0;i<invCap;i++){const cell=document.createElement('div');
+    const G=grp[i]; const it=G?G.items[0]:null;
+    const iReel=it?inventory.indexOf(it):-1;
+    cell.className='cell'+(iReel>=0&&iReel===invSel?' sel':'');
+    if(it){setCellIcon(cell,it);cell.style.boxShadow='inset 0 0 0 2px '+(iReel===invSel?'#f4d35e':RAR[it.rarity].col);
+      if(G.items.length>1){
+        const n=document.createElement('span');
+        n.textContent='×'+G.items.length;
+        n.style.cssText='position:absolute;right:2px;bottom:1px;font-size:11px;font-weight:bold;'+
+          'color:#f4d35e;text-shadow:0 1px 2px #000,0 0 3px #000;pointer-events:none';
+        cell.style.position='relative';cell.appendChild(n);
+      }
+      cell.onclick=()=>selectionnerObjet(iReel);
       cell.oncontextmenu=e=>{e.preventDefault();if(needsId(it)){hideTip();identifyItem(it);}else toast('Objet déjà identifié',1);return false;};
       if(IS_TOUCH&&needsId(it)){let _lt=0;
         cell.addEventListener('touchend',()=>{const t=Date.now();
@@ -5090,6 +5199,28 @@ function salvageAllRarity(rar){
 }
 function renderInvActions(){
   const box=document.getElementById('invActions');box.innerHTML='';
+  /* Agrandissement de la besace, sur le modèle du coffre : une case à la fois,
+     prix croissant, plafond à INV_CAP_MAX. */
+  {const bar=document.createElement('div');
+   bar.style.cssText='display:flex;gap:6px;width:100%;margin-bottom:6px;align-items:center;font-size:11px;color:#8ea0c8';
+   const info=document.createElement('span');
+   info.innerHTML='Besace : <b style="color:#e8ecf6">'+placesUtilisees()+'/'+invCap+'</b> emplacements';
+   bar.appendChild(info);
+   if(invCap<INV_CAP_MAX){
+     const c=prixCaseBesace(invCap);
+     const b=document.createElement('button');b.className='sal';b.style.cssText='font-size:11px;margin-left:auto';
+     b.innerHTML='+1 case — <span class="gi"></span>'+c.toLocaleString('fr-FR');
+     b.disabled=player.gold<c;
+     b.onclick=()=>{const p=prixCaseBesace(invCap);
+       if(player.gold>=p){player.gold-=p;invCap=Math.min(INV_CAP_MAX,invCap+1);
+         toast('Besace agrandie — '+invCap+' cases',1.4);
+         renderInventory();refreshHud();saveGame();}};
+     bar.appendChild(b);
+   } else {
+     const s=document.createElement('span');s.style.marginLeft='auto';s.style.color='#7dff9a';
+     s.textContent='besace au maximum';bar.appendChild(s);
+   }
+   box.appendChild(bar);}
   // --- actions groupées (toujours visibles) ---
   const bulk=document.createElement('div');bulk.style.cssText='display:flex;flex-wrap:wrap;gap:4px;width:100%;margin-bottom:6px;align-items:center';
   [['⚪ Démonter communs','white'],['🔵 Démonter magiques','magic']].forEach(function(p){
@@ -5452,7 +5583,7 @@ function updateBadges(){
   setBadge('statBadge',pts,false);
   setBadge('attrBadge',pts,false);
   setBadge('skillBadge',player.treePts||0,false);
-  setBadge('bagBadge',(inventory.length>=INV_MAX)?true:0,true);
+  setBadge('bagBadge',(placesUtilisees()>=invCap)?true:0,true);
 }
 const qc={elites:0,chests:0,shrines:0,imp:0,wraith:0,brute:0,arenaRuns:0,arenaT1:0,arenaT2:0,arenaT3:0,arenaNoPot:0,legendary:0,talkArena:0};
 const QUESTS=[{"id":"m0a","act":0,"name":"Le Grand Plongeon","desc":"Aldric chausse ses patins : « Bon. La ville est envahie de démons, ma piste est un cratère et mon coach a des ailes. Journée normale. » Nettoie l'entrée de la Piscine.","type":"kills","target":8,"need":{"act":0},"gold":100,"potion":1},{"id":"m0b","act":0,"name":"Le Sifflet du Pacte","desc":"Dans les vestiaires noyés dort le Sifflet du Coach Verdier — celui qui a sonné le pacte et damné toute une équipe. Fouille les coffres, puis brise cette première relique du Falcon.","type":"chests","target":3,"need":{"act":0,"prev":["m0a"]},"gold":150,"gem":true},{"id":"m0c","act":0,"name":"Vidange Générale","desc":"« Qui a laissé entrer autant de diablotins dans MA piscine ? » Débarrasse le bassin de sa vermine cornue avant qu'elle ne bouche les canalisations de l'Abîme.","type":"kind","target":12,"need":{"act":0,"prev":["m0a"]},"gold":120,"kind":"imp"},{"id":"m0d","act":0,"name":"Le Maître-Nageur Damné","desc":"Un champion boursouflé règne sur le grand bain et siffle encore les faux départs des morts. Terrasse deux élites pour lui prouver que le règlement a changé.","type":"elites","target":2,"need":{"act":0,"prev":["m0b"]},"gold":180,"frags":4},{"id":"m0e","act":0,"name":"Descente aux Enfers Gelés","desc":"Le Sifflet brisé, un écho glacial monte de sous la ville. « La Glacière. Évidemment. Pourquoi ce serait au chaud ? » Rejoins l'Acte 2.","type":"reach","target":1,"need":{"act":0,"prev":["m0b","m0d"]},"gold":200,"xp":60},{"id":"m1a","act":1,"name":"Le Cœur de Givre","desc":"La Glacière bat d'un froid vivant, comme un cœur sous la banquise. Dans la glace résonne une voix familière : celle d'un ancien coéquipier. Survis à la caverne.","type":"kills","target":30,"need":{"act":1},"gold":200,"potion":2},{"id":"m1b","act":1,"name":"La Rondelle Maudite","desc":"La rondelle du but de la victoire, figée pour l'éternité avec les âmes qu'elle a coûtées, est la deuxième relique du Falcon. Force les coffres gelés, puis détruis-la.","type":"chests","target":6,"need":{"act":1,"prev":["m1a"]},"gold":250,"gem":true},{"id":"m1c","act":1,"name":"Le Pacte Révélé","desc":"Le spectre d'un coéquipier avoue : « Le Coach… il a signé quelque chose. Pour qu'on gagne. On a gagné. Puis on est morts. » Purge les spectres qui le tourmentent.","type":"kind","target":20,"need":{"act":1,"prev":["m1a"]},"gold":220,"frags":6,"kind":"wraith"},{"id":"m1d","act":1,"name":"Gardiens du Froid","desc":"Des champions de glace protègent la vérité derrière leurs lames. Aldric soupire : « Toujours un boss entre moi et une info utile. » Abats cinq élites au total.","type":"elites","target":5,"need":{"act":1,"prev":["m1b"]},"gold":280,"frags":6},{"id":"m1e","act":1,"name":"Vers les Bois","desc":"La piste remonte vers le Bois de Moreuil, là où tout a commencé en 1918… et où tout recommence. Rejoins l'Acte 3.","type":"reach","target":2,"need":{"act":1,"prev":["m1b","m1c"]},"gold":320,"xp":120},{"id":"m2a","act":2,"name":"Le Bois Qui Se Souvient","desc":"Sous les arbres figés errent les soldats de 1918, mêlés aux démons qui profanent leur repos. « Respect, les gars. Mais poussez-vous. » Tiens la ligne.","type":"kills","target":60,"need":{"act":2},"gold":320,"potion":2},{"id":"m2b","act":2,"name":"La Médaille de 1918","desc":"La Médaille de 1918, gagnée dans la boue et corrompue par le démon, est la troisième relique du Falcon. Fouille les coffres du champ de bataille, puis brise-la.","type":"chests","target":10,"need":{"act":2,"prev":["m2a"]},"gold":350,"gem":true},{"id":"m2c","act":2,"name":"Le Nom du Traître","desc":"Un vieux fantôme crache enfin le nom : « Verdier. Le Coach. Il nous a vendus au démon d'en-bas. » Brise les brutes qui gardent son secret.","type":"kind","target":25,"need":{"act":2,"prev":["m2a"]},"gold":330,"frags":8,"kind":"brute"},{"id":"m2d","act":2,"name":"Chasse aux Champions","desc":"La forêt grouille d'élites aux yeux d'émeraude. Aldric craque ses phalanges : « Séance d'entraînement. » Terrasse huit champions au total.","type":"elites","target":8,"need":{"act":2,"prev":["m2b"]},"gold":400,"frags":8},{"id":"m2e","act":2,"name":"Le Sanctuaire Profané","desc":"La piste du Coach mène à l'Église Saint-Vaast, où sa créature la plus fidèle veille sur l'autel. Rejoins l'Acte 4.","type":"reach","target":3,"need":{"act":2,"prev":["m2b","m2c"]},"gold":450,"xp":200},{"id":"m3a","act":3,"name":"La Nef Corrompue","desc":"L'Église est devenue un autel de feu bleu, et les cantiques ont un goût de soufre. « J'ai été de messe plus accueillante. » Fraye-toi un chemin jusqu'au chœur.","type":"kills","target":100,"need":{"act":3},"gold":450,"potion":3},{"id":"m3b","act":3,"name":"Le Calice Profané","desc":"La quatrième relique du Falcon, le calice de la paroisse souillé par la créature, trône sur l'autel comme un trophée volé. Ouvre les coffres sacrés, puis détruis-le.","type":"chests","target":15,"need":{"act":3,"prev":["m3a"]},"gold":500,"gem":true},{"id":"m3c","act":3,"name":"Le Séraphin Corrompu","desc":"Le bras armé du Coach, un ange déchu, barre l'autel de ses six ailes. « Toi, le sacré, tu vas goûter à mon Palet. » Élimine douze champions pour percer sa garde.","type":"elites","target":12,"need":{"act":3,"prev":["m3a"]},"gold":550,"frags":10},{"id":"m3d","act":3,"name":"La Vérité sous les Vitraux","desc":"Les vitraux racontent tout : la Coupe gagnée, le démon dévorant Verdier, et le Green Falcon déployant ses ailes pour régner sur l'Abîme. Purge les spectres témoins.","type":"kind","target":40,"need":{"act":3,"prev":["m3b"]},"gold":560,"frags":10,"kind":"wraith"},{"id":"m3e","act":3,"name":"Le Dernier Vestiaire","desc":"Quatre reliques en poussière. Ne reste que la Coupe Maudite — dans le Gymnase, entre les serres du Falcon. Rejoins l'Acte 5.","type":"reach","target":4,"need":{"act":3,"prev":["m3b","m3c"]},"gold":650,"xp":320},{"id":"m4a","act":4,"name":"Retour au Gymnase","desc":"La piste du collège, là où Aldric a appris à patiner, à frapper, à gagner. Aujourd'hui, c'est l'arène finale. « À la maison. Enfin, ce qu'il en reste. »","type":"kills","target":150,"need":{"act":4},"gold":700,"potion":3},{"id":"m4b","act":4,"name":"Les Cinq Reliques","desc":"Sifflet, Rondelle, Médaille, Calice… détruits. Ne reste que la Coupe Maudite, la dernière relique du Falcon. Vide les derniers coffres pour la trouver et la briser.","type":"chests","target":20,"need":{"act":4,"prev":["m4a"]},"gold":800,"gem":true},{"id":"m4c","act":4,"name":"Le Green Falcon","desc":"Ses cinq reliques brisées, le Green Falcon n'a plus d'armure. Il déploie ses ailes d'émeraude : « Aldric ! Tu es EN RETARD à l'entraînement ! » Terrasse-le — il est enfin vulnérable, surtout au sacré.","type":"boss","target":1,"need":{"act":4,"prev":["m4b"]},"gold":1500,"gem":true,"xp":500},{"id":"m4d","act":4,"name":"Le Serment Tenu","desc":"Privé de ses reliques, le démon n'a plus d'ancrage : en tombant, le Coach redevient un vieil homme brisé qui murmure des excuses, et la Faille se referme. Purge les derniers démons pour clore la nuit.","type":"kills","target":180,"need":{"act":4,"prev":["m4c"]},"gold":1000,"frags":20},{"id":"m4e","act":4,"name":"Légende de Moreuil","desc":"Les Outlaws sont libérés, la ville sauvée, la légende écrite. « Bon. Qui range les palets, maintenant ? » Atteins le niveau 20 pour asseoir ta légende.","type":"level","target":20,"need":{"act":4,"prev":["m4c"]},"gold":1200,"gem":true},{"id":"s01","act":0,"name":"Grand ménage — Piscine de Moreuil","desc":"Les démons ont annexé le petit bain et pataugent dans MA piscine. Vide les lieux. « Je fais ça les yeux fermés. »","type":"kills","target":12,"need":{"act":0},"gold":45},{"id":"s02","act":0,"name":"Purge sanitaire — Piscine de Moreuil","desc":"La vermine de la Faille prolifère entre les plots de départ. Purge la zone. « Pour l'équipe. »","type":"kills","target":20,"need":{"act":0},"gold":45},{"id":"s03","act":0,"name":"Ratissage — Piscine de Moreuil","desc":"Ratisse le bassin, ligne d'eau par ligne d'eau, jusqu'au dernier démon. « Après, je prends une pause. »","type":"kills","target":20,"need":{"act":0},"gold":45},{"id":"s04","act":0,"name":"Opération balai — Piscine de Moreuil","desc":"Un coup de balai s'impose du pédiluve au grand plongeoir. « Facile. Enfin, presque. »","type":"kills","target":30,"need":{"act":0},"gold":45,"potion":1},{"id":"s05","act":0,"name":"Contrat de chasse — diablotins","desc":"Des diablotins font des bombes dans le grand bain. Traque-les en priorité. Aldric : « Encore ? »","type":"kind","target":8,"need":{"act":0},"kind":"imp","gold":45,"frags":2},{"id":"s06","act":0,"name":"Extermination ciblée — spectres bleus","desc":"Des spectres bleus hantent les lignes d'eau comme de vieux records jamais battus. Traque-les en priorité. « Je fais ça les yeux fermés. »","type":"kind","target":15,"need":{"act":0},"kind":"wraith","gold":45},{"id":"s07","act":0,"name":"Battue — brutes d'os","desc":"Des brutes d'os squattent les gradins et cassent les transats. Traque-les en priorité. « Pour l'équipe. »","type":"kind","target":8,"need":{"act":0},"kind":"brute","gold":45,"gem":true},{"id":"s08","act":0,"name":"Pilleur de coffres — Piscine de Moreuil","desc":"Les casiers des vestiaires n'ont pas tout rendu. Force les coffres de la zone. « Après, je prends une pause. »","type":"chests","target":4,"need":{"act":0},"gold":65,"potion":1},{"id":"s09","act":0,"name":"Fouille méthodique — Piscine de Moreuil","desc":"Fouille la Piscine coffre par coffre, sans oublier le local du maître-nageur. « Facile. Enfin, presque. »","type":"chests","target":5,"need":{"act":0},"gold":65},{"id":"s10","act":0,"name":"Trésors oubliés — Piscine de Moreuil","desc":"Des trésors dorment au fond du bassin depuis la dernière kermesse. Force les coffres de la zone. Aldric : « Encore ? »","type":"chests","target":8,"need":{"act":0},"gold":65,"frags":2},{"id":"s11","act":0,"name":"Défi du champion — Piscine","desc":"Un champion parade sur le plongeoir des trois mètres. Fais-le descendre. « Je fais ça les yeux fermés. »","type":"elites","target":3,"need":{"act":0},"gold":65},{"id":"s12","act":0,"name":"Tueur de champions — Piscine","desc":"Les élites du bassin se croient intouchables depuis la fermeture. Abats les champions marqués. « Pour l'équipe. »","type":"elites","target":4,"need":{"act":0},"gold":65,"potion":1},{"id":"s13","act":0,"name":"Communion de Moreuil","desc":"Les sanctuaires de la ville veillent encore sous le chlore. Active-les pour gagner leurs bienfaits. « Après, je prends une pause. »","type":"shrines","target":1,"need":{"act":0},"gold":45},{"id":"s14","act":0,"name":"Bénédictions de Moreuil","desc":"Une lueur sacrée résiste dans les douches froides. Active les sanctuaires pour gagner leurs bienfaits. « Facile. Enfin, presque. »","type":"shrines","target":2,"need":{"act":0},"gold":45,"gem":true},{"id":"s15","act":0,"name":"Aguerrissement — Piscine de Moreuil","desc":"La Glacière n'attendra pas un patineur tiède. Gagne en puissance avant la suite. Aldric : « Encore ? »","type":"level","target":4,"need":{"act":0},"gold":45,"frags":2},{"id":"s16","act":1,"name":"Purge sanitaire — La Glacière","desc":"Le gel abrite plus de démons que de stalactites. Purge la zone. « Facile. Enfin, presque. »","type":"kills","target":40,"need":{"act":1},"gold":90},{"id":"s17","act":1,"name":"Ratissage — La Glacière","desc":"Ratisse les galeries gelées jusqu'à ce que l'écho se taise. Aldric : « Encore ? »","type":"kills","target":55,"need":{"act":1},"gold":90},{"id":"s18","act":1,"name":"Opération balai — La Glacière","desc":"Un coup de balai dans la caverne, avant que le froid ne recrute. « Je fais ça les yeux fermés. »","type":"kills","target":48,"need":{"act":1},"gold":90},{"id":"s19","act":1,"name":"Nettoyage de zone — La Glacière","desc":"La population démoniaque de la Glacière dépasse le quota. Réduis-la. « Pour l'équipe. »","type":"kills","target":65,"need":{"act":1},"gold":90,"potion":1},{"id":"s20","act":1,"name":"Extermination ciblée — diablotins","desc":"Des diablotins font du patin à glace sur les âmes gelées. Traque-les en priorité. « Après, je prends une pause. »","type":"kind","target":18,"need":{"act":1},"kind":"imp","gold":90,"frags":4},{"id":"s21","act":1,"name":"Battue — spectres bleus","desc":"Des spectres bleus se fondent dans la banquise — cherche les yeux qui brillent. Traque-les en priorité. « Facile. Enfin, presque. »","type":"kind","target":26,"need":{"act":1},"kind":"wraith","gold":90},{"id":"s22","act":1,"name":"Prime démoniaque — brutes d'os","desc":"Des brutes d'os font craquer la glace sous leur poids. Traque-les en priorité. Aldric : « Encore ? »","type":"kind","target":18,"need":{"act":1},"kind":"brute","gold":90,"gem":true},{"id":"s23","act":1,"name":"Fouille méthodique — La Glacière","desc":"Les coffres de la Glacière sont soudés par le givre. Force-les. « Je fais ça les yeux fermés. »","type":"chests","target":8,"need":{"act":1},"gold":110,"potion":1},{"id":"s24","act":1,"name":"Trésors oubliés — La Glacière","desc":"Des trésors attendent sous la glace depuis le grand gel. Force les coffres de la zone. « Pour l'équipe. »","type":"chests","target":9,"need":{"act":1},"gold":110},{"id":"s25","act":1,"name":"Rat de cave — La Glacière","desc":"Descends racler les coffres des galeries les plus profondes. « Après, je prends une pause. »","type":"chests","target":12,"need":{"act":1},"gold":110,"frags":4},{"id":"s26","act":1,"name":"Tueur de champions — La Glacière","desc":"Les champions de glace patinent mieux que les tiens ne patinaient. Vexant. Abats les champions marqués. « Facile. Enfin, presque. »","type":"elites","target":6,"need":{"act":1},"gold":110},{"id":"s27","act":1,"name":"Prime : élite de la Glacière","desc":"Une prime sur chaque élite de la caverne. Abats les champions marqués. Aldric : « Encore ? »","type":"elites","target":7,"need":{"act":1},"gold":110,"potion":1},{"id":"s28","act":1,"name":"Bénédictions de la Glacière","desc":"Des sanctuaires luisent faiblement sous le givre. Active-les pour gagner leurs bienfaits. « Je fais ça les yeux fermés. »","type":"shrines","target":3,"need":{"act":1},"gold":90},{"id":"s29","act":1,"name":"Rites de la Glacière","desc":"Les vieux rites tiennent encore chaud, même ici. Active les sanctuaires pour gagner leurs bienfaits. « Pour l'équipe. »","type":"shrines","target":4,"need":{"act":1},"gold":90,"gem":true},{"id":"s30","act":1,"name":"Entraînement intensif — La Glacière","desc":"Le Bois n'épargnera pas un Outlaw engourdi. Gagne en puissance avant la suite. « Après, je prends une pause. »","type":"level","target":8,"need":{"act":1},"gold":90,"frags":4},{"id":"s31","act":2,"name":"Ratissage — Bois de Moreuil","desc":"Les sous-bois grouillent de démons entre les tranchées. Ratisse la zone. « Pour l'équipe. »","type":"kills","target":75,"need":{"act":2},"gold":135},{"id":"s32","act":2,"name":"Opération balai — Bois de Moreuil","desc":"Un coup de balai sous les arbres figés — les Poilus apprécieront. « Après, je prends une pause. »","type":"kills","target":95,"need":{"act":2},"gold":135},{"id":"s33","act":2,"name":"Nettoyage de zone — Bois de Moreuil","desc":"La population démoniaque du Bois déborde sur les sentiers. Réduis-la. « Facile. Enfin, presque. »","type":"kills","target":83,"need":{"act":2},"gold":135},{"id":"s34","act":2,"name":"Grand ménage — Bois de Moreuil","desc":"Le Bois mérite mieux que cette infestation. Grand ménage. Aldric : « Encore ? »","type":"kills","target":105,"need":{"act":2},"gold":135,"potion":1},{"id":"s35","act":2,"name":"Battue — diablotins","desc":"Des diablotins nichent dans les arbres comme des corbeaux moqueurs. Traque-les en priorité. « Je fais ça les yeux fermés. »","type":"kind","target":30,"need":{"act":2},"kind":"imp","gold":135,"frags":6},{"id":"s36","act":2,"name":"Prime démoniaque — spectres bleus","desc":"Des spectres bleus flottent entre les troncs, à hauteur de baïonnette. Traque-les en priorité. « Pour l'équipe. »","type":"kind","target":40,"need":{"act":2},"kind":"wraith","gold":135},{"id":"s37","act":2,"name":"Contrat de chasse — brutes d'os","desc":"Des brutes d'os déterrent ce qui devrait rester enterré. Traque-les en priorité. « Après, je prends une pause. »","type":"kind","target":30,"need":{"act":2},"kind":"brute","gold":135,"gem":true},{"id":"s38","act":2,"name":"Trésors oubliés — Bois de Moreuil","desc":"Le champ de bataille cache des trésors sous ses racines. Force les coffres de la zone. « Facile. Enfin, presque. »","type":"chests","target":12,"need":{"act":2},"gold":155,"potion":1},{"id":"s39","act":2,"name":"Rat de cave — Bois de Moreuil","desc":"Fouille les caches creusées sous les tranchées. Force les coffres. Aldric : « Encore ? »","type":"chests","target":14,"need":{"act":2},"gold":155},{"id":"s40","act":2,"name":"Pilleur de coffres — Bois de Moreuil","desc":"Les coffres du Bois n'ouvriront pas tout seuls. Force-les. « Je fais ça les yeux fermés. »","type":"chests","target":17,"need":{"act":2},"gold":155,"frags":6},{"id":"s41","act":2,"name":"Prime : élite du Bois","desc":"Une prime sur chaque élite qui rôde en lisière. Abats les champions marqués. « Pour l'équipe. »","type":"elites","target":9,"need":{"act":2},"gold":155},{"id":"s42","act":2,"name":"Trophée de chasse — Bois","desc":"Les champions du Bois feraient de beaux trophées de chasse. Abats-les. « Après, je prends une pause. »","type":"elites","target":11,"need":{"act":2},"gold":155,"potion":1},{"id":"s43","act":2,"name":"Rites du Bois de Moreuil","desc":"Les sanctuaires du Bois veillent depuis 1918. Active-les pour gagner leurs bienfaits. « Facile. Enfin, presque. »","type":"shrines","target":5,"need":{"act":2},"gold":135},{"id":"s44","act":2,"name":"Pèlerinage de Moreuil","desc":"Un pèlerinage entre les arbres qui se souviennent. Active les sanctuaires pour gagner leurs bienfaits. Aldric : « Encore ? »","type":"shrines","target":6,"need":{"act":2},"gold":135,"gem":true},{"id":"s45","act":2,"name":"Monter en gamme — Bois de Moreuil","desc":"L'Église exigera un Outlaw à la hauteur de son clocher. Gagne en puissance avant la suite. « Je fais ça les yeux fermés. »","type":"level","target":12,"need":{"act":2},"gold":135,"frags":6},{"id":"s46","act":3,"name":"Opération balai — Église Saint-Vaast","desc":"Un coup de balai dans la nef — les bancs n'ont jamais vu pareille assemblée. Aldric : « Encore ? »","type":"kills","target":120,"need":{"act":3},"gold":180},{"id":"s47","act":3,"name":"Nettoyage de zone — Église Saint-Vaast","desc":"La population démoniaque profane chaque chapelle. Réduis-la. « Je fais ça les yeux fermés. »","type":"kills","target":140,"need":{"act":3},"gold":180},{"id":"s48","act":3,"name":"Grand ménage — Église Saint-Vaast","desc":"Grand ménage sous les voûtes, du porche à la sacristie. « Pour l'équipe. »","type":"kills","target":128,"need":{"act":3},"gold":180},{"id":"s49","act":3,"name":"Purge sanitaire — Église Saint-Vaast","desc":"Purge la maison de Sœur Vaast de ses squatteurs damnés. « Après, je prends une pause. »","type":"kills","target":150,"need":{"act":3},"gold":180,"potion":1},{"id":"s50","act":3,"name":"Prime démoniaque — diablotins","desc":"Des diablotins se balancent aux cordes des cloches. Traque-les en priorité. « Facile. Enfin, presque. »","type":"kind","target":45,"need":{"act":3},"kind":"imp","gold":180,"frags":8},{"id":"s51","act":3,"name":"Contrat de chasse — spectres bleus","desc":"Des spectres bleus imitent les vitraux pour passer inaperçus. Traque-les en priorité. Aldric : « Encore ? »","type":"kind","target":55,"need":{"act":3},"kind":"wraith","gold":180},{"id":"s52","act":3,"name":"Extermination ciblée — brutes d'os","desc":"Des brutes d'os profanent la crypte à grands coups d'épaule. Traque-les en priorité. « Je fais ça les yeux fermés. »","type":"kind","target":45,"need":{"act":3},"kind":"brute","gold":180,"gem":true},{"id":"s53","act":3,"name":"Rat de cave — Église Saint-Vaast","desc":"La crypte garde ses coffres depuis des siècles. Force-les. « Pour l'équipe. »","type":"chests","target":16,"need":{"act":3},"gold":200,"potion":1},{"id":"s54","act":3,"name":"Pilleur de coffres — Église Saint-Vaast","desc":"Le trésor de la paroisse n'attend qu'une bonne crosse. Force les coffres de la zone. « Après, je prends une pause. »","type":"chests","target":18,"need":{"act":3},"gold":200},{"id":"s55","act":3,"name":"Fouille méthodique — Église Saint-Vaast","desc":"Fouille l'Église chapelle par chapelle, confessionnal compris. « Facile. Enfin, presque. »","type":"chests","target":21,"need":{"act":3},"gold":200,"frags":8},{"id":"s56","act":3,"name":"Trophée de chasse — Église","desc":"Les champions du Séraphin gardent la nef comme des gargouilles. Abats-les. Aldric : « Encore ? »","type":"elites","target":13,"need":{"act":3},"gold":200},{"id":"s57","act":3,"name":"Défi du champion — Église","desc":"Un champion se prend pour l'archange du transept. Descends-le de son pilier. « Je fais ça les yeux fermés. »","type":"elites","target":15,"need":{"act":3},"gold":200,"potion":1},{"id":"s58","act":3,"name":"Pèlerinage de Saint-Vaast","desc":"Un pèlerinage sous les voûtes profanées. Active les sanctuaires pour gagner leurs bienfaits. « Pour l'équipe. »","type":"shrines","target":7,"need":{"act":3},"gold":180},{"id":"s59","act":3,"name":"Communion de Saint-Vaast","desc":"Les sanctuaires de Saint-Vaast n'ont pas dit leur dernier cantique. Active-les pour gagner leurs bienfaits. « Après, je prends une pause. »","type":"shrines","target":8,"need":{"act":3},"gold":180,"gem":true},{"id":"s60","act":3,"name":"Aguerrissement — Église Saint-Vaast","desc":"Le Gymnase sera le dernier round — arrive affûté. Gagne en puissance avant la suite. « Facile. Enfin, presque. »","type":"level","target":16,"need":{"act":3},"gold":180,"frags":8},{"id":"s61","act":4,"name":"Nettoyage de zone — Gymnase du Collège","desc":"La population démoniaque campe sur la piste d'Aldric. Erreur. Réduis-la. « Après, je prends une pause. »","type":"kills","target":165,"need":{"act":4},"gold":225},{"id":"s62","act":4,"name":"Grand ménage — Gymnase du Collège","desc":"Grand ménage sur la piste, des vestiaires au rond central. « Facile. Enfin, presque. »","type":"kills","target":200,"need":{"act":4},"gold":225},{"id":"s63","act":4,"name":"Purge sanitaire — Gymnase du Collège","desc":"Purge le Gymnase — personne ne profane cette piste impunément. Aldric : « Encore ? »","type":"kills","target":173,"need":{"act":4},"gold":225},{"id":"s64","act":4,"name":"Ratissage — Gymnase du Collège","desc":"Ratisse les tribunes rangée par rangée. Les supporters ont changé. « Je fais ça les yeux fermés. »","type":"kills","target":210,"need":{"act":4},"gold":225,"potion":1},{"id":"s65","act":4,"name":"Contrat de chasse — diablotins","desc":"Des diablotins jouent avec les palets d'entraînement. Sacrilège. Traque-les en priorité. « Pour l'équipe. »","type":"kind","target":60,"need":{"act":4},"kind":"imp","gold":225,"frags":10},{"id":"s66","act":4,"name":"Extermination ciblée — spectres bleus","desc":"Des spectres bleus rejouent la finale maudite en boucle. Traque-les en priorité. « Après, je prends une pause. »","type":"kind","target":75,"need":{"act":4},"kind":"wraith","gold":225},{"id":"s67","act":4,"name":"Battue — brutes d'os","desc":"Des brutes d'os défoncent les balustrades de la piste. Traque-les en priorité. « Facile. Enfin, presque. »","type":"kind","target":60,"need":{"act":4},"kind":"brute","gold":225,"gem":true},{"id":"s68","act":4,"name":"Pilleur de coffres — Gymnase du Collège","desc":"Les casiers du Gymnase gardent les secrets de l'équipe. Force les coffres. Aldric : « Encore ? »","type":"chests","target":22,"need":{"act":4},"gold":245,"potion":1},{"id":"s69","act":4,"name":"Fouille méthodique — Gymnase du Collège","desc":"Fouille le Gymnase du local matériel à la buvette. « Je fais ça les yeux fermés. »","type":"chests","target":26,"need":{"act":4},"gold":245},{"id":"s70","act":4,"name":"Trésors oubliés — Gymnase du Collège","desc":"Des trésors dorment sous les gradins depuis la finale. Force les coffres de la zone. « Pour l'équipe. »","type":"chests","target":29,"need":{"act":4},"gold":245,"frags":10},{"id":"s71","act":4,"name":"Défi du champion — Gymnase","desc":"Un champion s'est proclamé capitaine sur MA piste. Abats les champions marqués. « Après, je prends une pause. »","type":"elites","target":17,"need":{"act":4},"gold":245},{"id":"s72","act":4,"name":"Tueur de champions — Gymnase","desc":"La garde rapprochée du Falcon patrouille la piste. Abats les champions marqués. « Facile. Enfin, presque. »","type":"elites","target":20,"need":{"act":4},"gold":245,"potion":1},{"id":"s73","act":4,"name":"Communion du Collège","desc":"Les sanctuaires du collège brillent encore sous la poussière. Active-les pour gagner leurs bienfaits. Aldric : « Encore ? »","type":"shrines","target":9,"need":{"act":4},"gold":225},{"id":"s74","act":4,"name":"Bénédictions du Collège","desc":"Une dernière bénédiction avant la mise au jeu finale. Active les sanctuaires pour gagner leurs bienfaits. « Je fais ça les yeux fermés. »","type":"shrines","target":10,"need":{"act":4},"gold":225,"gem":true},{"id":"s75","act":4,"name":"Entraînement intensif — Gymnase du Collège","desc":"Le Falcon t'attend au centre de la piste. Gagne en puissance avant la suite. « Pour l'équipe. »","type":"level","target":22,"need":{"act":4},"gold":225,"frags":10},{"id":"b0","act":0,"name":"Le Maître-Nageur Noyé","desc":"Au fond du grand bain, un gardien spectral s'accroche encore à son poste, sifflet au cou et haine au ventre. Terrasse-le pour ouvrir la voie hors de la Piscine.","type":"bossact","target":1,"need":{"act":0},"gold":150,"xp":80,"potion":1},{"id":"b1","act":1,"name":"Givre-Cœur, Gardien de Glace","desc":"Un cœur de gel scelle la sortie de la Glacière et bat pour toute la caverne. Brise Givre-Cœur — le froid ne l'atteint pas, frappe au physique ou au sacré.","type":"bossact","target":1,"need":{"act":1},"gold":250,"xp":150,"potion":1},{"id":"b2","act":2,"name":"L'Ancien des Bois","desc":"Une entité sylvestre monte la garde à la lisière depuis 1918, nourrie de racines et de rancune. Abats l'Ancien des Bois pour rejoindre l'Église.","type":"bossact","target":1,"need":{"act":2},"gold":400,"xp":260,"potion":2},{"id":"b3","act":3,"name":"Le Séraphin Corrompu","desc":"L'ange déchu veille sur le chœur embrasé de feu bleu. Rappelle-lui, crosse en main, que le sacré, ça pique.","type":"bossact","target":1,"need":{"act":3},"gold":600,"xp":380,"gem":true},{"id":"a1","act":5,"name":"L’Homme qui a dit Non","desc":"Anselme « la Cage » se tient près du portail de la Fosse, au village. Va l’écouter : il est le seul Outlaw à avoir refusé le pacte de Verdier.","type":"talkArena","target":1,"need":{"act":0},"gold":120,"potion":1},{"id":"a2","act":5,"name":"La Première Clé","desc":"Chaque lieutenant du Falcon porte une clé de la Fosse. Arrache-lui.","type":"key","target":1,"need":{"prev":["a1"]},"gold":200,"frags":3},{"id":"a3","act":5,"name":"Baptême de la Fosse","desc":"Survis à toutes les vagues d’une arène de bronze — les échos ne pardonnent pas aux prétentieux.","type":"arenaT","tier":1,"target":1,"need":{"prev":["a2"]},"gold":400,"potion":2},{"id":"a4","act":5,"name":"L’Écho du Noyé","desc":"Terrasse un giga-boss : l’écho d’une créature que tu as déjà tuée, rappelée en pire par la Fosse.","type":"echo","target":1,"need":{"prev":["a2"]},"gold":500,"gem":true},{"id":"a5","act":5,"name":"Le Métal Blanc","desc":"Termine une arène d’argent : dix niveaux au-dessus de toi, sans filet.","type":"arenaT","tier":2,"target":1,"need":{"prev":["a3"]},"gold":900,"frags":8},{"id":"a6","act":5,"name":"Les Trois Sceaux","desc":"Termine les trois paliers de la Fosse : bronze, argent et or.","type":"arenaAll","target":3,"need":{"prev":["a5"]},"gold":2000,"xp":400},{"id":"a7","act":5,"name":"Le Dernier Rempart","desc":"Obtiens ta première pièce d’équipement légendaire — seule la Fosse en recrache.","type":"legendary","target":1,"need":{"prev":["a3"]},"gold":800,"frags":12},{"id":"a8","act":5,"name":"La Dette d’Anselme","desc":"Termine une arène d’or sans boire la moindre potion. Il en rêve depuis neuf ans.","type":"noPot","target":1,"need":{"prev":["a6"]},"gold":3000,"xp":600}];
@@ -5622,7 +5753,7 @@ function gambleItem(){
   const L=player.lvl;const r=Math.random();let rar='magic';
   if(L>=8&&r<0.05)rar='unique';else if(L>=8&&r<0.28)rar='rare';else if(r<0.70)rar='magic';else rar='white';
   const it=makeItem(rar,null,L);
-  if(inventory.length<INV_MAX){inventory.push(it);toast('🎁 '+RAR[it.rarity].name+' : '+it.name.replace(/<[^>]+>/g,''),2.6);SFX.pickup();}
+  if(!sacPlein(it)){inventory.push(it);toast('🎁 '+RAR[it.rarity].name+' : '+it.name.replace(/<[^>]+>/g,''),2.6);SFX.pickup();}
   else toast('Sac plein',1.4);
 }
 /* Vignette d'article de boutique. Les parchemins avaient leur sprite, les
@@ -5668,8 +5799,8 @@ function renderShop(){
     sid.appendChild(bsi);body.appendChild(sid);
     const chm=document.createElement('div');chm.className='shopItem';const ccost=Math.round(600+player.lvl*60);
     chm.innerHTML='<div class="info">'+icoBoutique('charme_moyen','🔷')+' <b>Charme inconnu</b><br><span style="color:#8ea0c8">Agit depuis le sac, sans être équipé</span></div>';
-    const bch=document.createElement('button');bch.innerHTML='Acheter <span class="gi"></span>'+ccost;bch.disabled=player.gold<ccost||inventory.length>=INV_MAX;
-    bch.onclick=()=>{if(player.gold>=ccost&&inventory.length<INV_MAX){player.gold-=ccost;inventory.push(makeCharm());toast('Charme acquis',1.4);renderShop();renderInventory();refreshHud();}};
+    const bch=document.createElement('button');bch.innerHTML='Acheter <span class="gi"></span>'+ccost;bch.disabled=player.gold<ccost||placesUtilisees()>=invCap;
+    bch.onclick=()=>{if(player.gold>=ccost&&placesUtilisees()<invCap){player.gold-=ccost;inventory.push(makeCharm());toast('Charme acquis',1.4);renderShop();renderInventory();refreshHud();}};
     chm.appendChild(bch);body.appendChild(chm);
     const gam=document.createElement('div');gam.className='shopItem';const gcost=Math.round(200+player.lvl*25);
     gam.innerHTML='<div class="info">'+icoBoutique('arena_chest_closed','🎁')+' <b>Objet mystère</b><br><span style="color:#8ea0c8">Objet inconnu, rareté aléatoire selon ton niveau</span></div>';
@@ -5791,7 +5922,7 @@ function _stashCell(it,onClick){
 function renderStash(){
   const gi=document.getElementById('stashInv'),gb=document.getElementById('stashBox');gi.innerHTML='';gb.innerHTML='';
   inventory.forEach((it,i)=>gi.appendChild(_stashCell(it,()=>{if(stash.length<stashCap){stash.push(it);inventory.splice(i,1);renderStash();renderInventory();saveGame();}else toast('Coffre plein',1.2);})));
-  stash.forEach((it,i)=>gb.appendChild(_stashCell(it,()=>{if(inventory.length<INV_MAX){inventory.push(it);stash.splice(i,1);renderStash();renderInventory();saveGame();}else toast('Sac plein',1.2);})));
+  stash.forEach((it,i)=>gb.appendChild(_stashCell(it,()=>{if(!sacPlein(it)){inventory.push(it);stash.splice(i,1);renderStash();renderInventory();saveGame();}else toast('Sac plein',1.2);})));
   let foot=document.getElementById('stashFoot');
   if(!foot){foot=document.createElement('div');foot.id='stashFoot';foot.style.cssText='margin-top:10px;font-size:12px;color:#cdd6e6;display:flex;gap:8px;align-items:center';document.getElementById('stashPanel').appendChild(foot);}
   /* Une case à la fois, prix géométrique. Les paliers de 10 cases à prix fixe
@@ -5848,7 +5979,8 @@ function startGame(cont){
     }
     toast('Progression chargée — bon retour, Outlaw !',2.4);
   }
-  else{inventory.length=0;player.corpse=null;player.balises={};player._sacFait=false;inventory.push(makeItem('white','weapon'));
+  else{inventory.length=0;player.corpse=null;player.balises={};invCap=18;
+    for(const k in actDiscovered)delete actDiscovered[k];player._sacFait=false;inventory.push(makeItem('white','weapon'));
        toast('Village de Moreuil — parle au Vieux Outlaw 🦅 pour ta mission',3);
        setTimeout(()=>{if(running)openDialogue({type:'quest',act:-1});},700);}
   const _st=P();player.hp=_st.hpMax;player.mp=_st.mpMax;
@@ -5911,7 +6043,7 @@ const SaveIO={
   clear(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){}
            try{ if(window.OutlawSave&&window.OutlawSave.clear)window.OutlawSave.clear(); }catch(e){} }
 };
-function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,balises:player.balises,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets}));}catch(e){}}
+function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets}));}catch(e){}}
 /* Migration : réassocie un sprite aux objets d'anciennes sauvegardes */
 function migrateIcons(list){
   if(!list)return;
@@ -5932,6 +6064,8 @@ function migrateAllIcons(){
   for(const l of [inventory,stash])if(l)for(const it of l)if(it&&it.sockets)migrateIcons(it.sockets.filter(Boolean));
 }
 function hasSave(){try{return !!SaveIO.read();}catch(e){return false;}}
+function chargerBrut(o){SaveIO.write(JSON.stringify(Object.assign({v:2},o)));return loadGame();}
+function allerVillage(){enterLevel(village,village.spawn[0]*TS+TS/2,village.spawn[1]*TS+TS/2);}
 function loadGame(){try{const s=JSON.parse(SaveIO.read());if(!s)return false;
   ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','baseAgi','gold','frags','potions','manaPots','kills','totalDmg','portals'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
   if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
@@ -5954,11 +6088,24 @@ function loadGame(){try{const s=JSON.parse(SaveIO.read());if(!s)return false;
   /* Balises débloquées. Elles ne survivaient pas à une fermeture du jeu :
      elles se déduisaient de level.seen, qui n'est jamais sauvegardé et que la
      régénération des actes remet à zéro. */
+  invCap=Math.max(18,Math.min(INV_CAP_MAX,s.invCap||18));
+  /* Les actes découverts ne survivaient pas non plus au rechargement : le
+     panneau des balises n'affichait donc RIEN au village tant qu'on n'était pas
+     retourné dans l'acte, qui remettait actDiscovered à vrai. On les restaure,
+     et par sécurité on les redéduit de deux autres sources : maxAct, et les
+     balises débloquées — on ne peut pas avoir débloqué une balise d'un acte
+     sans y être allé. */
+  for(const k in actDiscovered)delete actDiscovered[k];
+  if(Array.isArray(s.actDiscovered))for(const a of s.actDiscovered)actDiscovered[a]=true;
   player.balises={};
   if(s.balises)for(const k in s.balises){
     const L=s.balises[k];
-    if(Array.isArray(L))player.balises[k]=L.slice().filter(v=>typeof v==='number').sort((a,b)=>a-b);
+    if(Array.isArray(L)&&L.length){
+      player.balises[k]=L.slice().filter(v=>typeof v==='number').sort((a,b)=>a-b);
+      actDiscovered[k]=true;          // une balise débloquée prouve la visite
+    }
   }
+  for(let a=0;a<=maxAct&&a<ACTS.length;a++)actDiscovered[a]=true;
   player.corpse=s.corpse||null;
   player.clesAchetees=s.clesAchetees||{};
   player.resets=s.resets||0;
