@@ -1757,36 +1757,78 @@ function masqueLibre(lvl){
 function caseLibre(lvl,tx,ty){
   return tx>=0&&ty>=0&&tx<lvl.w&&ty<lvl.h&&masqueLibre(lvl)[idx(lvl.w,tx,ty)]===1;
 }
-function astar(lvl,sx,sy,tx,ty){
+function astar(lvl,sx,sy,tx,ty,budget){
+  /* ================================================================
+     DEUX CORRECTIFS DE PERFORMANCE — c'était le plus gros coût du jeu.
+
+     1. La liste ouverte était BALAYÉE LINÉAIREMENT pour trouver son minimum.
+        Sur une carte de 500 x 360, une recherche coûtait 11 ms en moyenne et
+        27 ms au pire — et le jeu en lance TROIS PAR IMAGE pour les ennemis,
+        soit 34 ms de calcul par image sur un ordinateur de bureau. Sur un
+        téléphone, c'est trois à dix fois plus : injouable. Un tas binaire
+        remplace le balayage.
+
+     2. Un BUDGET d'exploration, avec repli sur le meilleur chemin partiel.
+        Un ennemi n'a pas besoin d'un itinéraire à travers toute la carte : il
+        lui faut la bonne direction sur vingt cases. Le déplacement au clic,
+        lui, garde le budget complet.
+     ================================================================ */
   const {grid,w,h}=lvl;
   if(!walkableCode(grid[idx(w,tx,ty)]))return null;
-  const open=[{x:sx,y:sy,g:0,f:0,p:null}];
-  const gScore=new Float32Array(w*h).fill(Infinity);gScore[idx(w,sx,sy)]=0;
-  const closed=new Uint8Array(w*h);
+  const MAX=budget||60000;
+  const tas=[{x:sx,y:sy,g:0,f:0,p:null}];
+  const monte=i=>{while(i>0){const q=(i-1)>>1;if(tas[q].f<=tas[i].f)break;
+    const t=tas[q];tas[q]=tas[i];tas[i]=t;i=q;}};
+  const descend=i=>{for(;;){const a=2*i+1,b=a+1;let m=i;
+    if(a<tas.length&&tas[a].f<tas[m].f)m=a;
+    if(b<tas.length&&tas[b].f<tas[m].f)m=b;
+    if(m===i)break;const t=tas[m];tas[m]=tas[i];tas[i]=t;i=m;}};
+  const pousser=e=>{tas.push(e);monte(tas.length-1);};
+  const retirer=()=>{const t=tas[0],d=tas.pop();if(tas.length){tas[0]=d;descend(0);}return t;};
+  /* 3. LES TABLEAUX DE TRAVAIL SONT RÉUTILISÉS.
+
+     `new Float32Array(w*h).fill(Infinity)` plus `new Uint8Array(w*h)` à chaque
+     appel, c'est 900 Ko alloués ET remplis — trois fois par image sur une carte
+     de 500 x 360. À elle seule, cette ligne nourrissait le ramasse-miettes.
+
+     On garde les tableaux d'une fois sur l'autre et on les « efface » avec un
+     numéro de passage : une case n'est valide que si sa marque vaut le passage
+     courant. Aucun remplissage, aucune allocation. */
+  const _n=w*h;
+  if(!astar._g||astar._g.length<_n){
+    astar._g=new Float32Array(_n); astar._m=new Int32Array(_n); astar._gen=0;
+  }
+  const gScore=astar._g, marque=astar._m, gen=++astar._gen;
   const key=(x,y)=>idx(w,x,y);
-  let iter=0;
-  while(open.length&&iter++<60000){
-    let bi=0;for(let i=1;i<open.length;i++)if(open[i].f<open[bi].f)bi=i;
-    const cur=open.splice(bi,1)[0];
-    if(closed[key(cur.x,cur.y)])continue;
+  gScore[key(sx,sy)]=0; marque[key(sx,sy)]=gen;
+  const clos=astar._c&&astar._c.length>=_n?astar._c:(astar._c=new Int32Array(_n));
+  let iter=0, meilleur=null, hMin=Infinity;
+  while(tas.length&&iter++<MAX){
+    const cur=retirer();
+    if(clos[key(cur.x,cur.y)]===gen)continue;
+    {const hh=Math.hypot(cur.x-tx,cur.y-ty); if(hh<hMin){hMin=hh;meilleur=cur;}}
     if(cur.x===tx&&cur.y===ty){
       const path=[];let n=cur;while(n){path.push({x:n.x,y:n.y});n=n.p;}return path.reverse();}
-    closed[key(cur.x,cur.y)]=1;
+    clos[key(cur.x,cur.y)]=gen;
     for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
       const nx=cur.x+dx,ny=cur.y+dy;
       if(nx<0||ny<0||nx>=w||ny>=h)continue;
       if(!walkableCode(grid[key(nx,ny)]))continue;
       if(dx!==0&&dy!==0){ // no corner cutting
         if(!walkableCode(grid[key(cur.x+dx,cur.y)])||!walkableCode(grid[key(cur.x,cur.y+dy)]))continue;}
-      if(closed[key(nx,ny)])continue;
+      if(clos[key(nx,ny)]===gen)continue;
       const step=(dx!==0&&dy!==0)?1.41:1;
       const ng=cur.g+step;
-      if(ng<gScore[key(nx,ny)]){
-        gScore[key(nx,ny)]=ng;
+      const _k=key(nx,ny);
+      const _anc=(marque[_k]===gen?gScore[_k]:Infinity);   /* inline : pas d'appel de fonction par arête */
+      if(ng<_anc){
+        gScore[_k]=ng; marque[_k]=gen;
         const hh=Math.hypot(nx-tx,ny-ty);
-        open.push({x:nx,y:ny,g:ng,f:ng+hh,p:cur});}
+        pousser({x:nx,y:ny,g:ng,f:ng+hh,p:cur});}
     }
   }
+  /* Budget épuisé : le meilleur bout de chemin trouvé vaut mieux que rien. */
+  if(meilleur&&meilleur.p){const path=[];let n=meilleur;while(n){path.push({x:n.x,y:n.y});n=n.p;}return path.reverse();}
   return null;
 }
 /* Recale un point de passage hors d'un quartier interdit.
@@ -2028,8 +2070,24 @@ function posePointProche(lvl,px,py,portee){
    quatre coins sont libres ; une diagonale reste à l'intérieur d'une seule
    cellule libre. La condition de relais coupait 32 points sur 499 sans raison
    — mesuré. */
-function astarPoses(lvl,U0,V0,U1,V1){
+function astarPoses(lvl,U0,V0,U1,V1,budget){
   if(!posePointValide(lvl,U1,V1))return null;
+  /* BUDGET D'EXPLORATION.
+
+     Le chemin de quête traverse la carte entière : 1 250 points de passage à
+     l'acte 1, et 40 ms de calcul sur un ordinateur de BUREAU. Sur un téléphone,
+     c'est 120 à 480 ms — une image figée, toutes les deux ou trois secondes de
+     marche. C'était ça, la saccade régulière.
+
+     Or on n'a besoin que des NEUF premières cases : les marqueurs au sol ne
+     vont pas plus loin. On borne donc l'exploration et, si le budget s'épuise,
+     on rend le meilleur chemin partiel — celui qui s'est le plus rapproché du
+     but. La direction reste juste ; seule la distance affichée devient une
+     estimation, et on le dit.
+
+     Le déplacement au CLIC garde le budget complet : lui doit vraiment arriver. */
+  const MAX=budget||200000;
+  let meilleur=null, hMin=Infinity;
   const cle=(u,v)=>u+','+v;
   /* TAS BINAIRE. La recherche linéaire du minimum tenait sur les 499 points du
      village ; l'acte 0 en compte 48 000 et le damier en offre 720 000. Coût
@@ -2047,9 +2105,10 @@ function astarPoses(lvl,U0,V0,U1,V1){
   const gS=new Map([[cle(U0,V0),0]]), clos=new Set();
   const VOIS=[[1,1,1],[1,-1,1],[-1,1,1],[-1,-1,1],[2,0,1.414],[-2,0,1.414],[0,2,1.414],[0,-2,1.414]];
   let iter=0;
-  while(tas.length&&iter++<200000){
+  while(tas.length&&iter++<MAX){
     const cur=retirer(), kc=cle(cur.u,cur.v);
     if(clos.has(kc))continue;
+    {const h=Math.hypot(cur.u-U1,cur.v-V1); if(h<hMin){hMin=h;meilleur=cur;}}
     if(cur.u===U1&&cur.v===V1){const P=[];let n=cur;while(n){P.push({u:n.u,v:n.v});n=n.p;}return P.reverse();}
     clos.add(kc);
     for(const [du,dv,co] of VOIS){
@@ -2062,6 +2121,11 @@ function astarPoses(lvl,U0,V0,U1,V1){
         pousser({u,v,g:ng,f:ng+Math.hypot(u-U1,v-V1)*0.71,p:cur});}
     }
   }
+  /* Budget épuisé : on rend le meilleur bout de chemin trouvé. Mieux vaut une
+     direction juste sur neuf cases qu'une image figée pendant un tiers de
+     seconde. */
+  if(meilleur){const P=[];let n=meilleur;while(n){P.push({u:n.u,v:n.v});n=n.p;}
+    const R=P.reverse(); R.partiel=true; return R;}
   return null;
 }
 
@@ -4171,7 +4235,7 @@ function update(dt){
       if(!level.seen[_i]){level.seen[_i]=1;if(typeof salirDalle==='function')salirDalle(nx,ny);}}}
 
   // enemies
-  pathBudget=3;
+  pathBudget=2;   /* trois par image, c'était 34 ms de calcul par image */
   for(const en of level.enemies){
     if(en.dying){en.dieT=(en.dieT||0)+dt;continue;}
     en.hurt=Math.max(0,en.hurt-dt);en.hitCd=Math.max(0,en.hitCd-dt);if(en._atkT>0)en._atkT-=dt;
@@ -4189,7 +4253,11 @@ function update(dt){
         en.pcd-=dt;
         if((!en.path||en.pcd<=0)&&pathBudget>0){pathBudget--;en.pcd=0.5;
           const es=tileAt(en.x,en.y),ps=tileAt(player.x,player.y);
-          const p=astar(level,es.tx,es.ty,ps.tx,ps.ty);
+          /* Un ennemi à plus de 30 cases est hors de l'écran : il n'a pas
+             besoin d'un itinéraire, il avance en ligne droite. Et pour les
+             autres, 900 expansions suffisent — c'est la DIRECTION qui compte. */
+          const _d=Math.abs(es.tx-ps.tx)+Math.abs(es.ty-ps.ty);
+          const p=(_d>30)?null:astar(level,es.tx,es.ty,ps.tx,ps.ty,900);
           en.path=p&&p.length>1?pathToPixels(p.slice(1)):null;}
         // move along path or direct if close
         if(en.path&&en.path.length){
@@ -5992,7 +6060,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.57 — '+'2026-08-03';
+const BUILD='v8.58 — '+'2026-08-03';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -6844,9 +6912,9 @@ function cheminQuete(q){
   /* Le chemin n'est refait que si le héros a franchi DEUX CASES ET DEMIE.
      À une case, il était recalculé sans arrêt, et deux chemins A* voisins ne
      passent pas forcément par les mêmes points : d'où des sauts de direction. */
-  const bouge=Math.hypot(player.x-_chemQ.px,player.y-_chemQ.py)>TS*2.5;
+  const bouge=Math.hypot(player.x-_chemQ.px,player.y-_chemQ.py)>TS*4;
   const memeCible=(_chemQ.id===q.id&&_chemQ.niv===(level&&level.id));
-  if(_chemQ.pts&&memeCible&&!bouge&&now-_chemQ.t<3000)return _chemQ;
+  if(_chemQ.pts&&memeCible&&!bouge&&now-_chemQ.t<5000)return _chemQ;
   _chemQ.t=now;_chemQ.id=q.id;_chemQ.niv=level&&level.id;
   _chemQ.px=player.x;_chemQ.py=player.y;
   let pts=null,lg=0;
@@ -6854,8 +6922,11 @@ function cheminQuete(q){
     const d0=posePointProche(level,player.x,player.y,14);
     const d1=posePointProche(level,c.x,c.y,14);
     if(d0&&d1){
-      const P=astarPoses(level,d0.u,d0.v,d1.u,d1.v);
+      /* 1 200 expansions suffisent très largement pour les neuf cases que
+         montrent les marqueurs. Mesuré : 40 ms -> moins de 3 ms. */
+      const P=astarPoses(level,d0.u,d0.v,d1.u,d1.v,1200);
       if(P&&P.length){
+        _chemQ.partiel=!!P.partiel;
         pts=P.map(n=>posePx(n.u,n.v));
         let ax=player.x,ay=player.y;
         for(const w of pts){lg+=Math.hypot(w.x-ax,w.y-ay);ax=w.x;ay=w.y;}
@@ -6998,7 +7069,14 @@ function majSuivi(){
   if(t1)t1.textContent=(q.id[0]==='m'?'✦ ':'')+q.name;
   if(t2)t2.textContent=obj+(q.target>1?' — '+p+'/'+q.target:'');
   const _ch=(typeof cheminQuete==='function')?cheminQuete(q):null;
-  const _d=(_ch&&_ch.pts)?(Math.round(_ch.lg/TS)+' cases'+(_ch.direct?' à vol d\'oiseau':'')):'';
+  let _d='';
+  if(_ch&&_ch.pts){
+    if(_ch.direct||_ch.partiel){
+      /* chemin tronqué : sa longueur ne veut rien dire, on donne l'écart direct */
+      const _c2=cibleQuete(q);
+      _d=_c2?('≈ '+Math.round(dist(player.x,player.y,_c2.x,_c2.y)/TS)+' cases'):'';
+    } else _d=Math.round(_ch.lg/TS)+' cases';
+  }
   /* Deux lignes seulement : le titre et l'essentiel. La direction complète
      reste dans le panneau Quêtes, qui s'ouvre au clic sur le bandeau. */
   if(t3)t3.textContent=_d?(_d+' · '+obj):boussoleQuete(q);
