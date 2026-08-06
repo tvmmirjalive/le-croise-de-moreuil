@@ -4446,25 +4446,24 @@ function _cacheSol(){
 /* Une dalle a changé : on la jette. Appelé quand une case devient vue. */
 function salirDalle(tx,ty){
   const c=renderIso._dal; if(!c)return;
-  /* une case touche jusqu'à quatre sommets, donc jusqu'à quatre dalles */
-  for(const [ax,ay] of [[0,0],[1,0],[0,1],[1,1]])
-    delete c[(((tx+ax)/DALLE)|0)+':'+(((ty+ay)/DALLE)|0)];
+  /* Une case touche jusqu'à quatre sommets, donc jusqu'à quatre dalles.
+     On NE SUPPRIME PAS l'entrée : on garde le canevas pour le réutiliser, et
+     on marque seulement qu'il faut le repeindre. */
+  for(const [ax,ay] of [[0,0],[1,0],[0,1],[1,1]]){
+    const k=(((tx+ax)/DALLE)|0)+':'+(((ty+ay)/DALLE)|0);
+    const D=c[k]; if(D)D.pret=false;
+  }
 }
-function _rendreDalle(dx,dy){
+let _dalleRendues=0;   /* compteur de diagnostic */
+/* Le tracé d'une dalle, dans un contexte quelconque et à un décalage donné.
+   Sert deux fois : pour remplir le canevas de la dalle, et pour dessiner
+   directement à l'écran quand le budget de reconstruction est épuisé. */
+function _dalleDessin(dx,dy,c2,ox,oy){
   const ts=TILESETS[level.theme];
   const X0=dx*DALLE, Y0=dy*DALLE, X1=X0+DALLE, Y1=Y0+DALLE;
-  /* Boîte écran de la dalle, dans le repère du monde (sans la caméra). */
-  const co=[[X0,Y0],[X1,Y0],[X0,Y1],[X1,Y1]].map(([X,Y])=>({
-    x:(X-Y)*(ISO_TW/2), y:(X+Y)*(ISO_TH/2)}));
-  const minx=Math.min.apply(null,co.map(p=>p.x))-ISO_TW/2-2;
-  const maxx=Math.max.apply(null,co.map(p=>p.x))+ISO_TW/2+2;
-  const miny=Math.min.apply(null,co.map(p=>p.y))-ISO_TH/2-2;
-  const maxy=Math.max.apply(null,co.map(p=>p.y))+ISO_TH/2+2;
-  const cw=Math.ceil(maxx-minx), ch=Math.ceil(maxy-miny);
-  const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
-  const c2=cv.getContext('2d'); c2.imageSmoothingEnabled=false;
   const w=level.w,h=level.h,isVil=level.kind==='village';
   let vide=true;
+  c2.imageSmoothingEnabled=false;
   for(let Y=Y0;Y<=Y1;Y++)for(let X=X0;X<=X1;X++){
     if(!(_floorish(X-1,Y-1)||_floorish(X,Y-1)||_floorish(X-1,Y)||_floorish(X,Y)))continue;
     if(!isVil){
@@ -4479,30 +4478,72 @@ function _rendreDalle(dx,dy){
       if(ddx*ddx+ddy*ddy<level.bossArena.r*level.bossArena.r)tsF=TILESETS.arena.floor;
     }
     const RF=_tsRect(tsF,fi);
-    const px=(X-Y)*(ISO_TW/2)-minx, py=(X+Y)*(ISO_TH/2)-miny;
+    const px=(X-Y)*(ISO_TW/2)+ox, py=(X+Y)*(ISO_TH/2)+oy;
     c2.drawImage(tsF,RF[0],RF[1],RF[2],RF[3], px-ISO_TW/2, py-ISO_TH/2, ISO_TW, ISO_TH);
-    /* Trace de vérification : la position MONDE de chaque tuile posée dans une
-       dalle, pour pouvoir la comparer à ce que l'ancien code dessinait. */
     if(typeof __DALLE_LOG!=='undefined'&&__DALLE_LOG)
-      __DALLE_LOG.push({X:X,Y:Y,fi:fi,src:tsF.src,mx:px+minx,my:py+miny});
+      __DALLE_LOG.push({X:X,Y:Y,fi:fi,src:tsF.src,mx:px-ox,my:py-oy});
     vide=false;
   }
-  return {cv:vide?null:cv, ox:minx, oy:miny, w:cw, h:ch};
+  return vide;
 }
-/* Rend vrai si le sol a été servi depuis le cache. */
+/* Boîte écran d'une dalle, en coordonnées monde. */
+function _dalleBoite(dx,dy){
+  const X0=dx*DALLE, Y0=dy*DALLE, X1=X0+DALLE, Y1=Y0+DALLE;
+  const co=[[X0,Y0],[X1,Y0],[X0,Y1],[X1,Y1]].map(([X,Y])=>({
+    x:(X-Y)*(ISO_TW/2), y:(X+Y)*(ISO_TH/2)}));
+  const minx=Math.min.apply(null,co.map(p=>p.x))-ISO_TW/2-2;
+  const maxx=Math.max.apply(null,co.map(p=>p.x))+ISO_TW/2+2;
+  const miny=Math.min.apply(null,co.map(p=>p.y))-ISO_TH/2-2;
+  const maxy=Math.max.apply(null,co.map(p=>p.y))+ISO_TH/2+2;
+  return {ox:minx,oy:miny,w:Math.ceil(maxx-minx),h:Math.ceil(maxy-miny)};
+}
+/* Construit (ou reconstruit) une dalle. LE CANEVAS EST RÉUTILISÉ : en allouer
+   un neuf à chaque fois, c'était 720 Ko de bitmap jeté au ramasse-miettes par
+   dalle — et jusqu'à 80 dalles dans la même image à l'entrée d'un niveau. */
+function _rendreDalle(dx,dy,vieux){
+  _dalleRendues++;
+  const B=_dalleBoite(dx,dy);
+  let cv=vieux&&vieux.cv;
+  if(cv&&(cv.width!==B.w||cv.height!==B.h))cv=null;
+  if(!cv){ cv=document.createElement('canvas'); cv.width=B.w; cv.height=B.h; }
+  const c2=cv.getContext('2d');
+  c2.clearRect(0,0,B.w,B.h);
+  const vide=_dalleDessin(dx,dy,c2,-B.ox,-B.oy);
+  return {cv:cv, ox:B.ox, oy:B.oy, w:B.w, h:B.h, pret:true, vide:vide};
+}
+/* BUDGET DE RECONSTRUCTION.
+
+   À l'entrée d'un niveau, 80 dalles étaient construites dans la MÊME image.
+   Chacune alloue un canevas d'environ 576 x 320 : 57 Mo d'un coup, plus 80
+   remplissages de tuiles. Sur Android, c'est une saccade franche.
+
+   On en reconstruit au plus DEUX par image. Les autres sont dessinées
+   directement à l'écran ce tour-ci — un peu plus cher pour cette image, mais
+   rien n'est alloué et rien ne clignote — et elles passeront au cache dans
+   les images suivantes. En deux secondes tout est en cache. */
+const BUDGET_DALLE=2;
 function dessinerSolEnCache(cx0,cy0,cx1,cy1){
   if(typeof document==='undefined'||!document.createElement)return false;
   const cache=_cacheSol();
   const d0x=Math.floor(cx0/DALLE), d1x=Math.floor((cx1+1)/DALLE);
   const d0y=Math.floor(cy0/DALLE), d1y=Math.floor((cy1+1)/DALLE);
   ctx.imageSmoothingEnabled=false;
+  let budget=BUDGET_DALLE;
   for(let dy=d0y;dy<=d1y;dy++)for(let dx=d0x;dx<=d1x;dx++){
     const k=dx+':'+dy;
     let D=cache[k];
-    if(D===undefined){ D=_rendreDalle(dx,dy); cache[k]=D; }
-    if(!D||!D.cv)continue;
-    /* la dalle est en coordonnées MONDE : on ajoute simplement l'origine iso */
-    ctx.drawImage(D.cv, Math.round(D.ox+isoOX), Math.round(D.oy+isoOY));
+    if(D&&D.pret){
+      if(D.cv&&!D.vide)ctx.drawImage(D.cv, Math.round(D.ox+isoOX), Math.round(D.oy+isoOY));
+      continue;
+    }
+    if(budget>0){
+      budget--;
+      D=_rendreDalle(dx,dy,D); cache[k]=D;
+      if(D.cv&&!D.vide)ctx.drawImage(D.cv, Math.round(D.ox+isoOX), Math.round(D.oy+isoOY));
+    } else {
+      /* pas de budget : on la dessine à l'ancienne, cette image seulement */
+      _dalleDessin(dx,dy,ctx,isoOX,isoOY);
+    }
   }
   return true;
 }
@@ -4566,6 +4607,10 @@ function videCacheChemin(){_chemQ.pts=null;_chemQ.t=-1e9;}   /* pour les tests *
 function resetFlecheQuete(){_flecheA=null;}   /* pour les tests */
 function videCacheSol(){renderIso._dLvl=null;renderIso._dal=null;}   /* pour les tests */
 function nbDalles(){return renderIso._dal?Object.keys(renderIso._dal).length:0;}
+function nbDallesPretes(){const c=renderIso._dal;if(!c)return 0;let n=0;for(const k in c)if(c[k]&&c[k].pret)n++;return n;}
+function getDalleCount(){return _dalleRendues;}
+function _rendreDalleSrc(){return _rendreDalle.toString();}   /* pour les tests */
+function setDalleCount(v){_dalleRendues=v;}
 function setInvCap(v){invCap=v;}      /* pour les tests */
 function getInvCap(){return invCap;}
 function srcCSS(){const e=document.querySelector('style');return (e&&(e.textContent||e.innerHTML))||'';}
@@ -5947,7 +5992,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.56 — '+'2026-08-03';
+const BUILD='v8.57 — '+'2026-08-03';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
