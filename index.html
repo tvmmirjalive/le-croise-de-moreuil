@@ -4512,6 +4512,8 @@ function halo(x,y,r,col){
 }
 const _parProfondeur=(a,b)=>a.d-b.d;   /* alloué une fois, pas par image */
 function setR(v){R_MARCHE=v;}
+function videCacheChemin(){_chemQ.pts=null;_chemQ.t=-1e9;}   /* pour les tests */
+function resetFlecheQuete(){_flecheA=null;}   /* pour les tests */
 function videCacheSol(){renderIso._dLvl=null;renderIso._dal=null;}   /* pour les tests */
 function nbDalles(){return renderIso._dal?Object.keys(renderIso._dal).length:0;}
 function setInvCap(v){invCap=v;}      /* pour les tests */
@@ -5891,7 +5893,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.51 — '+'2026-08-03';
+const BUILD='v8.52 — '+'2026-08-03';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -6740,9 +6742,12 @@ function cheminQuete(q){
   const c=q?cibleQuete(q):null;
   if(!c){_chemQ.pts=null;return null;}
   const now=(typeof performance!=='undefined'?performance.now():Date.now());
-  const bouge=Math.hypot(player.x-_chemQ.px,player.y-_chemQ.py)>TS;
+  /* Le chemin n'est refait que si le héros a franchi DEUX CASES ET DEMIE.
+     À une case, il était recalculé sans arrêt, et deux chemins A* voisins ne
+     passent pas forcément par les mêmes points : d'où des sauts de direction. */
+  const bouge=Math.hypot(player.x-_chemQ.px,player.y-_chemQ.py)>TS*2.5;
   const memeCible=(_chemQ.id===q.id&&_chemQ.niv===(level&&level.id));
-  if(_chemQ.pts&&memeCible&&!bouge&&now-_chemQ.t<1000)return _chemQ;
+  if(_chemQ.pts&&memeCible&&!bouge&&now-_chemQ.t<3000)return _chemQ;
   _chemQ.t=now;_chemQ.id=q.id;_chemQ.niv=level&&level.id;
   _chemQ.px=player.x;_chemQ.py=player.y;
   let pts=null,lg=0;
@@ -6762,11 +6767,55 @@ function cheminQuete(q){
   if(!pts){ /* aucun chemin : on retombe sur la ligne droite, en le disant */
     pts=[{x:c.x,y:c.y}];lg=dist(player.x,player.y,c.x,c.y);_chemQ.direct=true;
   } else _chemQ.direct=false;
+  if(_chemQ.id!==q.id||_chemQ.niv!==(level&&level.id))_flecheA=null;
   _chemQ.pts=pts;_chemQ.lg=lg;_chemQ.cible=c;
   return _chemQ;
 }
 /* Flèche de quête : un chevron qui tourne autour du héros, plus la distance.
    Elle ne s'affiche que si l'on sait où aller — jamais « quelque part ». */
+/* LA DIRECTION DE LA FLÈCHE — sans rebond.
+
+   Trois défauts se cumulaient :
+
+   1. On visait « le premier point de passage à plus d'une case ». Les points de
+      pose sont espacés de 22 px : dès que le héros en dépassait un, la cible
+      sautait au suivant, d'un coup. Mesuré : jusqu'à 16,8° de rotation en une
+      seule image.
+   2. Le chemin était recalculé dès une case parcourue, et deux chemins A*
+      voisins ne passent pas par les mêmes points : nouvelle secousse.
+   3. Aucun lissage : chaque saut était affiché tel quel.
+
+   Correctifs : on vise un point situé à une LONGUEUR D'ARC fixe le long du
+   chemin — interpolé entre deux points de passage, donc il glisse au lieu de
+   sauter — et l'angle affiché rejoint la consigne par un filtre passe-bas. */
+const ARC_VISEE=3.5;                 // en cases, le long du chemin
+let _flecheA=null;
+function _pointArc(pts,L){
+  let ax=player.x, ay=player.y, reste=L;
+  for(const w of pts){
+    const seg=Math.hypot(w.x-ax,w.y-ay);
+    if(seg<=1e-6)continue;
+    if(reste<=seg){ const k=reste/seg; return {x:ax+(w.x-ax)*k, y:ay+(w.y-ay)*k}; }
+    reste-=seg; ax=w.x; ay=w.y;
+  }
+  return {x:ax,y:ay};
+}
+function angleFlecheQuete(ch,lisse){
+  if(!ch||!ch.pts||!ch.pts.length)return null;
+  const cible=_pointArc(ch.pts,Math.min(ARC_VISEE*TS,Math.max(TS,ch.lg-TS)));
+  const brut=Math.atan2(cible.y-player.y,cible.x-player.x);
+  if(lisse===false)return brut;
+  if(_flecheA===null){_flecheA=brut;return brut;}
+  /* écart signé le plus court, puis rattrapage de 18 % par image :
+     un saut de 90° est absorbé en une demi-seconde, sans à-coup. */
+  let e=brut-_flecheA;
+  while(e>Math.PI)e-=2*Math.PI;
+  while(e<-Math.PI)e+=2*Math.PI;
+  _flecheA+=e*0.18;
+  while(_flecheA>Math.PI)_flecheA-=2*Math.PI;
+  while(_flecheA<-Math.PI)_flecheA+=2*Math.PI;
+  return _flecheA;
+}
 function drawFlecheQuete(){
   if(typeof questSuivie!=='function')return;
   const q=questSuivie(); if(!q)return;
@@ -6774,11 +6823,8 @@ function drawFlecheQuete(){
   const ch=cheminQuete(q); if(!ch||!ch.pts)return;
   const d=ch.lg;
   if(d<TS*2.2)return;                       // on y est : plus besoin
-  /* On vise le premier point de passage à plus d'une case : sinon la flèche
-     tremble sur place à chaque micro-virage du chemin. */
-  let vise=ch.pts[ch.pts.length-1];
-  for(const w of ch.pts){ if(dist(player.x,player.y,w.x,w.y)>TS*1.2){vise=w;break;} }
-  const a=Math.atan2(vise.y-player.y,vise.x-player.x);
+  const a=angleFlecheQuete(ch);
+  if(a===null)return;
   /* `iso` est LOCAL à renderIso : une fonction de premier niveau ne le voit
      pas. C'est `isoPx`, la projection globale, qu'il faut appeler. */
   const p=isoPx(player.x,player.y);
