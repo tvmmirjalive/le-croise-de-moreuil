@@ -274,7 +274,7 @@
     align-content:flex-start;padding-right:4px}
   /* Colonne de droite : la fiche de l'objet EN HAUT, les boutons EN DESSOUS.
      Ils occupaient toute la largeur sous la grille et lui volaient une rangée. */
-  #invDroite{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px}
+  #invDroite{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;position:relative}
   #invDroite #invActions{margin-top:0}
   #invFiche{flex:1 1 auto;min-width:0;min-height:0;overflow:auto;
     padding:8px 10px;border:1px solid #2a3350;border-radius:7px;
@@ -283,9 +283,17 @@
   #invFiche .vide{color:#6b789c;font-size:11px}
   #invPanel{flex-direction:column;max-height:min(86vh,760px);box-sizing:border-box;
     width:min(640px,94vw)}
-  #invPanel > h2,#invPanel #invActions,#invPanel #invAide{flex:0 0 auto;z-index:3;position:relative;background:#0b1020}
-  /* Menu du démontage : replié par défaut, il ne prend plus de place. */
-  #salvMenu{position:absolute;left:0;bottom:calc(100% + 6px);z-index:9;min-width:230px;
+  #invPanel > h2,#invPanel #invAide{flex:0 0 auto;z-index:3;position:relative;background:#0b1020}
+  #invPanel #invActions{flex:0 0 auto;z-index:3;background:#0b1020}
+  /* Menu du démontage : replié par défaut, il ne prend plus de place.
+
+     Il était ancré sur la barre d'actions avec `bottom:100%` : depuis que
+     celle-ci a rejoint la colonne de droite, il remontait au-dessus du
+     panneau — et `#invPanel` porte `overflow:hidden`, donc il était COUPÉ.
+     Il est maintenant ancré sur la colonne elle-même, avec une largeur qui
+     s'y adapte et une hauteur bornée : il ne peut plus sortir du cadre. */
+  #salvMenu{position:absolute;left:0;right:0;bottom:38px;z-index:9;min-width:0;
+    max-height:min(62%,220px);overflow-y:auto;
     background:#0d1428;border:1px solid #3a4a72;border-radius:8px;padding:8px;
     box-shadow:0 8px 22px rgba(0,0,0,.6);display:none;flex-direction:column;gap:6px}
   #salvMenu.on{display:flex}
@@ -293,7 +301,7 @@
   #salvMenu .ligne{display:flex;align-items:center;gap:8px;font-size:11px;color:#8ea0c8}
   #salvMenu .ligne button{width:auto;flex:0 0 auto;min-width:52px}
   #invPanel > .closeX{position:absolute;top:8px;right:10px;float:none;margin:0}
-  #invActions{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:30px;position:relative;align-items:center;flex:0 0 auto}
+  #invActions{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:30px;position:static;align-items:center;flex:0 0 auto}
   /* La grille de la besace grandit avec les achats de cases : sans limite de
      hauteur ni défilement, elle poussait sur la barre d'actions et finissait
      par la recouvrir sur Android. Elle défile maintenant dans son cadre. */
@@ -5939,7 +5947,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.54 — '+'2026-08-03';
+const BUILD='v8.56 — '+'2026-08-03';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -6885,11 +6893,25 @@ function drawFlecheQuete(){
      1,5 case), on saute ceux qu'on a déjà dépassés, et on s'arrête à six. */
   const t=(typeof performance!=='undefined'?performance.now():Date.now())/900;
   const MARQ=6, SAUT=3;
+  /* ON NE POSE RIEN DERRIÈRE.
+
+     Écarter les points « à moins d'une case » ne suffisait pas : le chemin
+     n'est recalculé que toutes les deux cases et demie, donc il commence là où
+     le héros ÉTAIT. Les points déjà dépassés restaient à plus d'une case
+     derrière lui — et s'affichaient dans son dos.
+
+     On repère d'abord le point du chemin le PLUS PROCHE du héros : c'est là
+     qu'il en est. Tout ce qui précède est derrière, on ne le regarde même pas. */
+  let iProche=0, dMin=Infinity;
+  for(let i=0;i<ch.pts.length;i++){
+    const d2=(ch.pts[i].x-player.x)**2+(ch.pts[i].y-player.y)**2;
+    if(d2<dMin){dMin=d2;iProche=i;}
+  }
   ctx.save();
   let n=0;
-  for(let i=0;i<ch.pts.length&&n<MARQ;i+=SAUT){
+  for(let i=iProche+SAUT;i<ch.pts.length&&n<MARQ;i+=SAUT){
     const w=ch.pts[i];
-    if(dist(player.x,player.y,w.x,w.y)<TS*1.1)continue;   // déjà dépassé
+    if(dist(player.x,player.y,w.x,w.y)<TS*1.1)continue;   // trop près : on l'atteint déjà
     n++;
     const s=isoPx(w.x,w.y);
     if(s.x<-40||s.x>W+40||s.y<-40||s.y>H+40)continue;
