@@ -1256,6 +1256,22 @@ const ACT_BOSSES=[
  {name:'Séraphin Corrompu', bkind:'seraphin', col:'#d98a3d', wcol:'rgba(217,138,61,0.32)', hp:900, dmg:26, xp:950, res:{phys:20,cold:20,holy:-30}}
 ];
 // Niveaux attendus (mode Normal, run ~35% d'ennemis tués par acte)
+/* NIVEAU MINIMUM POUR ENTRER DANS UN ACTE.
+
+   Les ennemis montent déjà au niveau du joueur quand il est en avance
+   (`_over`), mais rien n'empêchait d'entrer très en RETARD : un niveau 15 dans
+   l'acte 3, prévu pour 20-26. Il y affronte des mobs de son niveau ou presque,
+   avec l'équipement de l'acte précédent — et surtout, il saute la courbe de
+   progression. Un plancher par acte, volontairement 2 niveaux SOUS le niveau
+   d'entrée : on peut arriver un peu tôt, pas avec cinq niveaux de retard. */
+/* Réglages de la courbe des ennemis — voir makeEnemy. */
+/* Calibrés numériquement : on balaie 4 000 combinaisons et on garde celle qui
+   rapproche le plus le temps de mise à mort de 2 s et les coups encaissés de
+   10, sur les dix points de mesure — les entrées d'acte comptant double, c'est
+   là que le joueur arrive avec l'équipement de l'acte précédent. */
+let EN_HP_EXP=1.165, EN_HP_MUL=2.5, EN_DMG_EXP=1.105, EN_DMG_MUL=2.4;
+function setCourbe(he,hm,de,dm){EN_HP_EXP=he;EN_HP_MUL=hm;EN_DMG_EXP=de;EN_DMG_MUL=dm;}
+const ACT_MIN=[1,12,18,24,30];
 const ACT_START=[1,14,20,26,32];   // niveau attendu à l'ENTRÉE de chaque acte
 const ACT_END=[14,20,26,32,38];    // niveau attendu en FIN d'acte = niveau du boss
 function makeActBoss(n,x,y,blvl){const b=ACT_BOSSES[n]||ACT_BOSSES[ACT_BOSSES.length-1];
@@ -1482,6 +1498,14 @@ function buildAct(n){
 
 function enterAct(n){
   if(n>=ACTS.length){victory();return;}
+  /* Plancher de niveau. On ne bloque JAMAIS le retour vers un acte déjà
+     atteint : sinon un joueur mort et rétrogradé serait enfermé au village. */
+  const _min=ACT_MIN[n]||1;
+  if(player.lvl<_min && n>maxAct){
+    toast('Niveau '+_min+' requis pour entrer dans '+((ACTS[n]&&ACTS[n].court)||'cet acte')
+          +' — tu es niveau '+player.lvl+'.',3.2);
+    return;
+  }
   if(!acts[n])acts[n]=buildAct(n);
   actDiscovered[n]=true;maxAct=Math.max(maxAct,n);checkQuests();const a=acts[n];
   const ps=a.pspawn||a.spawn;enterLevel(a,ps[0]*TS+TS/2,ps[1]*TS+TS/2);
@@ -1661,13 +1685,25 @@ function makeEnemy(kind,x,y,depth,elvl){
   }
   const t=ENEMY_TYPES[kind];const dm=1+difficulty*0.8,xm=1+difficulty*0.5;
   const L=Math.max(1,elvl||1);
-  /* Les PV croissaient en 1,115 par niveau et les dégâts seulement en 1,07 :
-     sur 37 niveaux, x56 contre x12. Le monstre de fin de jeu était un sac de
-     frappe énorme et inoffensif. On resserre l'écart. */
-  const hpF=Math.pow(1.115,L-1),dmgF=Math.pow(1.105,L-1);
-  const hp0=Math.round(t.hp*hpF*dm*1.6);
+  /* ================================================================
+     COURBE DES ENNEMIS — recalibrée en 8.54 (solution « par la courbe »)
+
+     Mesuré en 8.52 : le DPS du joueur croît de x1,148 par niveau, les PV des
+     ennemis de x1,115 seulement. Trois points d'écart, composés sur 37
+     niveaux : le joueur finit trois fois trop fort. Un mob normal mourait en
+     0,14 s à l'entrée de l'acte 4, et le joueur y encaissait 43 coups.
+
+     On aligne donc l'exposant des PV sur celui du joueur, et on ajoute un
+     coefficient d'ensemble pour recaler le niveau absolu. Même traitement,
+     plus modéré, sur les dégâts — c'est la défense qui absorbe le reste.
+
+     Les quatre nombres sont NOMMÉS : ils se règlent ici, et le test
+     _outils/test_courbe.js remesure le temps de mise à mort à chaque acte.
+     ================================================================ */
+  const hpF=Math.pow(EN_HP_EXP,L-1),dmgF=Math.pow(EN_DMG_EXP,L-1);
+  const hp0=Math.round(t.hp*hpF*dm*1.6*EN_HP_MUL);
   return {kind,x,y,r:t.r,hp:hp0,hpMax:hp0,lvl:L,
-    dmg:Math.round(t.dmg*dmgF*dm*1.5),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
+    dmg:Math.round(t.dmg*dmgF*dm*1.5*EN_DMG_MUL),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
     col:t.col,name:t.name,res:t.res||{},hitCd:0,hurt:0,aggro:false,path:null,pcd:0,slow:0,
     wander:0,wx:x,wy:y};
 }
@@ -4367,7 +4403,12 @@ function drawExitMark(sx,sy,isStair){
 }
 
 /* L'acte vers lequel ouvre la porte du village : le plus avancé atteint. */
-function acteCourant(){ return Math.max(0,Math.min(ACTS.length-1,maxAct||0)); }
+function acteCourant(){
+  let a=Math.max(0,Math.min(ACTS.length-1,maxAct||0));
+  /* On ne propose pas une porte qui refusera le passage. */
+  while(a>0 && player.lvl<(ACT_MIN[a]||1))a--;
+  return a;
+}
 function nomActeCourant(){ const A=ACTS[acteCourant()]; return (A&&A.court)||'la Piscine'; }
 /* ================================================================
    CACHE DU SOL  —  le chantier le plus rentable du moteur
@@ -4512,6 +4553,7 @@ function halo(x,y,r,col){
 }
 const _parProfondeur=(a,b)=>a.d-b.d;   /* alloué une fois, pas par image */
 function setR(v){R_MARCHE=v;}
+function setMaxAct(v){maxAct=v;}   /* pour les tests */
 function videCacheChemin(){_chemQ.pts=null;_chemQ.t=-1e9;}   /* pour les tests */
 function resetFlecheQuete(){_flecheA=null;}   /* pour les tests */
 function videCacheSol(){renderIso._dLvl=null;renderIso._dal=null;}   /* pour les tests */
@@ -4616,7 +4658,11 @@ function renderIso(){
       const tw=132,th=20;
       ctx.beginPath();ctx.rect(sx-tw/2,sy-52,tw,th);ctx.fill();ctx.stroke();
       ctx.fillStyle='rgba(244,211,94,0.95)';ctx.font='bold 12px Trebuchet MS';
-      ctx.fillText('Direction '+((ACTS[0]&&ACTS[0].court)||'la Piscine'),sx,sy-38);
+      /* Le panneau annonçait ACTS[0] EN DUR : il indiquait la Piscine même à
+         l'acte 3. Il suit maintenant l'acte vers lequel la porte ouvre — la
+         même source que la porte elle-même, donc les deux ne peuvent plus
+         diverger. */
+      ctx.fillText('Direction '+nomActeCourant(),sx,sy-38);
       ctx.fillStyle='rgba(244,211,94,'+(0.45+0.45*p)+')';ctx.font='bold 16px Trebuchet MS';
       ctx.fillText('▼',sx,sy-20+2*p);
       ctx.textAlign='left';ctx.restore();});}
@@ -5893,7 +5939,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.52 — '+'2026-08-03';
+const BUILD='v8.54 — '+'2026-08-03';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -6817,32 +6863,53 @@ function angleFlecheQuete(ch,lisse){
   return _flecheA;
 }
 function drawFlecheQuete(){
+  /* CHEMIN AU SOL, plus de flèche en orbite.
+
+     Une flèche qui tourne autour du héros bouge à chaque pas : même sans
+     saccade, l'œil la suit en permanence et c'est fatigant. On pose donc des
+     marqueurs SUR LE SOL, le long du couloir à suivre. Ils sont fixes dans le
+     monde : ils ne bougent pas quand on marche, on les suit, c'est tout.
+
+     Un marqueur tous les 1,5 case, sur les 9 premières cases du chemin, avec
+     une opacité qui décroît vers le lointain et une pulsation qui court du
+     héros vers la cible — l'œil lit le sens sans avoir à réfléchir. */
   if(typeof questSuivie!=='function')return;
   const q=questSuivie(); if(!q)return;
   const c=cibleQuete(q); if(!c)return;
   const ch=cheminQuete(q); if(!ch||!ch.pts)return;
-  const d=ch.lg;
-  if(d<TS*2.2)return;                       // on y est : plus besoin
-  const a=angleFlecheQuete(ch);
-  if(a===null)return;
-  /* `iso` est LOCAL à renderIso : une fonction de premier niveau ne le voit
-     pas. C'est `isoPx`, la projection globale, qu'il faut appeler. */
-  const p=isoPx(player.x,player.y);
-  /* Le rayon suit la projection isométrique, sinon la flèche « colle » au
-     héros sur les diagonales et s'en écarte sur les axes. */
-  const R=64, ex=Math.cos(a)*R, ey=Math.sin(a)*R;
-  const s={x:p.x+(ex-ey)*(ISO_TW/2)/TS, y:p.y-30+(ex+ey)*(ISO_TH/2)/TS};
-  const ang=Math.atan2((ex+ey)*(ISO_TH/2), (ex-ey)*(ISO_TW/2));
-  const puls=0.55+0.45*Math.sin(performance.now()/300);
+  if(ch.lg<TS*2.2)return;                    // on y est
+  /* Les marqueurs sont ancrés sur les POINTS DE PASSAGE du chemin — des points
+     du damier de pose, donc des positions fixes du monde. Mesurer une longueur
+     d'arc depuis le héros les ferait avancer avec lui : ils glisseraient sous
+     les pieds au lieu de rester posés. On prend un point sur trois (environ
+     1,5 case), on saute ceux qu'on a déjà dépassés, et on s'arrête à six. */
+  const t=(typeof performance!=='undefined'?performance.now():Date.now())/900;
+  const MARQ=6, SAUT=3;
   ctx.save();
-  ctx.translate(s.x,s.y);ctx.rotate(ang);
-  ctx.fillStyle='rgba(244,211,94,'+(0.35+0.5*puls)+')';
-  ctx.strokeStyle='rgba(0,0,0,0.75)';ctx.lineWidth=2;ctx.lineJoin='round';
-  ctx.beginPath();ctx.moveTo(16,0);ctx.lineTo(-8,-9);ctx.lineTo(-3,0);ctx.lineTo(-8,9);ctx.closePath();
-  ctx.stroke();ctx.fill();
+  let n=0;
+  for(let i=0;i<ch.pts.length&&n<MARQ;i+=SAUT){
+    const w=ch.pts[i];
+    if(dist(player.x,player.y,w.x,w.y)<TS*1.1)continue;   // déjà dépassé
+    n++;
+    const s=isoPx(w.x,w.y);
+    if(s.x<-40||s.x>W+40||s.y<-40||s.y>H+40)continue;
+    /* la pulsation avance de marqueur en marqueur : elle indique le sens */
+    const ph=(t-n*0.22)%1;
+    const puls=Math.max(0,1-Math.abs(ph-0.5)*2.6);
+    const fondu=1-(n/MARQ)*0.5;              // le lointain s'efface
+    const al=(0.22+0.42*puls)*fondu;
+    const rx=ISO_TW*0.20*(1+0.12*puls), ry=ISO_TH*0.20*(1+0.12*puls);
+    ctx.globalAlpha=al;
+    ctx.fillStyle='#f4d35e';
+    ctx.beginPath();
+    ctx.moveTo(s.x,s.y-ry);ctx.lineTo(s.x+rx,s.y);ctx.lineTo(s.x,s.y+ry);ctx.lineTo(s.x-rx,s.y);
+    ctx.closePath();ctx.fill();
+    ctx.globalAlpha=al*0.75;
+    ctx.strokeStyle='rgba(60,40,0,0.9)';ctx.lineWidth=1;ctx.stroke();
+  }
   ctx.restore();
-  etiquette(s.x,s.y+22,Math.round(d/TS)+' cases','#ffe89a',10);
 }
+
 function majSuivi(){
   const el=document.getElementById('questTrack'); if(!el)return;
   const q=questSuivie();
