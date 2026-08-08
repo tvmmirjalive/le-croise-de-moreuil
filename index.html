@@ -701,7 +701,7 @@ canvas#game{touch-action:none}
       <div class="psec" data-psec="stats">
       <div style="font-size:12px;line-height:1.7">
         Dégâts : <b id="dDmg">—</b><br>Vie max : <b id="dHp">—</b> · Mana max : <b id="dMp">—</b><br>
-        Défense : <b id="dDef">—</b> · Dégâts totaux infligés : <b id="dTotalDmg">0</b><br>🏆 Panoplie de l’Outlaw : <b id="dSet">—</b> · ✨ Trouvaille : <b id="dMF">—</b><br>💥 Critique : <b id="dCrit">—</b> · 🩸 Vol de vie : <b id="dLeech">—</b> · ⚡ Incant. : <b id="dCast">—</b><br>
+        Défense : <b id="dDef">—</b> · Dégâts totaux infligés : <b id="dTotalDmg">0</b><br>🏆 Panoplie de l’Outlaw : <b id="dSet">—</b> · ✨ Trouvaille : <b id="dMF">—</b><br>💥 Critique : <b id="dCrit">—</b> · 🩸 Vol de vie : <b id="dLeech">—</b> · ⚡ Incant. : <b id="dCast">—</b><br>🧲 Zone de ramassage : <b id="dPick">—</b><br>
         ⚔ Vitesse d’attaque : <b id="dAtk">—</b><br><span id="dAtkNext" style="color:#8ea0c8;font-size:11px"></span>
       </div>
       </div>
@@ -883,7 +883,7 @@ function nextBreakpoint(dex,ias){
 }
 function P(){
   let str=player.baseStr,dex=player.baseDex,vit=player.baseVit,ene=player.baseEne,agi=(player.baseAgi||10);
-  let flatDmg=0,def=0,dmgPct=0,mf=0,uc=0,crit=5,leech=0,cast=0,block=0,acc=0,ias=0;
+  let flatDmg=0,def=0,dmgPct=0,mf=0,uc=0,crit=5,leech=0,cast=0,block=0,acc=0,ias=0,pick=0;
   for(const slot of ['weapon','armor','amulet','ring','ring2','helm','gloves','belt','skates']){
     const it=player.equip[slot];if(!it)continue;
     const m=UPMULT(it.plus);
@@ -891,7 +891,7 @@ function P(){
       if(a.t==='str')str+=v;else if(a.t==='dex')dex+=v;
       else if(a.t==='vit')vit+=v;else if(a.t==='ene')ene+=v;else if(a.t==='agi')agi+=v;
       else if(a.t==='dmg')flatDmg+=v;else if(a.t==='def')def+=v;
-      else if(a.t==='dmgpct')dmgPct+=v;else if(a.t==='mf')mf+=v;else if(a.t==='crit')crit+=v;else if(a.t==='leech')leech+=v;else if(a.t==='cast')cast+=v;else if(a.t==='block')block+=v;else if(a.t==='acc')acc+=v;else if(a.t==='ias')ias+=v;
+      else if(a.t==='dmgpct')dmgPct+=v;else if(a.t==='mf')mf+=v;else if(a.t==='crit')crit+=v;else if(a.t==='leech')leech+=v;else if(a.t==='cast')cast+=v;else if(a.t==='block')block+=v;else if(a.t==='acc')acc+=v;else if(a.t==='ias')ias+=v;else if(a.t==='pick')pick+=v;
     }
     if(isBroken(it)){continue;}
     if(it.baseDmg)flatDmg+=Math.round(it.baseDmg*m);
@@ -961,7 +961,7 @@ function P(){
   const manaCoutPct=Math.min(40,ene*0.35);
   if((player.chill||0)>0)moveSpeed*=0.55;
   const _pw=(player.buffT>0&&player.buffType==='power')?1.5:1;const _ha=(player.buffT>0&&player.buffType==='haste');
-  return {str,dex,vit,ene,agi,sortPct,manaCoutPct,hpMax,mpMax,dmgMin:Math.round(dmgMin*_pw),dmgMax:Math.round(dmgMax*_pw),atkSpeed:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames)/ATK_FPS,ias:iasRaw,eias:eias,atkFrames:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames),moveSpeed:_ha?moveSpeed+1.2:moveSpeed,def,mf,uc,crit,leech,cast,block:Math.min(60,block+Math.floor(dex*0.10)),acc:acc};
+  return {str,dex,vit,ene,agi,sortPct,manaCoutPct,hpMax,mpMax,dmgMin:Math.round(dmgMin*_pw),dmgMax:Math.round(dmgMax*_pw),atkSpeed:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames)/ATK_FPS,ias:iasRaw,eias:eias,atkFrames:(_ha?Math.max(ATK_FRAMES_MIN,Math.ceil(atkFrames*0.7)):atkFrames),moveSpeed:_ha?moveSpeed+1.2:moveSpeed,def,mf,uc,crit,leech,cast,block:Math.min(60,block+Math.floor(dex*0.10)),acc:acc,pick:pick};
 }
 
 /* ---------------- ITEMS ---------------- */
@@ -978,7 +978,10 @@ const AFFIX=[
   {t:'dmgpct',n:'+#% Dégâts',min:6,max:22},{t:'mf',n:'+#% Trouvaille magique',min:8,max:30},{t:'crit',n:'+#% Coup critique',min:3,max:12},{t:'leech',n:'+#% Vol de vie',min:1,max:3},{t:'cast',n:'+#% Vitesse d’incantation',min:4,max:15},
   {t:'block',n:'+#% Blocage (crosse levée)',min:3,max:10},
   {t:'acc',n:'+#% Précision',min:5,max:18},
-  {t:'ias',n:'+#% Vitesse d’attaque',min:5,max:20}];
+  {t:'ias',n:'+#% Vitesse d’attaque',min:5,max:20},
+  /* `only` restreint un affixe à un emplacement. Le rayon d'aimantation des
+     orbes est un pouvoir de MAIN : il n'a de sens que sur des gants. */
+  {t:'pick',n:'+#% Zone de ramassage',min:12,max:40,only:'gloves'}];
 const GEAR={"weapon":{"white":[["Crosse fêlée du vestiaire","w_ash1"],["Crosse d'entraînement râpée","w_ash2"],["Crosse de recrue","w_ash3"],["Crosse de titulaire","w_ash4"]],"magic":[["Crosse composite runique","w_comp1"],["Crosse sifflante","w_comp2"],["Crosse de la mise en échec","w_comp3"],["Crosse du power-play","w_comp4"],["Crosse givrée","w_frost1"],["Crosse de glace runique","w_frost2"]],"rare":[["Mordante des Outlaws","w_frost3"],["Brise-Banquise","w_frost4"],["Rédemption Emberblue","w_ember1"],["Braise-Bleue","w_ember2"],["Crosse des Cendres Ardentes","w_ember3"],["Fléau Emberblue","w_ember4"]],"unique":[["Cendreglace, la Crosse Damnée","w_ash21"],["Cendreglace, Cœur de Suie","w_ash22"],["Cendreglace, Serment de Cendre","w_ash23"],["Cendreglace, l'Ultime Damnation","w_ash24"],["Aile Brisée du Séraphin","w_wing1"],["Plume Déchue du Séraphin","w_wing2"],["Rémige du Jugement","w_wing3"],["Envergure du Séraphin Corrompu","w_wing4"]],"legendary":[["Cendre-Fosse, Crosse des Échos","leg_weapon"]]},"armor":{"white":[["Maillot rembourré des cadets","a_jersey1"],["Maillot rapiécé de Moreuil","a_jersey2"],["Maillot des Outlaws juniors","a_jersey3"],["Maillot de capitaine élimé","a_jersey4"]],"magic":[["Plastron d'écailles givrées","a_scale1"],["Plastron écaillé runique","a_scale2"],["Cotte d'écailles bleuies","a_scale3"],["Plastron d'écailles renforcé","a_plackart1"],["Plastron runique du Veilleur","a_plackart2"]],"rare":[["Cuirasse des Outlaws","a_plackart3"],["Plastron du Gardien Éternel","a_plackart4"],["Harnois ailé de l’Outlaw","a_harness1"],["Harnois des Ailes de Givre","a_harness2"],["Harnois du Serment Bleu","a_harness3"],["Harnois ailé du Grand Outlaw","a_harness4"]],"unique":[["Égide de la Piste Gelée","a_aegis1"],["Égide du Cercle Central","a_aegis2"],["Égide des Outlaws Déchus","a_aegis3"],["Égide de l'Arène Éternelle","a_aegis4"]],"legendary":[["Harnois du Survivant de la Fosse","leg_armor"]]},"amulet":{"white":[["Jeton de vestiaire","m_token1"],["Jeton des Outlaws","m_token2"],["Médaillon d'amateur","m_token3"],["Jeton de capitaine terni","m_token4"]],"magic":[["Amulette de Glacier","m_glacier1"],["Pendentif de Givre","m_glacier2"],["Amulette du Froid Runique","m_glacier3"]],"rare":[["Cœur de la Faille","m_heart1"],["Éclat de la Faille","m_heart2"],["Cœur Battant des Outlaws","m_heart3"],["Cœur Profond de la Faille","m_heart4"]],"unique":[["Larme du Séraphin","m_tear1"],["Larme de l'Ange Déchu","m_tear2"],["Perle du Jugement","m_tear3"],["Larme Ultime du Séraphin","m_tear4"]]},"ring":{"white":[["Anneau de fer brut","r_iron1"],["Anneau de fer poli","r_iron2"],["Anneau de recrue","r_iron3"],["Anneau de fer gravé","r_iron4"]],"magic":[["Anneau de givre-verre","r_frost1"],["Anneau de verre gelé","r_frost2"],["Anneau du Froid Runique","r_frost3"],["Anneau de givre-verre poli","r_frost4"],["Anneau du Patin Rapide","r_swift1"],["Anneau de la Glisse","r_swift2"],["Anneau du Contre-Rapide","r_swift3"],["Anneau du Patin Fulgurant","r_swift4"]],"rare":[["Chevalière du Pacte de Sang","r_blood1"],["Chevalière Écarlate","r_blood2"],["Chevalière du Serment de Sang","r_blood3"],["Chevalière du Pacte Damné","r_blood4"],["Boucle de la Faille","r_loop1"],["Anneau de la Brèche","r_loop2"],["Boucle des Outlaws","r_loop3"],["Boucle de la Faille Profonde","r_loop4"]],"unique":[["Anneau du Serment d'Aldric","r_aldric1"],["Anneau du Dernier Serment","r_aldric2"],["Anneau de l’Outlaw Éternel","r_aldric3"],["Anneau du Serment Indéfectible","r_aldric4"],["Halo du Séraphin","r_halo1"],["Auréole Déchue","r_halo2"],["Halo du Jugement Corrompu","r_halo3"]]},"skates":{"white":[["Patins usés du vestiaire","s_worn1"],["Patins de recrue","s_worn2"],["Patins des Outlaws juniors","s_worn3"],["Patins reconditionnés","s_worn4"]],"magic":[["Patins composites","s_comp1"],["Patins givrés","s_comp2"],["Patins runiques","s_comp3"],["Patins du power-play","s_comp4"],["Patins givrés renforcés","s_warden2"],["Patins gravés du Gardien","s_warden3"],["Patins d'acier trempé","s_warden4"]],"rare":[["Lames de Givre","s_frost1"],["Lames Gelées des Outlaws","s_frost2"],["Lames de la Banquise","s_frost3"],["Patins Emberglide","s_ember1"],["Patins des Cendres Ardentes","s_ember3"],["Patins Emberglide Suprêmes","s_ember4"],["Patins du Gardien","s_warden1"]],"unique":[["Lames de l'Hiver Éternel","s_frost4"],["Patins des Cendres Damnées","s_ember2"],["Coureurs de Glacier","s_glacier1"],["Ailes de Moreuil","s_wings1"]],"legendary":[["Brûle-Piste, Lames de la Fosse","leg_skates"]]},"helm":{"white":[["Casque de cuir bosselé","h9"],["Casque de recrue","h10"],["Casque matelassé","h11"],["Casque de cuir clouté","h12"]],"magic":[["Casque d'acier givré","h13"],["Heaume runique","h14"],["Casque d'acier trempé","h15"],["Heaume enchanté","h16"]],"rare":[["Heaume du Veilleur","h5"],["Heaume des Outlaws","h6"],["Armet du Gardien","h7"],["Heaume du Gardien Éternel","h8"]],"unique":[["Heaume du Serment Brisé","h1"],["Couronne de l'Hiver Éternel","h2"],["Diadème du Falcon","h3"],["Couronne du Dernier Outlaw","h4"]],"legendary":[["Heaume d’Anselme","leg_helm"]]},"gloves":{"white":[["Gants matelassés troués","gl5"],["Gants de recrue","gl6"],["Mitaines usées","gl7"],["Gants matelassés renforcés","gl8"]],"magic":[["Gantelets givrés","gl1"],["Gants runiques","gl2"],["Mitaines enchantées","gl3"],["Gantelets d'écailles bleuies","gl4"]],"rare":[["Gantelets de Givre","gl13"],["Poignes des Outlaws","gl14"],["Gantelets du Veilleur","gl15"],["Poignes gelées du Gardien","gl16"]],"unique":[["Poignes du Dernier Outlaw","gl9"],["Serres du Falcon","gl10"],["Étreinte de la Faille","gl11"],["Gantelets du Grand Serment","gl12"]]},"belt":{"white":[["Ceinturon élimé","be13"],["Ceinturon de recrue","be14"],["Ceinture usée","be15"],["Ceinturon clouté usé","be16"]],"magic":[["Ceinture cloutée givrée","be5"],["Ceinture runique","be6"],["Ceinture de la mise en échec","be7"],["Ceinture cloutée bleuie","be8"]],"rare":[["Ceinture du Gardien","be9"],["Ceinture du Veilleur","be10"],["Ceinture des Outlaws","be11"],["Ceinture du Gardien Éternel","be12"]],"unique":[["Ceinture du Dernier Outlaw","be1"],["Étreinte de la Faille","be2"],["Ceinture du Pacte Brisé","be3"],["Ceinture des Profondeurs Gelées","be4"]]}};
 let uidCounter=1;
 const GEMS=[
@@ -996,7 +999,8 @@ function makeGear(slot,rarity,ilvl){
   ilvl=ilvl||player.lvl||1;const lv=1+(ilvl-1)*0.07;const wlv=1+(ilvl-1)*0.2;const dlv=1+(ilvl-1)*0.15;
   const pool=(GEAR[slot]&&GEAR[slot][rarity]&&GEAR[slot][rarity].length?GEAR[slot][rarity]:(GEAR[slot]&&GEAR[slot].white))||[['Objet',null]];
   const g=pick(pool);
-  const [amin,amax]=RAR[rarity].aff;const naff=randi(amin,amax);const p=[...AFFIX];const affixes=[];
+  const [amin,amax]=RAR[rarity].aff;const naff=randi(amin,amax);
+  const p=AFFIX.filter(a=>!a.only||a.only===slot);const affixes=[];
   const RMUL={white:1,magic:1.15,rare:1.35,unique:1.65,legendary:2.05}[rarity]||1;
   for(let i=0;i<naff&&p.length;i++){const a=p.splice(randi(0,p.length-1),1)[0];affixes.push({t:a.t,v:Math.max(1,Math.round(randi(a.min,a.max)*lv*RMUL))});}
   const ico={weapon:'🏒',armor:'🛡️',amulet:'📿',ring:'💍',skates:'⛸️',helm:'🪖',gloves:'🧤',belt:'🎗️'}[slot]||'❔';
@@ -1279,6 +1283,237 @@ const ACT_BOSSES=[
    là que le joueur arrive avec l'équipement de l'acte précédent. */
 let EN_HP_EXP=1.165, EN_HP_MUL=2.5, EN_DMG_EXP=1.105, EN_DMG_MUL=2.4;
 function setCourbe(he,hm,de,dm){EN_HP_EXP=he;EN_HP_MUL=hm;EN_DMG_EXP=de;EN_DMG_MUL=dm;}
+/* ================================================================
+   RÉGIONS  —  un acte n'est plus un seul décor uniforme
+
+   Le générateur produit un tronc et des branches, et jusqu'ici tout le niveau
+   partageait la même teinte, le même décor et le même peuplement : vingt
+   minutes rigoureusement identiques.
+
+   On découpe désormais chaque acte en trois à cinq RÉGIONS, tirées parmi des
+   profils. Une région porte six réglages : une teinte, un jeu de décors, une
+   densité, un rayon de lumière, un penchant d'ennemis, et parfois une ANOMALIE
+   de terrain.
+
+   Le découpage est un Voronoï : quelques germes espacés, chaque case appartient
+   au germe le plus proche. C'est instantané, ça ne touche NI la forme du
+   niveau, NI sa connexité, NI la pose des coffres.
+
+   La teinte ne coûte rien à l'affichage : le sol est mis en cache par dalles
+   depuis la 8.51, donc elle est appliquée UNE FOIS par dalle, pas soixante fois
+   par seconde.
+   ================================================================ */
+/* ================================================================
+   LES SALLES DES PILIERS  —  cinq par acte, vingt-cinq en tout
+
+   Les régions disent dans quelle AMBIANCE on est. Elles ne disent pas OÙ.
+   Une carte générée n'offre aucun point de repère : tous les couloirs se
+   ressemblent, et dans le menu de téléportation les cinq balises d'un acte
+   sont interchangeables — « Balise 3 (60 %) » ne veut rien dire.
+
+   Chaque pilier reçoit donc une SALLE : une forme creusée à la main, un décor
+   disposé, une teinte propre et un NOM. Ce nom remonte jusqu'au menu des
+   balises. « La Chambre Froide », ça se retient ; « Balise 3 », non.
+
+   Règle de sûreté : une salle ne fait qu'AJOUTER du sol. On ne referme jamais
+   un passage, donc la connexité du niveau ne peut pas se dégrader. Les cases
+   spéciales — portail, escalier, bouche de grotte — sont épargnées.
+   ================================================================ */
+const SALLE_FORMES={
+  /* Chaque forme rend la liste des décalages de cases à creuser. */
+  ronde:   r=>{const o=[];for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)if(x*x+y*y<=r*r)o.push([x,y]);return o;},
+  losange: r=>{const o=[];for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)if(Math.abs(x)+Math.abs(y)<=r)o.push([x,y]);return o;},
+  croix:   r=>{const o=[],b=Math.max(1,(r/2)|0);
+    for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)if(Math.abs(x)<=b||Math.abs(y)<=b)o.push([x,y]);return o;},
+  /* La nef était longue mais large de 7 cases seulement : trop étroite pour
+     faire salle. Le petit côté ne descend plus sous 11 cases. */
+  nef:     r=>{const o=[],L=r+3,W=Math.max(5,(r*0.7)|0);
+    for(let y=-W;y<=W;y++)for(let x=-L;x<=L;x++)o.push([x,y]);return o;},
+  anneau:  r=>{const o=[];for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++){const d=x*x+y*y;
+    if(d<=r*r&&d>=(r-2)*(r-2))o.push([x,y]);}
+    for(let y=-1;y<=1;y++)for(let x=-r;x<=r;x++)o.push([x,y]);        // deux allées
+    for(let x=-1;x<=1;x++)for(let y=-r;y<=r;y++)o.push([x,y]);return o;},
+  carree:  r=>{const o=[];for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)o.push([x,y]);return o;}
+};
+/* Cinq salles par acte : nom, forme, rayon, teinte, disposition du décor. */
+const SALLES_PAR_ACTE=[
+ [ {nom:'Le Petit Bain',        f:'ronde',  r:6, t:'rgba(60,150,190,0.20)', d:'anneau'},
+   {nom:'Les Vestiaires Noyés', f:'carree', r:6, t:'rgba(40,70,110,0.26)',  d:'murs'},
+   {nom:'Le Grand Plongeoir',   f:'croix',  r:6, t:'rgba(90,180,210,0.18)', d:'centre'},
+   {nom:'Le Pédiluve',          f:'losange',r:6, t:'rgba(50,120,140,0.22)', d:'anneau'},
+   {nom:'Le Bassin Olympique',  f:'anneau', r:8, t:'rgba(30,90,150,0.24)',  d:'murs'} ],
+ [ {nom:'La Chambre Froide',    f:'carree', r:6, t:'rgba(150,200,255,0.22)',d:'murs'},
+   {nom:'Le Puits de Givre',    f:'ronde',  r:6, t:'rgba(110,180,240,0.24)',d:'centre'},
+   {nom:'La Galerie des Échos', f:'nef',    r:6, t:'rgba(70,120,190,0.26)', d:'allee'},
+   {nom:'Le Cœur Gelé',         f:'anneau', r:7, t:'rgba(170,220,255,0.20)',d:'anneau'},
+   {nom:'La Crevasse',          f:'croix',  r:6, t:'rgba(40,70,120,0.30)',  d:'centre'} ],
+ [ {nom:'La Tranchée aux Croix',f:'nef',    r:7, t:'rgba(110,100,70,0.24)', d:'allee'},
+   {nom:'La Clairière Muette',  f:'ronde',  r:6, t:'rgba(90,130,70,0.20)',  d:'anneau'},
+   {nom:'Le Poste Éventré',     f:'carree', r:6, t:'rgba(80,70,50,0.26)',   d:'murs'},
+   {nom:'Les Racines Mortes',   f:'losange',r:6, t:'rgba(60,80,50,0.24)',   d:'centre'},
+   {nom:'Le Cimetière de 1918', f:'anneau', r:8, t:'rgba(70,70,80,0.26)',   d:'anneau'} ],
+ [ {nom:'Le Porche Brisé',      f:'carree', r:6, t:'rgba(120,110,140,0.22)',d:'murs'},
+   {nom:'La Nef Corrompue',     f:'nef',    r:8, t:'rgba(90,80,120,0.24)',  d:'allee'},
+   {nom:'Le Confessionnal',     f:'ronde',  r:4, t:'rgba(60,50,90,0.30)',   d:'centre'},
+   {nom:'La Crypte',            f:'croix',  r:6, t:'rgba(40,35,60,0.32)',   d:'murs'},
+   {nom:'Le Chœur de Feu Bleu', f:'anneau', r:8, t:'rgba(80,120,190,0.24)', d:'anneau'} ],
+ [ {nom:'Le Local Matériel',    f:'carree', r:6, t:'rgba(130,90,80,0.22)',  d:'murs'},
+   {nom:'Les Gradins',          f:'nef',    r:7, t:'rgba(150,80,70,0.20)',  d:'allee'},
+   {nom:'Le Rond Central',      f:'ronde',  r:7, t:'rgba(60,120,180,0.22)', d:'anneau'},
+   {nom:'La Buvette',           f:'losange',r:5, t:'rgba(140,110,60,0.24)', d:'centre'},
+   {nom:'Le Banc des Outlaws',  f:'anneau', r:8, t:'rgba(120,60,60,0.26)',  d:'anneau'} ]
+];
+const ANOMALIES={
+  glisse:  {nom:'Glace vive',   spd:1.35, dot:0,    col:'#bfe8ff'},
+  gravats: {nom:'Éboulis',      spd:0.62, dot:0,    col:'#c9b79a'},
+  morsure: {nom:'Froid mordant',spd:0.9,  dot:0.9,  col:'#9fd8ff'},
+  braise:  {nom:'Braises',      spd:1.0,  dot:1.6,  col:'#ff9a5a'}
+};
+const REGION_PROFILS=[
+  {id:'coeur',   teinte:null,                 densite:1.0, vision:7, penchant:null,     anomalie:null},
+  {id:'sombre',  teinte:'rgba(10,14,34,0.34)',densite:0.7, vision:5, penchant:'wraith', anomalie:null},
+  {id:'nid',     teinte:'rgba(70,20,30,0.20)',densite:1.5, vision:7, penchant:'imp',    anomalie:null},
+  {id:'ruine',   teinte:'rgba(120,96,60,0.22)',densite:1.3,vision:6, penchant:'brute',  anomalie:'gravats'},
+  {id:'gel',     teinte:'rgba(120,190,255,0.24)',densite:0.8,vision:8,penchant:'wraith',anomalie:'glisse'},
+  {id:'malsain', teinte:'rgba(90,40,120,0.24)',densite:1.1,vision:6, penchant:'shade',  anomalie:'morsure'},
+  {id:'brasier', teinte:'rgba(150,60,20,0.22)',densite:1.0,vision:7, penchant:'golem',  anomalie:'braise'}
+];
+/* UNE RÉGION PAR PILIER.
+
+   Le découpage était au hasard : l'ambiance changeait au milieu d'un couloir,
+   sans raison lisible. Les germes sont désormais les CINQ PILIERS de l'acte,
+   dans l'ordre de progression. Chaque région commence donc là où l'on arrive,
+   et sa salle en est le cœur concentré : on entre dans « La Chambre Froide »,
+   et tout le secteur autour d'elle porte la même couleur.
+
+   Le premier profil est toujours « coeur » : l'acte s'ouvre sur son décor de
+   référence, sinon on perd son identité dès le premier pas. */
+const REGIONS_PAR_ACTE=[
+  ['coeur','nid','malsain','nid','brasier'],      // Piscine
+  ['coeur','gel','sombre','gel','malsain'],       // Glacière
+  ['coeur','ruine','sombre','nid','ruine'],       // Bois
+  ['coeur','sombre','malsain','ruine','sombre'],  // Église
+  ['coeur','brasier','ruine','nid','brasier']     // Gymnase
+];
+/* Découpe le niveau en régions. `lvl.region` donne l'indice de profil par case,
+   `lvl.regions` la liste des profils utilisés. */
+function decouperRegions(lvl,acte,rf,progAt,seuils){
+  const w=lvl.w,h=lvl.h;
+  const noms=REGIONS_PAR_ACTE[Math.max(0,Math.min(4,acte))]||['coeur'];
+  const profils=noms.map(n=>REGION_PROFILS.find(p=>p.id===n)||REGION_PROFILS[0]);
+  lvl.regions=profils;
+  lvl.region=new Uint8Array(w*h);
+  if(!rf||rf.length<20||profils.length<2)return;
+  const bal=(lvl.npcs||[]).filter(x=>x.type==='waypoint').sort((a,b)=>(a.bi||0)-(b.bi||0));
+  const germes=bal.map(b=>[b.tx,b.ty]);
+  while(profils.length<Math.max(2,germes.length))profils.push(profils[profils.length-1]);
+  if(germes.length)profils.length=germes.length;
+  lvl.regions=profils;
+  lvl.germes=germes;
+
+  /* ================================================================
+     DÉCOUPAGE LE LONG DE LA PROGRESSION, pas par distance.
+
+     Premier essai : un Voronoï sur les piliers. Erreur — la région d'un pilier
+     s'étendait AUSSI EN AMONT de lui, donc l'ambiance changeait avant qu'on
+     arrive. Ce n'est pas ce qui était demandé.
+
+     Une région court désormais d'un pilier AU SUIVANT le long du tronc :
+     `progAt` donne l'avancement d'une case sur le chemin principal, et les
+     seuils sont les avancements des piliers eux-mêmes. On franchit un pilier,
+     l'ambiance bascule — et pas une case avant.
+     ================================================================ */
+  if(typeof progAt==='function'&&seuils&&seuils.length){
+    /* LES SEUILS SONT LA PROGRESSION RÉELLE DES PILIERS.
+
+       Prendre les valeurs théoriques (0, 30 %, 60 %…) ne suffit pas : un pilier
+       est posé sur la case de SOL la plus proche du point visé, et cette case
+       peut mesurer 29,9 % au lieu de 30. Le pilier tombait alors dans la région
+       précédente — mesuré : un à deux piliers par acte. On lit donc leur
+       avancement réel, et on retranche un cheveu pour que la case du pilier
+       appartienne bien à la région qu'elle ouvre. */
+    let S=seuils.slice(0,profils.length);
+    if(germes.length===profils.length){
+      const reels=germes.map(g=>progAt(g[0],g[1]));
+      let croissant=true;
+      for(let i=1;i<reels.length;i++) if(reels[i]<reels[i-1])croissant=false;
+      if(croissant)S=reels.map((v,i)=>i===0?0:Math.max(0,v-1e-6));
+    }
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+      const pr=progAt(x,y);
+      let k=0; for(let i=0;i<S.length;i++) if(pr>=S[i]) k=i;
+      lvl.region[idx(w,x,y)]=k;
+    }
+    lvl.seuils=S;
+    return;
+  }
+  /* Repli : sans mesure de progression, on retombe sur la distance. */
+  if(!germes.length)return;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let bi=0,bd=Infinity;
+    for(let i=0;i<germes.length;i++){
+      const d=(x-germes[i][0])**2+(y-germes[i][1])**2;
+      if(d<bd){bd=d;bi=i;}
+    }
+    lvl.region[idx(w,x,y)]=bi;
+  }
+}
+/* Creuse une salle autour d'un pilier. N'AJOUTE que du sol : la connexité du
+   niveau ne peut donc pas s'en trouver dégradée. */
+/* Dix cases de large au minimum : en dessous, une salle ne se distingue pas
+   d'un élargissement de couloir et ne fait pas repère. */
+const SALLE_R_MIN=5;
+function poserSalle(lvl,tx,ty,def,indice){
+  const w=lvl.w,h=lvl.h;
+  const r=Math.max(SALLE_R_MIN,def.r||5);
+  const forme=(SALLE_FORMES[def.f]||SALLE_FORMES.ronde)(r);
+  if(!lvl.salle)lvl.salle=new Int8Array(w*h).fill(-1);
+  if(!lvl.salles)lvl.salles=[];
+  let n=0;
+  for(const [dx,dy] of forme){
+    const x=tx+dx, y=ty+dy;
+    if(x<2||y<2||x>=w-2||y>=h-2)continue;
+    const i=idx(w,x,y), c=lvl.grid[i];
+    /* on épargne portail, escalier et bouche de grotte */
+    if(c===T_GATE||c===T_STAIR||c===T_CAVE){lvl.salle[i]=indice;continue;}
+    lvl.grid[i]=T_FLOOR;
+    lvl.salle[i]=indice;
+    n++;
+  }
+  lvl.salles.push({nom:def.nom,tx:tx,ty:ty,teinte:def.t,forme:def.f,r:r,cases:n});
+  return n;
+}
+/* Le décor d'une salle, disposé — pas semé au hasard. */
+function decorerSalle(lvl,S,def,liste){
+  if(!liste||!liste.length)return;
+  const w=lvl.w,r=Math.max(SALLE_R_MIN,def.r||5),tx=S.tx,ty=S.ty;
+  const pose=(x,y)=>{
+    if(x<2||y<2||x>=lvl.w-2||y>=lvl.h-2)return;
+    const i=idx(w,x,y);
+    if(!walkableCode(lvl.grid[i]))return;
+    if(Math.hypot(x-tx,y-ty)<2)return;              // on dégage le pilier
+    lvl.props.push({tx:x,ty:y,x:x*TS+TS/2+rand(-4,4),y:y*TS+TS/2+rand(-3,3),
+                    kind:liste[randi(0,liste.length-1)],salle:1});
+  };
+  const D=def.d||'anneau';
+  if(D==='anneau'){ const R=Math.max(2,r-1);
+    for(let a=0;a<12;a++){const th=a/12*6.283;
+      pose(tx+Math.round(Math.cos(th)*R), ty+Math.round(Math.sin(th)*R));} }
+  else if(D==='murs'){ for(let k=-r+1;k<=r-1;k+=2){
+      pose(tx+k,ty-r+1); pose(tx+k,ty+r-1); pose(tx-r+1,ty+k); pose(tx+r-1,ty+k);} }
+  else if(D==='allee'){ const L=r+1;
+    for(let k=-L;k<=L;k+=2){ pose(tx+k,ty-2); pose(tx+k,ty+2); } }
+  else { /* centre */ for(let a=0;a<6;a++){const th=a/6*6.283;
+      pose(tx+Math.round(Math.cos(th)*2.2), ty+Math.round(Math.sin(th)*2.2));} }
+}
+/* Le profil de la région d'une case, ou d'une position en pixels. */
+function regionDe(lvl,tx,ty){
+  if(!lvl||!lvl.region)return REGION_PROFILS[0];
+  if(tx<0||ty<0||tx>=lvl.w||ty>=lvl.h)return REGION_PROFILS[0];
+  return (lvl.regions&&lvl.regions[lvl.region[idx(lvl.w,tx,ty)]])||REGION_PROFILS[0];
+}
+function regionEn(lvl,px,py){ const t=tileAt(px,py); return regionDe(lvl,t.tx,t.ty); }
+function anomalieEn(lvl,px,py){ const r=regionEn(lvl,px,py); return r.anomalie?ANOMALIES[r.anomalie]:null; }
 const ACT_MIN=[1,12,18,24,30];
 const ACT_START=[1,14,20,26,32];   // niveau attendu à l'ENTRÉE de chaque acte
 const ACT_END=[14,20,26,32,38];    // niveau attendu en FIN d'acte = niveau du boss
@@ -1403,11 +1638,22 @@ function buildAct(n){
   if(n<ACTS.length-1){grid[idx(w,bpos[0],bpos[1])]=T_GATE;lvl.gate={tx:bpos[0],ty:bpos[1]};}
   {const AR=16;for(let dy=-AR;dy<=AR;dy++)for(let dx=-AR;dx<=AR;dx++){if(dx*dx+dy*dy>AR*AR)continue;const ax=bpos[0]+dx,ay=bpos[1]+dy;if(ax<2||ay<2||ax>=w-2||ay>=h-2)continue;const _i=idx(w,ax,ay);if(grid[_i]===T_WALL)grid[_i]=T_FLOOR;}}
   lvl.bossArena={x:bpos[0],y:bpos[1],r:15};
+  /* Les régions sont découpées AVANT le peuplement ET avant le décor : les deux
+     s'y adaptent. Placé après, le découpage n'était vu par personne — c'est
+     l'erreur que le test a levée. Aucune incidence sur la forme du niveau ni
+     sur sa connexité : c'est un simple étiquetage des cases. */
+  /* Les seuils sont l'avancement des piliers : 0, puis 30 %, 60 %, 90 % et
+     l'avant-boss. Une région va d'un pilier au suivant. */
+  decouperRegions(lvl,n,rf,progAt,[0,0.30,0.60,0.90,0.955]);
   // ennemis : rampe de niveau selon la progression le long du tronc
   const nEn=Math.min(1600,Math.round(rf.length*0.028)+120);
   for(let i=0;i<nEn;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<14)continue;
     let kind='imp';const r=Math.random();
     if(A.depth>=3&&r<0.16)kind='golem';else if(A.depth>=1&&r<0.34)kind='shade';else if(A.depth>=2&&r<0.5)kind='brute';else if(r<0.62)kind='wraith';else if(r<0.74)kind='brute';
+    /* Penchant de région : deux fois sur trois, la région impose son espèce.
+       Un nid grouille de diablotins, une zone sombre de spectres. */
+    {const _rp=regionDe(lvl,p[0],p[1]);
+     if(_rp.penchant&&Math.random()<0.66)kind=_rp.penchant;}
     const _pp=progAt(p[0],p[1]);const _elvl=Math.max(1,Math.round(aStart+(aEnd-aStart)*_pp));
     const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth,_elvl);if(Math.random()<0.10+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
   // récompenses au bout des branches : coffres, camps d'élite, gemmes, butin
@@ -1479,7 +1725,7 @@ function buildAct(n){
   lvl.props=[];
   {const liste=(typeof PROP_THEME!=='undefined'&&PROP_THEME[A.theme])||[];
    if(liste.length){
-     const nP=Math.min(90,Math.round(rf.length/900)+14);
+     const nP=Math.min(120,Math.round(rf.length/900)+14);
      const pris={};
      for(const c of lvl.chests||[])pris[idx(w,c.tx,c.ty)]=1;
      for(const s of lvl.shrines||[])pris[idx(w,s.tx,s.ty)]=1;
@@ -1490,11 +1736,25 @@ function buildAct(n){
        const k=idx(w,p[0],p[1]);
        if(pris[k])continue;
        if(dist(p[0],p[1],spawn[0],spawn[1])<8)continue;
+       /* densité propre à la région : un nid est encombré, une zone sombre nue */
+       const _rp=regionDe(lvl,p[0],p[1]);
+       if(Math.random()>(_rp.densite||1)*0.72)continue;
        pris[k]=1;
        lvl.props.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2+rand(-7,7),y:p[1]*TS+TS/2+rand(-5,5),
                        kind:liste[randi(0,liste.length-1)]});
      }
    }}
+  /* LES SALLES DES PILIERS. Posées après les balises et le décor : elles
+     creusent autour de chaque pilier et y disposent leur propre décor. */
+  {const defs=SALLES_PAR_ACTE[Math.max(0,Math.min(4,n))]||[];
+   const liste=(typeof PROP_THEME!=='undefined'&&PROP_THEME[A.theme])||[];
+   const bal=(lvl.npcs||[]).filter(x=>x.type==='waypoint').sort((a,b)=>(a.bi||0)-(b.bi||0));
+   bal.forEach((b,k)=>{
+     const def=defs[k%Math.max(1,defs.length)]; if(!def)return;
+     poserSalle(lvl,b.tx,b.ty,def,k);
+     b.salle=def.nom;                     // le nom remonte au menu des balises
+     decorerSalle(lvl,lvl.salles[lvl.salles.length-1],def,liste);
+   });}
   const nB=Math.min(60,Math.round(rf.length/1400)+10);
   for(let i=0;i<nB;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<6)continue;lvl.breakables.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2,y:p[1]*TS+TS/2,broken:false,r:14});}
   // BOSS au point B
@@ -1601,7 +1861,17 @@ function openWaypoint(){
     const L=balisesActe(a);
     for(const bi of L){
       const ici=(level.kind==='act'&&level.actNum===a&&_surBalise(bi));
-      mk('◈ Acte '+(a+1)+' — Balise '+(bi+1)+' ('+(NOMS[bi]||'?')+')',
+      /* Le NOM de la salle, quand on le connaît : « ◈ La Chambre Froide » se
+         retient, « Balise 3 (60 %) » non. Le nom n'est disponible que pour
+         l'acte chargé — pour les autres on garde le repère de progression. */
+      let _nomB=null;
+      if(level.kind==='act'&&level.actNum===a&&level.npcs){
+        const _b=level.npcs.find(x=>x.type==='waypoint'&&x.bi===bi);
+        if(_b&&_b.salle)_nomB=_b.salle;
+      }
+      if(!_nomB&&typeof SALLES_PAR_ACTE!=='undefined'&&SALLES_PAR_ACTE[a]&&SALLES_PAR_ACTE[a][bi])
+        _nomB=SALLES_PAR_ACTE[a][bi].nom;
+      mk('◈ Acte '+(a+1)+' — '+(_nomB?_nomB+'  ·  '+(NOMS[bi]||'?'):'Balise '+(bi+1)+' ('+(NOMS[bi]||'?')+')'),
          ((_a,_b)=>()=>allerBalise(_a,_b))(a,bi), ici);
     }
   }
@@ -1656,7 +1926,9 @@ function activateShrine(sh){
   qc.shrines++;checkQuests();burst(sh.x,sh.y,'#8fdcff',24);refreshHud();
 }
 function breakBarrel(b){if(b.broken)return;b.broken=true;
-  const g=Math.max(1,Math.round(randi(1,2)*(1+(level.depth||0)*0.6)));player.gold+=g;SFX.gold();floatText(b.x,b.y-10,'+'+g+' or','#f4d35e');
+  /* Le tonneau crache ses pièces comme le monstre : même geste, même règle. */
+  const g=Math.max(1,Math.round(randi(1,2)*(1+(level.depth||0)*0.6)));
+  jaillirOrbesSol(b.x,b.y-8,'or',g,g>=4?3:2);
   const r=Math.random();
   if(r<0.15)dropItem(b.x,b.y+8,makeItem(Math.random()<0.2?'magic':'white'));
   else if(r<0.27){player.potions++;floatText(b.x,b.y-24,'+potion','#7dff9a');}
@@ -2248,6 +2520,8 @@ function enterLevel(lvl,px,py){if(level)level.zones=null;
   /* Le sac de mort se réancre ici : le niveau où il est tombé peut avoir été
      régénéré entre-temps (les actes ne sont pas sauvegardés). */
   setTimeout(()=>{try{ancrerSac();majRappelSac();}catch(e){}},0);
+  /* On ne quitte jamais un niveau en y laissant de l'or ou de l'expérience. */
+  balayerOrbesSol();
   level=lvl;player.x=px;player.y=py;player.path=null;player.attackTarget=null;
   travelLock=0.5;
   cam.x=player.x-W/2; cam.y=player.y-H/2;
@@ -2752,18 +3026,31 @@ function hitEnemy(en,dmg,type){
 function killEnemy(en){
   if(en.dying)return;const i=level.enemies.indexOf(en);if(i<0)return;en.dying=true;en.dieT=0;en.hp=0;
   if(en.boss)ARENA_BAN.t=0;   // l'annonce de phase n'a plus d'objet
-  player.kills++;gainXp(en.xp);burst(en.x,en.y,en.col,20);onKill(en);SFX.death();
-  floatText(en.x,en.y-en.r-20,'+'+en.xp+' XP','#a9e88a',true);
+  player.kills++;
+  /* L'écart de niveau module le gain. On affiche le chiffre RÉELLEMENT versé,
+     et une flèche quand l'écart pèse — sinon le joueur ne comprend pas
+     pourquoi deux ennemis identiques ne rapportent pas pareil. */
+  const _m=xpMultNiveau(en.lvl,player.lvl);
+  const _xp=Math.max(1,Math.round((en.xp||1)*_m));
+  /* Depuis la 8.63 l'expérience ne se verse plus ici : elle jaillit en boules
+     vertes et se ramasse au sol. Le chiffre s'affiche donc au RAMASSAGE.
+     Ce qui reste ici, c'est l'écart de niveau — une information sur le
+     monstre, qui n'aurait plus de sens une fois l'orbe pris. */
+  jaillirOrbesSol(en.x,en.y-6,'xp',xpNet(_xp),en.boss?8:3);
+  if(_m>=1.15||_m<=0.85)
+    floatText(en.x,en.y-en.r-20,'×'+_m.toFixed(2).replace('.',',')+' XP',
+              _m>=1.15?'#7dff9a':'#c0c8d8');
+  burst(en.x,en.y,en.col,20);onKill(en);SFX.death();
   /* ÉCONOMIE — les monstres et les tonneaux versaient beaucoup trop d'or : un
      run rapportait 144 000 or pour 27 500 de dépenses possibles. Les gains de
      base sont divisés par deux et TOUS indexés sur la profondeur, y compris le
      boss d'acte qui rapportait moins que trois tonneaux de son propre niveau. */
   const _pf=(level.depth||0);
   const g=en.boss?Math.round(randi(150,250)*(1+_pf*0.8)):randi(1,4)+_pf*2;
-  if(level.arena)level.arena.goldBag+=g;else player.gold+=g;SFX.gold();floatText(en.x+16,en.y-en.r-6,'+'+g+' or','#f4d35e');
+  jaillirOrbesSol(en.x,en.y,'or',g,en.boss?10:(g>=6?3:2));
   rollLoot(en);
   if(en.elite&&Math.random()<0.05&&placesUtilisees()<invCap){dropItem(en.x,en.y+8,makeCharm());}
-  if(en.elite){const eg=randi(8,16)+_pf*5;player.gold+=eg;floatText(en.x,en.y-6,'+'+eg+' or','#f4d35e');const _rr=Math.random();if(player.lvl>=RARE_LVL&&_rr<0.01)dropItem(en.x,en.y+10,makeItem('rare'));else if(player.lvl>=MAGIC_LVL&&_rr<0.51)dropItem(en.x,en.y+10,makeItem('magic'));}
+  if(en.elite){const eg=randi(8,16)+_pf*5;jaillirOrbesSol(en.x,en.y-4,'or',eg,4);const _rr=Math.random();if(player.lvl>=RARE_LVL&&_rr<0.01)dropItem(en.x,en.y+10,makeItem('rare'));else if(player.lvl>=MAGIC_LVL&&_rr<0.51)dropItem(en.x,en.y+10,makeItem('magic'));}
   if(en.arenaBoss){player.arenaBossKills=(player.arenaBossKills||0)+1;
     toast('⚒ Écho terrassé ('+player.arenaBossKills+') — la forge se souvient',2.6);}
   if(en.boss&&!en.arenaBoss&&level.kind==='act'){const K=arenaKeys();
@@ -2777,6 +3064,148 @@ function killEnemy(en){
 }
 function updateStatLine(){document.getElementById('statLine').textContent=
   'Démons purgés : '+player.kills+' · XP totale : '+player.xpTotal.toLocaleString('fr-FR')+(difficulty>0?' · '+['Normal','Cauchemar','Enfer'][difficulty]:'');}
+
+/* ================================================================
+   ORBES — l'or et l'expérience tombent par terre (8.63)
+
+   Avant : le compteur montait tout seul à l'instant de la mort. Tuer un
+   ennemi n'avait aucune suite, aucun geste. Maintenant le gain JAILLIT du
+   cadavre comme une petite fontaine, retombe au sol, et il faut aller le
+   chercher. C'est ce qui donne au nettoyage d'une salle son deuxième temps.
+
+   Trois choses à ne jamais casser :
+
+   1. LE TOTAL EST CONSERVÉ. `repartir()` distribue le montant exact, reste
+      compris. Si on plafonne le nombre d'orbes, la part restante est versée
+      directement — on ne perd JAMAIS un point d'or ni d'expérience.
+   2. L'AIMANT ne dispense pas de marcher. Il n'agit qu'à 70 px, soit une case
+      et demie : il évite la chasse au pixel, il ne ramasse pas à distance.
+   3. QUITTER UN NIVEAU NE VOLE RIEN. `balayerOrbesSol()` verse le reliquat avant
+      tout changement de niveau. Perdre l'expérience d'un boss parce qu'on a
+      pris l'escalier trop vite serait un bug, pas une règle.
+
+   La hauteur `z` est purement visuelle : la profondeur de tri reste (x,y), au
+   sol. Sinon l'orbe passerait devant les murs pendant son vol.
+   ================================================================ */
+const ORBE_R_AIMANT=70;     // l'aimant se déclenche à une case et demie
+const ORBE_R_PRISE=18;      // et il faut vraiment être dessus pour prendre
+const ORBE_G=520;           // gravité, px/s² — le saut dure environ 0,6 s
+const ORBE_MAX=120;         // au-delà, on verse en direct : pas de tapis d'orbes
+let   _orbeSon=0;           // anti-mitraillette sur le son de pièce
+const _orbeAcc={or:0,xp:0,t:0};   // les gains se cumulent en UN seul texte
+
+/* La boule verte est pré-rendue une fois. Un dégradé radial par orbe et par
+   image, c'est exactement l'erreur qu'on a passé la 8.51 à corriger. */
+let _ORBE_XP_CV=null;
+function _orbeXpCanvas(){
+  if(_ORBE_XP_CV)return _ORBE_XP_CV;
+  const c=document.createElement('canvas');c.width=c.height=28;
+  const g=c.getContext('2d');if(!g)return null;
+  const R=14,gr=g.createRadialGradient(R,R,0,R,R,R);
+  gr.addColorStop(0,'rgba(228,255,228,0.98)');
+  gr.addColorStop(0.28,'rgba(141,250,166,0.95)');
+  gr.addColorStop(0.55,'rgba(74,214,110,0.45)');
+  gr.addColorStop(1,'rgba(50,180,80,0)');
+  g.fillStyle=gr;g.beginPath();g.arc(R,R,R,0,6.283);g.fill();
+  g.fillStyle='rgba(255,255,255,0.8)';g.beginPath();g.arc(R-2.4,R-2.8,2.2,0,6.283);g.fill();
+  _ORBE_XP_CV=c;return c;
+}
+function orbesSolDe(lvl){return lvl.orbes||(lvl.orbes=[]);}
+function _verserOrbe(type,val){
+  if(val<=0)return;
+  if(type==='or'){ if(level.arena)level.arena.goldBag+=val; else player.gold+=val; }
+  else crediterXp(val);
+}
+/* Répartition exacte : base pour tous, +1 aux premiers pour absorber le reste. */
+function jaillirOrbesSol(x,y,type,total,n){
+  total=Math.round(total||0);if(total<=0)return;
+  if(!level){_verserOrbe(type,total);return;}
+  const L=orbesSolDe(level);
+  n=Math.max(1,Math.min(n|0||1,10,total));
+  const base=Math.floor(total/n);let reste=total-base*n;
+  for(let i=0;i<n;i++){
+    let v=base;if(reste>0){v++;reste--;}
+    if(L.length>=ORBE_MAX){_verserOrbe(type,v);continue;}
+    const a=Math.random()*6.283, s=rand(16,52);
+    L.push({type,val:v,x,y,
+      /* la composante Y est écrasée : en vue isométrique, une gerbe ronde
+         au sol se voit comme une ellipse deux fois moins haute */
+      vx:Math.cos(a)*s, vy:Math.sin(a)*s*0.52,
+      z:10, vz:rand(140,230), t:0, sol:false, ph:Math.random()*6.283});
+  }
+  refreshHud();
+}
+function prendreOrbeSol(o){
+  _verserOrbe(o.type,o.val);
+  if(o.type==='or'){
+    _orbeAcc.or+=o.val;
+    if(_orbeSon<=0){SFX.gold();_orbeSon=0.08;}
+  }else _orbeAcc.xp+=o.val;
+  _orbeAcc.t=0.28;
+  refreshHud();
+}
+function _viderAccOrbes(){
+  if(_orbeAcc.or>0)floatText(player.x+rand(-10,10),player.y-38,'+'+_orbeAcc.or+' or','#f4d35e');
+  if(_orbeAcc.xp>0)floatText(player.x+rand(-10,10),player.y-52,'+'+_orbeAcc.xp+' XP','#8dfaa6');
+  _orbeAcc.or=0;_orbeAcc.xp=0;_orbeAcc.t=0;
+}
+/* Filet de sécurité : on ne quitte jamais un niveau en laissant un gain derrière. */
+function balayerOrbesSol(){
+  if(!level||!level.orbes||!level.orbes.length)return;
+  for(const o of level.orbes)_verserOrbe(o.type,o.val);
+  level.orbes.length=0;_viderAccOrbes();refreshHud();
+}
+function majOrbesSol(dt){
+  if(_orbeSon>0)_orbeSon-=dt;
+  if(_orbeAcc.t>0){_orbeAcc.t-=dt;if(_orbeAcc.t<=0)_viderAccOrbes();}
+  const L=level&&level.orbes;if(!L||!L.length)return;
+  /* Rayon d'aimantation, gants compris. Calculé UNE fois par image : P() est
+     une agrégation complète de l'équipement, pas une lecture de champ. */
+  const RA=ORBE_R_AIMANT*(1+(P().pick||0)/100);
+  for(let i=L.length-1;i>=0;i--){
+    const o=L[i];o.t+=dt;
+    if(!o.sol){
+      o.vz-=ORBE_G*dt;o.z+=o.vz*dt;
+      const nx=o.x+o.vx*dt, ny=o.y+o.vy*dt;
+      /* un orbe ne franchit pas un mur : sinon on en perd derrière la roche */
+      if(poseLibre(level,nx,ny)){o.x=nx;o.y=ny;}
+      else{o.vx*=-0.35;o.vy*=-0.35;}
+      if(o.z<=0){
+        o.z=0;
+        if(o.vz<-95){o.vz*=-0.40;o.vx*=0.45;o.vy*=0.45;}  // un seul rebond franc
+        else{o.sol=true;o.vz=0;o.vx=0;o.vy=0;}
+      }
+    }
+    const d=dist(player.x,player.y,o.x,o.y);
+    if(o.t>0.22&&d<RA){
+      const k=(RA-d)/RA;
+      const pas=(150+560*k)*dt;
+      if(d>0.01){o.x+=(player.x-o.x)/d*pas;o.y+=(player.y-o.y)/d*pas;}
+      o.sol=true;o.vz=0;o.z+=(15-o.z)*Math.min(1,dt*7);
+    }
+    if(o.t>0.18&&d<ORBE_R_PRISE){prendreOrbeSol(o);L.splice(i,1);}
+  }
+}
+function dessinerOrbeSol(o){
+  const et=tileAt(o.x,o.y);if(level.seen[idx(level.w,et.tx,et.ty)]!==1)return;
+  const gx=o.x-cam.x, gy=o.y-cam.y;
+  if(gx<-40||gx>W+40||gy<-60||gy>H+40)return;
+  const bob=o.sol?Math.sin(o.t*3.6+o.ph)*1.7:0;
+  const sy=gy-o.z+bob;
+  ctx.globalAlpha=0.30*(1-Math.min(1,o.z/60));
+  ctx.fillStyle='#000';ctx.beginPath();ctx.ellipse(gx,gy+4,7,3.4,0,0,6.283);ctx.fill();
+  ctx.globalAlpha=1;
+  if(o.type==='or'){
+    const im=(typeof MISC_IMG!=='undefined')&&MISC_IMG.gold_coin;
+    if(im&&im.complete&&im.width){ctx.imageSmoothingEnabled=false;ctx.drawImage(im,gx-9,sy-9,18,18);}
+    else{ctx.fillStyle='#f4d35e';ctx.beginPath();ctx.arc(gx,sy,6,0,6.283);ctx.fill();
+         ctx.fillStyle='rgba(255,255,255,0.7)';ctx.beginPath();ctx.arc(gx-1.6,sy-1.8,1.8,0,6.283);ctx.fill();}
+  }else{
+    const c=_orbeXpCanvas();
+    if(c)ctx.drawImage(c,gx-14,sy-14);
+    else{ctx.fillStyle='#8dfaa6';ctx.beginPath();ctx.arc(gx,sy,6,0,6.283);ctx.fill();}
+  }
+}
 
 /* ---------------- LOOT ---------------- */
 const RARE_LVL=8, MAGIC_LVL=3;
@@ -2841,8 +3270,38 @@ function grabDrop(drop){
 
 /* ---------------- XP / POTION / DAMAGE ---------------- */
 const LEVEL_CAP=60;
-function gainXp(v){
-  v=Math.max(1,Math.round(v*0.17));
+/* ================================================================
+   EXPÉRIENCE SELON L'ÉCART DE NIVEAU
+
+   Jusqu'ici un ennemi rapportait la même chose quel que soit son niveau : un
+   diablotin de niveau 26 valait exactement un diablotin de niveau 4. Deux
+   effets pervers — on pouvait farmer indéfiniment le premier acte, et un joueur
+   parti trop vite ne rattrapait jamais son retard.
+
+   L'écart joue désormais des deux côtés :
+
+     plus fort que toi   ->  jusqu'à +60 %   (rattrapage)
+     à ton niveau        ->  100 %
+     plus faible que toi ->  jusqu'à -75 %   (le vieux contenu ne paie plus)
+
+   Volontairement modéré : un rapport de quatre entre les deux extrêmes. Une
+   courbe brutale à la Diablo II punirait l'exploration, ce qui n'est pas le but.
+   Les bornes sont atteintes à +6 et -8 niveaux : au-delà, plus rien ne bouge. */
+const XP_ECART={pente_haut:0.10, pente_bas:0.09, plafond:1.6, plancher:0.25};
+function xpMultNiveau(nivEnnemi,nivJoueur){
+  const d=(nivEnnemi||1)-(nivJoueur||1);
+  const m=(d>=0)?(1+d*XP_ECART.pente_haut):(1+d*XP_ECART.pente_bas);
+  return Math.max(XP_ECART.plancher,Math.min(XP_ECART.plafond,m));
+}
+/* Le taux global (17 %) s'applique UNE FOIS, sur le montant complet.
+   Depuis que le gain se découpe en orbes, l'appliquer par orbe ferait perdre
+   un peu d'expérience à chaque arrondi : 77 XP en quatre parts ne valaient
+   plus 77. `gainXp` reste l'entrée publique (quêtes, relique) ; `crediterXp`
+   verse un montant DÉJÀ net, et c'est lui que les orbes appellent. */
+function xpNet(v){return Math.max(1,Math.round((v||0)*0.17));}
+function gainXp(v){return crediterXp(xpNet(v));}
+function crediterXp(v){
+  v=Math.max(0,Math.round(v||0));if(v<=0)return;
   player.xp+=v;player.xpTotal+=v;
   while(player.xp>=player.xpNext&&player.lvl<LEVEL_CAP){
     player.xp-=player.xpNext;player.lvl++;player.xpNext=Math.round(40*Math.pow(player.lvl,1.5));
@@ -4023,7 +4482,12 @@ function joyDeplacer(dt){
   let wx=(a+b)/2, wy=(b-a)/2;
   const n=Math.hypot(wx,wy); if(n<1e-6)return false;
   wx/=n; wy/=n;
-  const v=st.moveSpeed*60*dt*Math.min(1,joy.force);
+  /* ANOMALIE DE TERRAIN : elle agit sur la VITESSE, jamais sur la collision.
+     Toucher à l'inertie ou au corps du héros remettrait en cause la règle des
+     cinq points de pose, qui a coûté cher à stabiliser. La glace fait glisser
+     plus vite, les éboulis freinent — et rien d'autre ne change. */
+  const _an=(typeof anomalieEn==='function')?anomalieEn(level,player.x,player.y):null;
+  const v=st.moveSpeed*(_an?_an.spd:1)*60*dt*Math.min(1,joy.force);
   const nx=player.x+wx*v, ny=player.y+wy*v;
   /* Axe par axe : longer un mur reste possible, on ne bloque que la composante
      qui rentre dedans. Le rayon est réduit de 2 px pour que passer une porte
@@ -4224,11 +4688,23 @@ function update(dt){
   // le décor défile aux limites, le joueur ne passe jamais sous l'ATH.
   cam.x=player.x-W/2; cam.y=player.y-H/2;
 
+  /* USURE DE ZONE. Les braises et le froid mordant grignotent la vie : une
+     seconde de plus dans la zone coûte quelque chose, mais on ne meurt pas
+     d'y passer. Plafonné à 1,6 % des PV maximum par seconde. */
+  if(level&&level.kind!=='village'&&typeof anomalieEn==='function'){
+    const _an=anomalieEn(level,player.x,player.y);
+    if(_an&&_an.dot>0&&player.hp>0){
+      const _d=player.hpMax*0.01*_an.dot*dt;
+      player.hp=Math.max(1,player.hp-_d);      /* elle ne tue jamais seule */
+      player._usure=(player._usure||0)+_d;
+    }
+  }
   // reveal fog
   /* Une case qui devient VUE change le sol : la dalle qui la contient doit
      être refaite. On ne salit que pour les cases réellement découvertes —
      sinon on jetterait le cache à chaque pas. */
-  const pt=tileAt(player.x,player.y);const Rv=7;
+  const pt=tileAt(player.x,player.y);
+  const Rv=Math.round(((typeof regionEn==='function'&&regionEn(level,player.x,player.y).vision)||7));
   for(let dy=-Rv;dy<=Rv;dy++)for(let dx=-Rv;dx<=Rv;dx++){
     const nx=pt.tx+dx,ny=pt.ty+dy;if(nx<0||ny<0||nx>=level.w||ny>=level.h)continue;
     if(dx*dx+dy*dy<=Rv*Rv){const _i=idx(level.w,nx,ny);
@@ -4323,6 +4799,7 @@ function update(dt){
   for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.t+=dt;f.y-=22*dt;if(f.t>f.life)floaters.splice(i,1);}
   for(let _i=level.drops.length-1;_i>=0;_i--){const d=level.drops[_i];d.t+=dt;
     if(!sacPlein(d.item)&&dist(player.x,player.y,d.x,d.y)<RAYON_LOOT)grabDrop(d);}
+  majOrbesSol(dt);
   for(let _e=level.enemies.length-1;_e>=0;_e--){if(level.enemies[_e].dying&&(level.enemies[_e].dieT||0)>=0.5)level.enemies.splice(_e,1);}
   if(toastTimer>0){toastTimer-=dt;if(toastTimer<=0)document.getElementById('toast').textContent='';}
   saveTimer-=dt;if(saveTimer<=0){saveTimer=6;saveGame();}
@@ -4365,7 +4842,9 @@ function followPath(st,dt){
      un centre praticable n'empêche pas un corps de 16 px de mordre le mur
      d'à côté — reproduit à l'acte 2. Même traitement qu'au joystick : test
      axe par axe, ce qui fait glisser le long des murs au lieu de bloquer. */
-  const nx=player.x+Math.cos(a)*st.moveSpeed, ny=player.y+Math.sin(a)*st.moveSpeed;
+  const _an=(typeof anomalieEn==='function')?anomalieEn(level,player.x,player.y):null;
+  const _vs=st.moveSpeed*(_an?_an.spd:1);
+  const nx=player.x+Math.cos(a)*_vs, ny=player.y+Math.sin(a)*_vs;
   const R=R_MARCHE;
   let avance=false;
   if(corpsLibre(level,nx,player.y,R)){player.x=nx;avance=true;}
@@ -4548,6 +5027,21 @@ function _dalleDessin(dx,dy,c2,ox,oy){
     const RF=_tsRect(tsF,fi);
     const px=(X-Y)*(ISO_TW/2)+ox, py=(X+Y)*(ISO_TH/2)+oy;
     c2.drawImage(tsF,RF[0],RF[1],RF[2],RF[3], px-ISO_TW/2, py-ISO_TH/2, ISO_TW, ISO_TH);
+    /* TEINTE DE RÉGION. Elle n'est appliquée qu'à la construction de la dalle —
+       une fois — et `source-atop` la limite au sol déjà peint : elle ne bave
+       pas sur le fond transparent. */
+    {const _rp=regionDe(level,X,Y);
+     /* La salle prime sur la région : c'est elle, le point de repère. */
+     let _t=_rp&&_rp.teinte;
+     if(level.salle){const _si=level.salle[idx(level.w,clamp(X,0,level.w-1),clamp(Y,0,level.h-1))];
+       if(_si>=0&&level.salles&&level.salles[_si])_t=level.salles[_si].teinte||_t;}
+     if(_t){
+       c2.save();c2.globalCompositeOperation='source-atop';c2.fillStyle=_t;
+       c2.beginPath();
+       c2.moveTo(px,py-ISO_TH/2);c2.lineTo(px+ISO_TW/2,py);
+       c2.lineTo(px,py+ISO_TH/2);c2.lineTo(px-ISO_TW/2,py);
+       c2.closePath();c2.fill();c2.restore();
+     }}
     if(typeof __DALLE_LOG!=='undefined'&&__DALLE_LOG)
       __DALLE_LOG.push({X:X,Y:Y,fi:fi,src:tsF.src,mx:px-ox,my:py-oy});
     vide=false;
@@ -4626,7 +5120,14 @@ function dessinerSolEnCache(cx0,cy0,cx1,cy1){
    ================================================================ */
 function dessinerVoile(){
   const p=isoPx(player.x,player.y);
-  const R=7*TS;                                  // même rayon qu'avant (Rv=7)
+  /* Le rayon de lumière appartient à la RÉGION : une galerie sombre resserre
+     la vue, une étendue gelée l'ouvre. On l'amortit pour éviter un à-coup en
+     passant d'une région à l'autre. */
+  const _rp=regionEn(level,player.x,player.y);
+  const cible=(_rp&&_rp.vision)||7;
+  if(dessinerVoile._r==null)dessinerVoile._r=cible;
+  dessinerVoile._r+=(cible-dessinerVoile._r)*0.05;
+  const R=dessinerVoile._r*TS;
   const r0=R*(ISO_TW/2)/TS, r1=r0*1.55;          // converti à l'échelle iso
   let g;
   try{
@@ -4678,6 +5179,7 @@ function nbDalles(){return renderIso._dal?Object.keys(renderIso._dal).length:0;}
 function nbDallesPretes(){const c=renderIso._dal;if(!c)return 0;let n=0;for(const k in c)if(c[k]&&c[k].pret)n++;return n;}
 function getDalleCount(){return _dalleRendues;}
 function _rendreDalleSrc(){return _rendreDalle.toString();}   /* pour les tests */
+function srcDalleDessin(){return _dalleDessin.toString();}   /* pour les tests */
 function setDalleCount(v){_dalleRendues=v;}
 function setInvCap(v){invCap=v;}      /* pour les tests */
 function getInvCap(){return invCap;}
@@ -4795,6 +5297,7 @@ function renderIso(){
   if(level.breakables)for(const b of level.breakables)if(seenOK(b.x,b.y))ent(b.x,b.y,()=>drawBreakable(b));
   if(level.npcs)for(const npc of level.npcs){const wx=npc.vert?npc.tx*TS:npc.tx*TS+TS/2,wy=npc.vert?npc.ty*TS:npc.ty*TS+TS/2;ent(wx,wy,()=>drawNpc(npc));}
   for(const d of level.drops)ent(d.x,d.y,()=>drawDrop(d));
+  if(level.orbes)for(const o of level.orbes)ent(o.x,o.y,()=>dessinerOrbeSol(o));
   for(const en of level.enemies)if(en._visible)ent(en.x,en.y,()=>drawEnemy(en));
   /* ================================================================
      PROFONDEUR DU HÉROS — pourquoi il était « à moitié dans le mur »
@@ -5492,7 +5995,7 @@ function drawNpc(npc){
   if(sx<-40||sx>W+40||sy<-40||sy>H+40)return;
   const _shadow=(oy,rx,ry)=>{ctx.fillStyle='rgba(0,0,0,0.38)';ctx.beginPath();ctx.ellipse(sx,sy+oy,rx,ry,0,0,6.28);ctx.fill();};
   const _spk=NPC_KEY[npc.name]||(npc.type==='waypoint'?'balise':null);const _ani=_spk&&NPC_ANIM_IMG[_spk];const _spi=_spk&&NPC_IMG[_spk];
-  const _lbl=npc.type==='smith'?'Forgeronne':npc.type==='waypoint'?'Balise':npc.type==='arenamaster'?'Anselme':npc.type==='arena'?'Arène':npc.type==='return'?'Portail':npc.type==='stash'?'Coffre':npc.type==='quest'?'Parler':'Marchand';
+  const _lbl=npc.type==='smith'?'Forgeronne':npc.type==='waypoint'?(npc.salle||'Balise'):npc.type==='arenamaster'?'Anselme':npc.type==='arena'?'Arène':npc.type==='return'?'Portail':npc.type==='stash'?'Coffre':npc.type==='quest'?'Parler':'Marchand';
   if(npc.type==='arenamaster'&&typeof MISC_ICON!=='undefined'&&MISC_ICON.arena_master_sw){
     if(!drawNpc._am){drawNpc._am=new Image();drawNpc._am.src=MISC_ICON.arena_master_sw;}
     const mi=drawNpc._am;
@@ -6060,7 +6563,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.58 — '+'2026-08-03';
+const BUILD='v8.63 — '+'2026-08-08';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -6111,6 +6614,7 @@ function refreshHud(){
   document.getElementById('dDmg').textContent=st.dmgMin+' - '+st.dmgMax;
   document.getElementById('dHp').textContent=st.hpMax;document.getElementById('dMp').textContent=st.mpMax;
   document.getElementById('dDef').textContent=st.def;setTxt('dSet',st.uc>=2?st.uc+' uniques — bonus actif':st.uc+'/9 uniques');setTxt('dMF',(st.mf||0)+'%');setTxt('dCrit',(st.crit||0)+'%');setTxt('dLeech',(st.leech||0)+'%');setTxt('dCast',(st.cast||0)+'%');
+  setTxt('dPick',Math.round(ORBE_R_AIMANT*(1+(st.pick||0)/100))+' px'+((st.pick||0)>0?'  (+'+st.pick+'%)':''));
   {const f=st.atkFrames||14, aps=(ATK_FPS/f);
    setTxt('dAtk',f+' images — '+aps.toFixed(2)+' att./s  ('+(st.ias||0)+'% brut, '+(st.eias||0)+'% effectif)');
    const bp=nextBreakpoint(st.agi||10,st.ias||0);
@@ -6715,7 +7219,7 @@ function itemAgg(it){const m=UPMULT(it.plus);const o={};
   if(it.baseDmg)o.dmg+=it.baseDmg*m;if(it.baseDef)o.def+=it.baseDef*m;
   for(const a of it.affixes){const v=a.v*m;if(o[a.t]!==undefined)o[a.t]+=v;}
   return o;}
-const AGGLBL={dmg:'Dégâts',def:'Défense',block:'% Blocage',acc:'% Précision',str:'Force',dex:'Dextérité',agi:'Agilité',vit:'Vitalité',ene:'Énergie',dmgpct:'% Dégâts',mf:'% Trouvaille',crit:'% Critique',leech:'% Vol de vie',cast:'% Incant.',ias:'% Vit. attaque'};
+const AGGLBL={dmg:'Dégâts',def:'Défense',block:'% Blocage',acc:'% Précision',str:'Force',dex:'Dextérité',agi:'Agilité',vit:'Vitalité',ene:'Énergie',dmgpct:'% Dégâts',mf:'% Trouvaille',crit:'% Critique',leech:'% Vol de vie',cast:'% Incant.',ias:'% Vit. attaque',pick:'% Ramassage'};
 /* Filet de sécurité : si un affixe apparaît sans étiquette, on la fabrique à
    partir de son nom dans AFFIX plutôt que d'afficher une clé technique. */
 for(const a of AFFIX) if(!AGGLBL[a.t]) AGGLBL[a.t]=a.n.replace(/^\+#%?\s*/,'');
