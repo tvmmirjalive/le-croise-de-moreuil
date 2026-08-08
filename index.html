@@ -2531,15 +2531,65 @@ function enterLevel(lvl,px,py){if(level)level.zones=null;
 
 // trouve une tuile SOL adjacente (jamais une tuile de transition) pour ne pas rebondir
 function spotNear(lvl,tx,ty){
-  const cand=[[tx,ty+1],[tx,ty-1],[tx+1,ty],[tx-1,ty],[tx+1,ty+1],[tx-1,ty+1],[tx+1,ty-1],[tx-1,ty-1]];
-  for(const[x,y]of cand){if(x>=0&&y>=0&&x<lvl.w&&y<lvl.h&&lvl.grid[idx(lvl.w,x,y)]===T_FLOOR)
-    return{x:x*TS+TS/2,y:y*TS+TS/2};}
+  /* Le repli renvoyait la case de transition ELLE-MÊME quand aucun voisin
+     immédiat n'était du sol pur. On réapparaissait alors pile sur l'escalier
+     ou sur la bouche de grotte : au premier contrôle de transition, on
+     repartait aussitôt d'où l'on venait. Va-et-vient sans fin.
+     On élargit donc la recherche jusqu'à quatre cases, du plus proche au
+     plus lointain, avant d'envisager le repli. */
+  for(let r=1;r<=4;r++){
+    let best=null,bd=1e9;
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+      const x=tx+dx,y=ty+dy;
+      if(x<0||y<0||x>=lvl.w||y>=lvl.h)continue;
+      if(lvl.grid[idx(lvl.w,x,y)]!==T_FLOOR)continue;
+      const d=dx*dx+dy*dy;
+      if(d<bd){bd=d;best={x:x*TS+TS/2,y:y*TS+TS/2};}
+    }
+    if(best)return best;
+  }
   return{x:tx*TS+TS/2,y:ty*TS+TS/2};
+}
+/* ================================================================
+   TRANSITIONS — pourquoi « être SUR la case » ne suffit pas (v8.64)
+
+   Une case de transition ne se déclenchait que si `tileAt(héros)` tombait
+   exactement dessus. Or la règle des quartiers interdit de se poser au
+   centre d'une case dont un voisin diagonal est un bloc de mur — et c'est
+   la configuration MÊME d'une bouche de grotte : le sprite est adossé au
+   coin sud d'un bloc, donc ce bloc touche la case d'entrée en diagonale.
+
+   Résultat mesuré avant correction : **3 grottes sur 4 dans CHAQUE acte**
+   n'avaient aucun point de pose retombant sur leur propre case. Elles
+   étaient inatteignables. Même cause pour la porte de Moreuil, collée au
+   bord de la carte.
+
+   On accepte donc une case de transition **voisine** dont le centre est à
+   moins de 0,8 case. La demi-diagonale d'une case vaut 0,707 : le héros
+   doit toucher la case, il ne la déclenche pas en passant à côté.
+   ================================================================ */
+function caseTransition(){
+  const est=k=>(k===T_CAVE||k===T_STAIR||k===T_GATE);
+  const t=tileAt(player.x,player.y);
+  const ici=level.grid[idx(level.w,t.tx,t.ty)];
+  if(est(ici))return{tx:t.tx,ty:t.ty,c:ici};
+  let best=null,bd=TS*0.8;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;
+    const X=t.tx+dx,Y=t.ty+dy;
+    if(X<0||Y<0||X>=level.w||Y>=level.h)continue;
+    const k=level.grid[idx(level.w,X,Y)];
+    if(!est(k))continue;
+    const d=dist(player.x,player.y,X*TS+TS/2,Y*TS+TS/2);
+    if(d<bd){bd=d;best={tx:X,ty:Y,c:k};}
+  }
+  return best;
 }
 function travelCheck(){
   if(travelLock>0)return;
-  const{tx,ty}=tileAt(player.x,player.y);
-  const c=level.grid[idx(level.w,tx,ty)];
+  const _t=caseTransition();if(!_t)return;
+  const tx=_t.tx,ty=_t.ty,c=_t.c;
   /* La porte du village menait TOUJOURS à l'acte 1. Elle mène à l'acte le plus
      avancé qu'on ait atteint : à l'acte 2, elle ouvre sur la Glacière. */
   if(c===T_GATE&&level.kind==='village'){SFX.gate();enterAct(acteCourant());}
@@ -4861,7 +4911,24 @@ function followPath(st,dt){
     return;
   }
   faceAngle(a);player._moved=true;
-  if(dist(player.x,player.y,w0.x,w0.y)<5){player.path.shift();
+  if(dist(player.x,player.y,w0.x,w0.y)<5){
+    /* ON COLLE LE HÉROS SUR LE DERNIER POINT — v8.64.
+
+       Le point de passage était abandonné dès 5 px, sans jamais y arriver.
+       Cinq pixels, c'est un peu plus d'un pas (4,4 px à vitesse de base) :
+       le héros s'arrêtait donc systématiquement un pas avant sa destination.
+
+       Invisible partout… sauf sur la porte du village. Le couloir de sortie
+       fait deux cases de large et la rangée de porte est collée au bord de
+       la carte : la règle des quartiers n'y laisse AUCUN point de pose au
+       centre, seulement sur l'arête nord de la case. Arriver « presque »
+       sur cette arête, c'est se retrouver sur la case du dessus — du sol
+       ordinaire. `travelCheck` ne voyait jamais la porte, et la Piscine
+       était inaccessible depuis Moreuil.
+
+       Une destination atteinte doit être atteinte exactement. */
+    if(player.path.length===1&&corpsLibre(level,w0.x,w0.y,R)){player.x=w0.x;player.y=w0.y;}
+    player.path.shift();
     if(!player.path.length&&player._grab&&dist(player.x,player.y,player._grab.x,player._grab.y)<RAYON_LOOT){grabDrop(player._grab);player._grab=null;}}
 }
 
@@ -5172,6 +5239,7 @@ function halo(x,y,r,col){
 const _parProfondeur=(a,b)=>a.d-b.d;   /* alloué une fois, pas par image */
 function setR(v){R_MARCHE=v;}
 function setMaxAct(v){maxAct=v;}   /* pour les tests */
+function setTravelLock(v){travelLock=v;}   /* pour les tests */
 function videCacheChemin(){_chemQ.pts=null;_chemQ.t=-1e9;}   /* pour les tests */
 function resetFlecheQuete(){_flecheA=null;}   /* pour les tests */
 function videCacheSol(){renderIso._dLvl=null;renderIso._dal=null;}   /* pour les tests */
@@ -6563,7 +6631,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.63 — '+'2026-08-08';
+const BUILD='v8.64 — '+'2026-08-08';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
