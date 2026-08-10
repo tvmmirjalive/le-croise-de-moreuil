@@ -142,7 +142,7 @@
   /* DEUX LIGNES, 178 px, EN HAUT À GAUCHE sous la barre d'onglets.
      Au centre il masquait le bouton Paramètres et coupait la vue. Ici il est
      adossé au bloc d'informations qui existe déjà — rien d'autre n'y passe. */
-  #questTrack{position:absolute;top:calc(var(--mT) + 86px);left:var(--mL);
+  #questTrack{margin:6px 0 2px;
     width:178px;pointer-events:auto;cursor:pointer;
     background:rgba(8,12,22,.80);border:1px solid #2a3350;border-left:3px solid #caa53a;
     border-radius:6px;padding:4px 7px;z-index:4;font-size:10px;line-height:1.25}
@@ -476,7 +476,10 @@ canvas#game{touch-action:none}
     /* navigation : rangée horizontale en haut à gauche, sous le bloc d'infos */
     /* En haut à gauche : le bas-gauche appartient au pouce, qui doit pouvoir
        s'y poser n'importe où sans déclencher un bouton. */
-    #questTrack{top:calc(var(--mT) + 108px);width:170px}
+    /* Au doigt, le bloc d'infos est raccourci (statLine masquée) et la rangée
+       d'onglets passe par-dessus : le suivi reprend sa place absolue. */
+    #questTrack{position:absolute;top:calc(var(--mT) + 108px);left:var(--mL);
+      margin:0;width:170px}
   #tabBar{top:calc(var(--mT) + 58px);right:auto;left:var(--mL);bottom:auto;
       flex-direction:row;gap:9px}
     .tab{width:auto!important;padding:0!important;line-height:0}
@@ -585,6 +588,12 @@ canvas#game{touch-action:none}
       <div id="sacLine" style="display:none;color:#ffb45e;font-weight:bold"></div>
       <div id="buildTag" style="font-size:10px;color:#5b6684;margin-top:2px"></div>
       <div id="resLine"><span class="gi g16"></span> <b id="hGold">0</b> &nbsp;<img id="rIcoFrag" class="resIco"> <b id="hFrags">0</b> &nbsp;<img id="rIcoPot" class="resIco"> <b id="hPot">0</b> &nbsp;<img id="rIcoMana" class="resIco"> <b id="hMana">0</b> &nbsp;<img id="rIcoScroll" class="resIco"> <b id="hScrolls">0</b></div>
+      <!-- Le suivi de quête vit DANS le bloc d'infos, à la suite du texte.
+           Il était posé en absolu à 86 px du haut : sur PC le bloc est plus
+           haut que ça, et la bannière recouvrait la ligne des ressources
+           (or, éclats, potions, parchemins). Dans le flux, il ne peut plus
+           rien recouvrir — il descend tout seul. -->
+      <div id="questTrack" style="display:none"><div class="qtTitre"></div><div class="qtObj"></div><div class="qtBar"><i></i></div><div class="qtOu"></div></div>
     </div>
 
     <div id="hint">Clic : <b>marcher / frapper</b> · <b>1-4</b> skills · <b>I</b> sac · <b>S</b> skills · <b>M</b> carte · <b>Espace</b> soin · <b>A</b> mana · <b>R</b> portail · <b>P</b> pause · <b>B</b> coffre · <b>E/D</b> équiper/démonter</div>
@@ -592,7 +601,6 @@ canvas#game{touch-action:none}
     <div id="pauseOv">⏸ PAUSE<br><span style="font-size:13px;color:#9fb0d6">P pour reprendre</span></div>
 
     <div id="miniWrap"><canvas id="mini" width="170" height="170"></canvas><div id="miniLbl">M : carte globale</div></div>
-    <div id="questTrack" style="display:none"><div class="qtTitre"></div><div class="qtObj"></div><div class="qtBar"><i></i></div><div class="qtOu"></div></div>
 
     <div class="orb" id="hpOrb"><div class="fill" id="hpFill"></div><div class="lbl" id="hpLbl">100/100</div></div>
     <div class="orb" id="mpOrb"><div class="fill" id="mpFill"></div><div class="lbl" id="mpLbl">50/50</div></div>
@@ -1282,6 +1290,27 @@ const ACT_BOSSES=[
    10, sur les dix points de mesure — les entrées d'acte comptant double, c'est
    là que le joueur arrive avec l'équipement de l'acte précédent. */
 let EN_HP_EXP=1.165, EN_HP_MUL=2.5, EN_DMG_EXP=1.105, EN_DMG_MUL=2.4;
+/* ADOUCISSEMENT DU DÉBUT DE PARTIE — 8.65
+
+   La courbe de la 8.54 a été calibrée sur un personnage « équipé de la
+   rareté attendue à ce stade ». C'est vrai à partir de l'acte 2. Ce n'est
+   JAMAIS vrai dans les premières minutes : on sort de Moreuil avec une
+   crosse blanche et rien d'autre.
+
+   Mesuré sans équipement, avant correction : un diablotin demandait 2,9 s
+   au niveau 1, une brute 7,8 s, et une ombre rôdeuse tuait le héros en
+   cinq coups. La cible est 1,5 à 2,5 s et 8 à 12 coups.
+
+   On applique donc un coefficient qui part bas au niveau 1 et rejoint 1
+   au niveau `EN_DEBUT_NIV`. Il ne touche RIEN au-delà : la courbe calibrée
+   reste intacte à partir de l'acte 2. */
+let EN_DEBUT_NIV=14, EN_DEBUT_HP=0.50, EN_DEBUT_DMG=0.72;
+function douceurDebut(L,base){
+  if(!(L>1))return base;
+  if(L>=EN_DEBUT_NIV)return 1;
+  return base+(1-base)*((L-1)/(EN_DEBUT_NIV-1));
+}
+function setDebut(niv,hp,dmg){EN_DEBUT_NIV=niv;EN_DEBUT_HP=hp;EN_DEBUT_DMG=dmg;}
 function setCourbe(he,hm,de,dm){EN_HP_EXP=he;EN_HP_MUL=hm;EN_DMG_EXP=de;EN_DMG_MUL=dm;}
 /* ================================================================
    RÉGIONS  —  un acte n'est plus un seul décor uniforme
@@ -1980,7 +2009,8 @@ function makeEnemy(kind,x,y,depth,elvl){
      Les quatre nombres sont NOMMÉS : ils se règlent ici, et le test
      _outils/test_courbe.js remesure le temps de mise à mort à chaque acte.
      ================================================================ */
-  const hpF=Math.pow(EN_HP_EXP,L-1),dmgF=Math.pow(EN_DMG_EXP,L-1);
+  const hpF=Math.pow(EN_HP_EXP,L-1)*douceurDebut(L,EN_DEBUT_HP);
+  const dmgF=Math.pow(EN_DMG_EXP,L-1)*douceurDebut(L,EN_DEBUT_DMG);
   const hp0=Math.round(t.hp*hpF*dm*1.6*EN_HP_MUL);
   return {kind,x,y,r:t.r,hp:hp0,hpMax:hp0,lvl:L,
     dmg:Math.round(t.dmg*dmgF*dm*1.5*EN_DMG_MUL),spd:t.spd,xp:Math.round(t.xp*(1+depth*0.4)*xm),
@@ -6631,7 +6661,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.64 — '+'2026-08-08';
+const BUILD='v8.65 — '+'2026-08-09';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
