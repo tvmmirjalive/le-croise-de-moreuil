@@ -2751,8 +2751,25 @@ const mouse={x:0,y:0};
    ================================================================ */
 function pointeurCanevas(clientX,clientY){
   const r=cv.getBoundingClientRect();
-  const ex=r.width?cv.width/r.width:1, ey=r.height?cv.height/r.height:1;
-  return {x:(clientX-r.left)*ex, y:(clientY-r.top)*ey};
+  const e=_echelleCanevas(r);
+  return {x:(clientX-r.left)*e.ex, y:(clientY-r.top)*e.ey};
+}
+/* On ne se fie au rectangle affiché QUE s'il est crédible.
+
+   Leçon de la 8.67 : j'avais appliqué la mise à l'échelle au doigt aussi.
+   Sur la WebView Android le rectangle rendu ne correspond pas au canevas —
+   un pouce posé en bas à gauche se retrouvait projeté SOUS le canevas, et
+   le joystick ne naissait plus. J'ai cassé le tactile en réparant la souris.
+
+   Une désynchronisation de fenêtre reste modérée : on n'accepte donc une
+   correction que dans la bande 0,5x - 2x. Au-delà, ce n'est pas un décalage,
+   c'est un rectangle auquel on ne peut pas se fier — on ne corrige rien. */
+function _echelleCanevas(r){
+  if(!r||!r.width||!r.height)return{ex:1,ey:1};
+  const ex=cv.width/r.width, ey=cv.height/r.height;
+  if(!isFinite(ex)||!isFinite(ey))return{ex:1,ey:1};
+  if(ex>2||ex<0.5||ey>2||ey<0.5)return{ex:1,ey:1};
+  return{ex,ey};
 }
 cv.addEventListener('mousemove',e=>{const p=pointeurCanevas(e.clientX,e.clientY);mouse.x=p.x;mouse.y=p.y;});
 cv.addEventListener('mousedown',e=>{if(!running)return;
@@ -2777,7 +2794,18 @@ function screenToWorld(mx,my){
    ================================================================ */
 let _tDroite=null;          // doigt actif dans la moitié droite
 let _tHold=null;            // maintien pour le déplacement au toucher
-function _cvPos(t){const p=pointeurCanevas(t.clientX,t.clientY);return{px:p.x,py:p.y,identifier:t.identifier};}
+/* LE DOIGT NE PASSE PAS PAR LA MISE À L'ÉCHELLE.
+
+   Le bug de pointeur rapporté en 8.66 est un bug de SOURIS, sur PC, après
+   un aller-retour d'onglet — une situation qui n'existe pas au doigt. La
+   conversion directe est éprouvée depuis des mois sur Android ; la 8.67 l'a
+   remplacée et a fait disparaître le joystick. On la remet.
+
+   Le vrai correctif du cas PC est `reprendreFenetre`, qui rejoue `resize()`
+   au retour sur l'onglet : il agit AVANT toute conversion, et ne dépend
+   d'aucun rectangle. */
+function _cvPos(t){const r=cv.getBoundingClientRect();
+  return{px:t.clientX-r.left,py:t.clientY-r.top,identifier:t.identifier};}
 
 cv.addEventListener('touchstart',e=>{
   if(!running)return; e.preventDefault();
@@ -6817,7 +6845,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.67 — '+'2026-08-10';
+const BUILD='v8.68 — '+'2026-08-11';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
