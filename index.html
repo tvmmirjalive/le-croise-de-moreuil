@@ -2729,10 +2729,35 @@ function selectSkill(s){
 
 /* ---------------- INPUT ---------------- */
 const mouse={x:0,y:0};
-cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;});
-cv.addEventListener('mousedown',e=>{if(!running)return;const r=cv.getBoundingClientRect();
-  const mx=e.clientX-r.left,my=e.clientY-r.top;
-  const w=screenToWorld(mx,my);
+/* ================================================================
+   LE POINTEUR SE RAMÈNE TOUJOURS DANS LE REPÈRE DU CANEVAS
+
+   Le canevas est étiré en CSS (`width:100%`) alors que sa mémoire fait
+   `innerWidth x innerHeight`. Tant que les deux coïncident, retrancher
+   simplement `rect.left` suffit. Mais si la fenêtre change de taille
+   pendant que l'onglet est CACHÉ, l'événement `resize` n'arrive pas :
+   au retour, la mémoire du canevas et sa taille affichée ne sont plus
+   à la même échelle.
+
+   Un clic converti sans tenir compte de cette échelle atterrit alors à
+   côté, et l'erreur grandit avec la distance au centre — le héros part
+   à l'opposé du point visé, et plus rien n'est cliquable. C'est le
+   « la souris devient folle » rapporté sur PC après un aller-retour
+   vers un autre onglet.
+
+   Deux protections : cette conversion à l'échelle, et un recalage de la
+   fenêtre au retour (voir `reprendreFenetre`). L'une répare, l'autre
+   empêche.
+   ================================================================ */
+function pointeurCanevas(clientX,clientY){
+  const r=cv.getBoundingClientRect();
+  const ex=r.width?cv.width/r.width:1, ey=r.height?cv.height/r.height:1;
+  return {x:(clientX-r.left)*ex, y:(clientY-r.top)*ey};
+}
+cv.addEventListener('mousemove',e=>{const p=pointeurCanevas(e.clientX,e.clientY);mouse.x=p.x;mouse.y=p.y;});
+cv.addEventListener('mousedown',e=>{if(!running)return;
+  const p=pointeurCanevas(e.clientX,e.clientY);
+  const w=screenToWorld(p.x,p.y);
   onClick(w.x,w.y);});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 /* ================= SUPPORT TABLETTE (paysage) ================= */
@@ -2752,7 +2777,7 @@ function screenToWorld(mx,my){
    ================================================================ */
 let _tDroite=null;          // doigt actif dans la moitié droite
 let _tHold=null;            // maintien pour le déplacement au toucher
-function _cvPos(t){const r=cv.getBoundingClientRect();return{px:t.clientX-r.left,py:t.clientY-r.top,identifier:t.identifier};}
+function _cvPos(t){const p=pointeurCanevas(t.clientX,t.clientY);return{px:p.x,py:p.y,identifier:t.identifier};}
 
 cv.addEventListener('touchstart',e=>{
   if(!running)return; e.preventDefault();
@@ -3095,7 +3120,6 @@ function hitEnemy(en,dmg,type){
    if(crit){geler(0.045);secouer(3.5+force*4,0.22);}
    else if(force>0.35)secouer(1.6+force*2,0.14);
   }
-  if(Math.random()<0.10)wearGear(['weapon'],1);
   if(st.leech>0){player.hp=Math.min(st.hpMax,player.hp+Math.max(1,Math.round(dmg*st.leech/100)));}
   const tag=res>0?' ⛨':(res<0?' ‼':'');
   floatText(en.x,en.y-en.r-6,(crit?'✷':'')+dmg+tag,crit?'#ff7a3d':(DMG_COL[type]||'#ffd85e'),crit);
@@ -3107,6 +3131,7 @@ function killEnemy(en){
   if(en.dying)return;const i=level.enemies.indexOf(en);if(i<0)return;en.dying=true;en.dieT=0;en.hp=0;
   if(en.boss)ARENA_BAN.t=0;   // l'annonce de phase n'a plus d'objet
   player.kills++;
+  if(Math.random()<USURE_ARME)wearGear(['weapon'],1);
   /* L'écart de niveau module le gain. On affiche le chiffre RÉELLEMENT versé,
      et une flèche quand l'écart pèse — sinon le joueur ne comprend pas
      pourquoi deux ennemis identiques ne rapportent pas pareil. */
@@ -3289,8 +3314,60 @@ function dessinerOrbeSol(o){
 
 /* ---------------- LOOT ---------------- */
 const RARE_LVL=8, MAGIC_LVL=3;
+/* ================================================================
+   PREMIÈRES TROUVAILLES GARANTIES — 8.66
+
+   Mesuré en 8.65 : l'arme est la SEULE pièce à porter des dégâts, et un
+   objet magique vaut x1,9 sur le DPS. Le rythme des premières heures ne
+   dépendait donc pas du niveau du héros mais de la date à laquelle il
+   croisait son premier objet magique — c'est-à-dire d'un tirage au sort.
+   Deux joueurs de même niveau pouvaient vivre deux jeux différents.
+
+   On supprime le tirage au sort au lieu d'en compenser les effets :
+
+   1. Les SIX premiers ennemis lâchent chacun une pièce blanche, choisie
+      parmi les emplacements VIDES en priorité — on s'habille au lieu de
+      collectionner trois crosses.
+   2. Le premier objet MAGIQUE est garanti au plus tard au niveau 5.
+      Avant ça il peut tomber tout seul ; à partir du niveau 5, le premier
+      ennemi tué le donne.
+
+   Le compteur `player.dons` est sauvegardé : il ne se relance pas à chaque
+   partie chargée. Rien de tout cela ne s'applique aux boss, qui ont déjà
+   leur butin garanti. */
+const DONS_BLANCS=6, DON_MAGIQUE_NIV=5;
+const DONS_SLOTS=['weapon','armor','helm','gloves','belt','skates','amulet','ring'];
+/* On ne donne jamais deux fois le même emplacement tant qu'il en reste :
+   six ceintures ne font pas une panoplie. On tient compte de ce qui est
+   déjà porté ET de ce qui a déjà été offert — le joueur n'a pas forcément
+   équipé sa trouvaille avant de tuer l'ennemi suivant. */
+function slotADonner(){
+  const d=player.dons||(player.dons={blancs:0,magique:0});
+  const deja=d.slots||(d.slots=[]);
+  let libres=DONS_SLOTS.filter(s=>!player.equip[s]&&deja.indexOf(s)<0);
+  if(!libres.length)libres=DONS_SLOTS.filter(s=>deja.indexOf(s)<0);
+  if(!libres.length)libres=DONS_SLOTS;
+  const s=pick(libres);deja.push(s);return s;
+}
+function donsDebut(en){
+  if(en.boss||en.arenaBoss)return false;
+  const d=player.dons||(player.dons={blancs:0,magique:0});
+  if(!d.magique&&player.lvl>=MAGIC_LVL&&(player.lvl>=DON_MAGIQUE_NIV||Math.random()<0.12)){
+    d.magique=1;
+    dropItem(en.x+rand(-10,10),en.y+rand(-6,6),makeItem('magic',slotADonner()));
+    toast('✨ Un objet magique — le premier change tout',2.6);
+    return true;
+  }
+  if(d.blancs<DONS_BLANCS&&player.lvl<=DON_MAGIQUE_NIV+3){
+    d.blancs++;
+    dropItem(en.x+rand(-10,10),en.y+rand(-6,6),makeItem('white',slotADonner()));
+    return true;
+  }
+  return false;
+}
 function rollLoot(en){
   if(Math.random()<(en.boss?0.06:en.elite?0.02:0.005))dropItem(en.x+rand(-8,8),en.y+10,makeSocketable(en.boss||en.elite));
+  if(donsDebut(en))return;
   let chance=en.boss?1:(en.kind==='brute'?0.22:0.10);
   if(Math.random()>chance)return;
   const r=Math.random();let rar='white';
@@ -3414,17 +3491,58 @@ function reductionDef(def,niveauAgresseur){
   const seuil=60+14*Math.max(1,niveauAgresseur||1);
   return clamp(def/(def+seuil),0,0.75);
 }
+/* ================================================================
+   ÉCART DE NIVEAU — le prix de l'avance (8.67)
+
+   La 8.62 récompense déjà en EXPÉRIENCE le joueur qui affronte plus fort
+   que lui. Rien ne le PUNISSAIT de le faire. Un personnage niveau 21 dans
+   un acte prévu pour 31 encaissait exactement comme un personnage à
+   niveau : il pouvait forcer le passage.
+
+   Deux pentes, pour que le message soit clair :
+     jusqu'à +5  → +3 % de dégâts par niveau : on sent que ça mord, on peut
+                   tenir. C'est l'avance raisonnable.
+     au-delà     → +5,5 % par niveau, soit près du DOUBLE de pente.
+
+   Ces chiffres paraissent modestes : ils s'ajoutent à la courbe propre des
+   monstres, qui fait déjà le gros du travail. Mesuré sur un héros niveau 21
+   équipé de magique +1, coups encaissés avant de tomber :
+
+     monstres 21 (à niveau) ... 11 coups
+     monstres 26 (+5) .......... 5 coups   — dur, jouable
+     monstres 31 (+10) ......... 3 coups   — on fait demi-tour
+
+   Trois coups, c'est punitif sans être une exécution : on a le temps de
+   comprendre et de reculer. Plafond x1,9.
+
+   Rien en dessous du niveau du joueur : les monstres plus faibles frappent
+   déjà moins fort par leur propre courbe, et la 8.62 leur retire déjà
+   l'expérience. Deux punitions pour la même chose seraient une de trop. */
+const DEG_ECART={doux:0.03, dur:0.055, seuil:5, plafond:1.9};
+function degatsMultEcart(nivEnnemi,nivJoueur){
+  const d=(nivEnnemi||1)-(nivJoueur||1);
+  if(d<=0)return 1;
+  const doux=Math.min(d,DEG_ECART.seuil)*DEG_ECART.doux;
+  const dur=Math.max(0,d-DEG_ECART.seuil)*DEG_ECART.dur;
+  return Math.min(DEG_ECART.plafond,1+doux+dur);
+}
 function damagePlayer(dmg,niveauSource){
   if(player.dying)return;
   const st=P();
+  const _me=degatsMultEcart(niveauSource,player.lvl);
+  dmg=dmg*_me;
   /* Le blocage se cumulait multiplicativement avec la défense : deux plafonds
      atteints laissaient passer 15 % des dégâts. Son apport est ramené à 40 %
      effectifs au maximum. */
   const bloc=Math.min(40,(st.block||0)*0.8);
   if(Math.random()*100<bloc){floatText(player.x,player.y-30,'BLOQUÉ','#9fd8ff',true);SFX.enemyHit&&SFX.enemyHit();vibrer(VIB.bloque);player.swing=0.12;return;}
   const red=Math.max(1,Math.round(dmg*(1-reductionDef(st.def,niveauSource||player.lvl))));
-  if(Math.random()<0.22)wearGear(['armor','helm','gloves','belt','skates'],1);
-  player.hp-=red;player.hurt=0.2;player._mpLock=1.5;floatText(player.x,player.y-28,red,'#ff6b6b');SFX.hurt();vibrer(VIB.degats);
+  if(Math.random()<USURE_PROT)wearGear([pick(SLOTS_PROT)],1);
+  player.hp-=red;player.hurt=0.2;player._mpLock=1.5;
+  /* Le chiffre vire au rouge vif et porte un signe quand l'écart de niveau
+     pèse : sans ça le joueur voit juste « je meurs vite » sans comprendre. */
+  floatText(player.x,player.y-28,(_me>=1.3?'‼ ':'')+red,_me>=1.3?'#ff2d2d':(_me>1.01?'#ff8a5a':'#ff6b6b'));
+  SFX.hurt();vibrer(VIB.degats);
   if(player.hp<=0){player.hp=0;player.dying=true;player.dyingT=0;player.path=null;player.attackTarget=null;player.anim='Idle';player.animOnce=false;SFX.death();vibrer(VIB.mort);SFX.hurt();burst(player.x,player.y,'#7fd0ff',26);burst(player.x,player.y,'#ff6b6b',16);}refreshHud();
   if(player.dying&&!player._sacFait){player._sacFait=true;deposerSacMort();}
 }
@@ -3989,6 +4107,31 @@ function initDura(it){
     it.duraMax=base; it.dura=base;}
   return it;
 }
+/* ================================================================
+   USURE — refondue en 8.66
+
+   Elle était comptée AU COUP PORTÉ (10 %) et AU COUP REÇU (22 % sur les
+   cinq pièces de protection à la fois). Deux défauts :
+
+   1. Le coût suivait le nombre de coups nécessaires pour tuer — donc il a
+      été multiplié par 2,5 le jour où j'ai remonté les PV des ennemis en
+      8.54, sans que personne ne retouche la durabilité. À l'acte 3, tuer un
+      ennemi demandait 15,6 coups : une arme de 60 points rendait l'âme
+      toutes les 38 victimes.
+   2. Bilan mesuré sur un acte entier, TOUTES recettes comprises (or des
+      mobs, élites, tonneaux, coffres, revente) : la réparation prenait
+      **76 % du revenu à l'acte 1 et 91 % à l'acte 5**. Le joueur travaillait
+      pour la forgeronne.
+
+   L'usure est désormais comptée à l'ENNEMI TUÉ pour l'arme, et sur UNE
+   pièce au hasard quand on encaisse. Elle est ainsi indexée sur la
+   progression, pas sur la santé des monstres : retoucher la courbe de
+   difficulté ne déréglera plus l'économie.
+
+   Cible retenue : la réparation coûte 10 à 20 % du revenu. */
+const USURE_ARME=0.25;        // probabilité par ennemi tué
+const USURE_PROT=0.08;        // probabilité par coup encaissé
+const SLOTS_PROT=['armor','helm','gloves','belt','skates'];
 function wearGear(slots,amount){
   for(const s of slots){const it=player.equip[s];if(!it||it.duraMax==null)continue;
     if(it.dura<=0)continue;
@@ -4674,6 +4817,15 @@ function drawVisee(){
 }
 
 let last=performance.now();
+/* Revenir sur l'onglet : la fenêtre a pu changer de taille pendant qu'on
+   était ailleurs, sans qu'aucun `resize` ne nous parvienne, et l'horloge a
+   avancé de plusieurs secondes. On recale la taille du canevas ET on repart
+   d'un pas de temps neuf, sinon la première image simule tout le temps
+   passé hors de l'onglet d'un coup. */
+function reprendreFenetre(){ try{resize();}catch(e){} last=performance.now(); }
+addEventListener('focus',reprendreFenetre);
+addEventListener('pageshow',reprendreFenetre);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden)reprendreFenetre(); });
 let paused=false;
 /* ── IMPACT ──────────────────────────────────────────────────────────────
    Rien ne réagissait à un coup : ni recul, ni arrêt sur image, ni tremblement.
@@ -4774,7 +4926,11 @@ function update(dt){
   if(level&&level.kind!=='village'&&typeof anomalieEn==='function'){
     const _an=anomalieEn(level,player.x,player.y);
     if(_an&&_an.dot>0&&player.hp>0){
-      const _d=player.hpMax*0.01*_an.dot*dt;
+      /* `player.hpMax` N'EXISTE PAS : le maximum vient de P().hpMax, il
+         dépend de l'équipement. On lisait donc `undefined`, et la vie
+         passait à NaN — la jauge se figeait et l'ATH affichait « NaN / … »
+         jusqu'au changement de zone. Le `st` de la boucle l'a déjà. */
+      const _d=(st.hpMax||0)*0.01*_an.dot*dt;
       player.hp=Math.max(1,player.hp-_d);      /* elle ne tue jamais seule */
       player._usure=(player._usure||0)+_d;
     }
@@ -6661,7 +6817,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.65 — '+'2026-08-09';
+const BUILD='v8.67 — '+'2026-08-10';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -6690,7 +6846,15 @@ function majOrbes(st){
     document.getElementById('mpLbl').textContent=mp+'/'+st.mpMax;
   }
 }
+/* Une vie non finie fige la jauge et affiche « NaN / … » : le run est
+   perdu sans que rien ne le signale. On rattrape au lieu de laisser courir. */
+function vieSaine(){
+  if(!Number.isFinite(player.hp)){player.hp=P().hpMax;return false;}
+  if(!Number.isFinite(player.mp))player.mp=P().mpMax;
+  return true;
+}
 function refreshHud(){
+  vieSaine();
   if(typeof majSuivi==='function')majSuivi();
   if(typeof updateBadges==='function')updateBadges();
   if(typeof majRappelSac==='function')majRappelSac();
@@ -8132,6 +8296,7 @@ function startGame(cont){
     toast('Progression chargée — bon retour, Outlaw !',2.4);
   }
   else{inventory.length=0;player.corpse=null;player.balises={};invCap=18;
+       player.dons={blancs:0,magique:0};
     for(const k in actDiscovered)delete actDiscovered[k];player._sacFait=false;inventory.push(makeItem('white','weapon'));
        toast('Village de Moreuil — parle au Vieux Outlaw 🦅 pour ta mission',3);
        setTimeout(()=>{if(running)openDialogue({type:'quest',act:-1});},700);}
@@ -8195,7 +8360,7 @@ const SaveIO={
   clear(){ try{localStorage.removeItem(SAVE_KEY);}catch(e){}
            try{ if(window.OutlawSave&&window.OutlawSave.clear)window.OutlawSave.clear(); }catch(e){} }
 };
-function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets}));}catch(e){}}
+function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets,dons:player.dons}));}catch(e){}}
 /* Migration : réassocie un sprite aux objets d'anciennes sauvegardes */
 function migrateIcons(list){
   if(!list)return;
@@ -8221,6 +8386,7 @@ function allerVillage(){enterLevel(village,village.spawn[0]*TS+TS/2,village.spaw
 function loadGame(){try{const s=JSON.parse(SaveIO.read());if(!s)return false;
   ['lvl','xp','xpNext','xpTotal','statPts','treePts','baseStr','baseDex','baseVit','baseEne','baseAgi','gold','frags','potions','manaPots','kills','totalDmg','portals'].forEach(k=>{if(s[k]!=null)player[k]=s[k];});
   if(s.tree)player.tree=s.tree;if(s.bar)player.bar=s.bar;computeTreeBonus();
+  player.dons=s.dons||{blancs:0,magique:0};
   if(s.equip)player.equip=Object.assign({weapon:null,armor:null,amulet:null,ring:null,ring2:null,helm:null,gloves:null,belt:null,skates:null},s.equip);
   inventory.length=0;if(s.inv)for(const it of s.inv)inventory.push(it);stash.length=0;if(s.stash)for(const it of s.stash)stash.push(it);if(s.difficulty!=null)difficulty=s.difficulty;if(s.quests)for(const k in s.quests)quests[k]=s.quests[k];if(s.qc)for(const k in s.qc)qc[k]=s.qc[k];if(s.maxAct!=null)maxAct=s.maxAct;if(s.bossKilled)bossKilled=s.bossKilled;if(s.bossCleared)bossCleared=s.bossCleared;if(s.stashCap)stashCap=s.stashCap;if(s.keys)player.keys=s.keys;if(s.arenaBossKills!=null)player.arenaBossKills=s.arenaBossKills;if(s.relics)for(let i=0;i<5;i++)relicDestroyed[i]=!!s.relics[i];if(s.arenaBest)player.arenaBest=s.arenaBest;if(s.scrollsId!=null)player.scrollsId=s.scrollsId;
   /* Le sac de mort revient tel quel. `undefined` = ancienne sauvegarde,
