@@ -1879,20 +1879,53 @@ function buildAct(n){
   return lvl;
 }
 
-function enterAct(n){
+/* Combien de coups le héros tiendrait-il dans cet acte ? Sert à écrire un
+   avertissement CHIFFRÉ plutôt qu'un « c'est dangereux » qui ne dit rien. */
+function coupsTenus(n){
+  try{
+    const st=P(), niv=ACT_START[n]||1;
+    const m=makeEnemy('imp',0,0,n,niv);
+    const par=Math.max(1,m.dmg*degatsMultEcart(niv,player.lvl)*(1-reductionDef(st.def,niv)))
+              *(1-Math.min(40,(st.block||0)*0.8)/100);
+    return Math.max(1,Math.round(st.hpMax/par));
+  }catch(e){return 0;}
+}
+function enterAct(n,forcer){
   if(n>=ACTS.length){victory();return;}
   /* Plancher de niveau. On ne bloque JAMAIS le retour vers un acte déjà
      atteint : sinon un joueur mort et rétrogradé serait enfermé au village. */
+  /* LE PLANCHER N'INTERDIT PLUS : IL AVERTIT.
+
+     Un refus sec prive le joueur de tout choix, et la mesure montre que la
+     barrière est de toute façon moins dure que les monstres eux-mêmes : au
+     niveau 24 dans l'acte 5, on tient 2,4 coups et le boss final tue en
+     moins d'un coup. Le vrai mur est là, pas dans une condition.
+
+     On donne donc le chiffre, on rappelle ce qu'on risque de perdre, et on
+     laisse décider. La confirmation ne se pose qu'une fois : après, l'acte
+     est atteint et la question ne revient plus. */
   const _min=ACT_MIN[n]||1;
-  if(player.lvl<_min && n>maxAct){
+  if(player.lvl<_min && n>maxAct && !forcer){
     const _nom=(ACTS[n]&&ACTS[n].court)||'cet acte';
-    toast('🔒 Niveau '+_min+' requis pour entrer dans '+_nom
-          +' — tu es niveau '+player.lvl+'. Il te manque '+(_min-player.lvl)+' niveau'
-          +((_min-player.lvl)>1?'x':'')+'.',5);
-    /* et quelqu'un le dit, pour que ce ne soit pas qu'un bandeau qui passe */
+    const _manque=_min-player.lvl, _c=coupsTenus(n);
     if(typeof replique==='function')
-      replique('aldric','*Il recule d\'un pas.* Pas encore. Il me manque '
-        +(_min-player.lvl)+' niveau'+((_min-player.lvl)>1?'x':'')+' avant d\'entrer là-dedans.');
+      replique('aldric','*Il s\'arrête devant la porte.* '+_manque+' niveau'
+        +(_manque>1?'x':'')+' de moins que prévu. Ça va faire mal.');
+    if(typeof ouvrirConfirmation==='function'){
+      ouvrirConfirmation({
+        titre:'Entrer dans '+_nom+' au niveau '+player.lvl+' ?',
+        corps:'<p>Niveau conseillé : <b>'+_min+'</b>. Il t’en manque <b>'+_manque+'</b>.</p>'
+          +'<p style="color:#ff9a5a">Face aux premiers monstres de la zone, tu tiendrais environ '
+          +'<b>'+_c+' coup'+(_c>1?'s':'')+'</b> avant de tomber.</p>'
+          +'<p style="color:#8ea0c8">Le gardien de la zone est de <b>niveau '+(ACT_END[n]||'?')
+          +'</b>. Et si tu meurs, ton sac reste sur place — dans une zone où il faudra '
+          +'revenir le chercher.</p>',
+        ok:'Entrer quand même',
+        action:()=>enterAct(n,true)
+      });
+      return;
+    }
+    toast('🔒 Niveau '+_min+' conseillé pour '+_nom+' — tu es niveau '+player.lvl+'.',5);
     return;
   }
   if(!acts[n])acts[n]=buildAct(n);
@@ -3587,11 +3620,26 @@ const LEVEL_CAP=60;
    Volontairement modéré : un rapport de quatre entre les deux extrêmes. Une
    courbe brutale à la Diablo II punirait l'exploration, ce qui n'est pas le but.
    Les bornes sont atteintes à +6 et -8 niveaux : au-delà, plus rien ne bouge. */
-const XP_ECART={pente_haut:0.10, pente_bas:0.09, plafond:1.6, plancher:0.25};
+/* L'XP MONTE, PUIS REDESCEND — corrigé en 8.74.
+
+   Défaut mesuré : l'expérience plafonnait à x1,60 dès +6 niveaux et y
+   restait, pendant que les dégâts subis continuaient de grimper jusqu'à
+   x1,90. La zone la plus RENTABLE était donc exactement celle où l'on
+   meurt : le jeu payait le joueur pour faire ce qu'il prétendait punir.
+
+   La courbe culmine désormais à +6 — l'avance raisonnable — puis redescend.
+   Le croisement avec la courbe des dégâts tombe vers +9 / +10, c'est-à-dire
+   là où la zone devient « punitive » au sens où on l'a définie. Au-delà,
+   foncer n'est plus seulement risqué : c'est un mauvais calcul. */
+const XP_ECART={pente_haut:0.10, pente_bas:0.09, sommet:6, redescente:0.07,
+                plafond:1.6, plancher:0.25, plancher_haut:0.70};
 function xpMultNiveau(nivEnnemi,nivJoueur){
   const d=(nivEnnemi||1)-(nivJoueur||1);
-  const m=(d>=0)?(1+d*XP_ECART.pente_haut):(1+d*XP_ECART.pente_bas);
-  return Math.max(XP_ECART.plancher,Math.min(XP_ECART.plafond,m));
+  if(d<=0)return Math.max(XP_ECART.plancher,1+d*XP_ECART.pente_bas);
+  const s=XP_ECART.sommet;
+  const m=(d<=s)?(1+d*XP_ECART.pente_haut)
+                :((1+s*XP_ECART.pente_haut)-(d-s)*XP_ECART.redescente);
+  return Math.max(XP_ECART.plancher_haut,Math.min(XP_ECART.plafond,m));
 }
 /* Le taux global (17 %) s'applique UNE FOIS, sur le montant complet.
    Depuis que le gain se découpe en orbes, l'appliquer par orbe ferait perdre
@@ -5367,11 +5415,12 @@ function drawExitMark(sx,sy,isStair){
   const _bloc=porteBloquee();
   etiquette(sx,sy-52,isStair?'Sortie':(level&&level.kind==='village'?nomActeCourant():'Porte'),
             _bloc?'#ff9a5a':(isStair?'#cfe8ff':'#ffe89a'),11);
-  if(_bloc)etiquette(sx,sy-38,'🔒 Niveau '+_bloc.min+' requis — tu es niveau '+player.lvl,'#ff9a5a',10);
+  if(_bloc)etiquette(sx,sy-38,'⚠ Niveau '+_bloc.min+' conseillé — tu es niveau '+player.lvl,'#ff9a5a',10);
   ctx.textAlign='left';ctx.restore();
 }
 
-/* La porte devant laquelle on se tient refusera-t-elle le passage ?
+/* La porte devant laquelle on se tient est-elle au-dessus du niveau du
+   héros ? Depuis la 8.74 elle ne refuse plus rien : elle avertit.
    Renvoie {n, min, nom} si oui, null sinon. Sert à l'étiquette de la porte
    ET au message : une seule source, deux affichages qui ne peuvent pas se
    contredire. */
@@ -7003,7 +7052,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.73 — '+'2026-08-14';
+const BUILD='v8.74 — '+'2026-08-14';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -9047,6 +9096,48 @@ document.querySelectorAll('.plusBtn').forEach(b=>{b.onclick=()=>{if(player.statP
   player.statPts--;refreshHud();};});
 
 /* ---------------- STATE ---------------- */
+/* ================================================================
+   NOUVELLE PARTIE — remise à zéro COMPLÈTE               (v8.74)
+
+   Trouvé par un test de difficulté qui donnait des chiffres absurdes : un
+   personnage « nu » de niveau 24 survivait mieux qu'un personnage équipé.
+   Il n'était pas nu — il portait encore l'équipement de la partie
+   précédente.
+
+   « Nouvelle partie » ne remettait à zéro que le sac, le sac de mort, les
+   balises et les actes découverts. **Le niveau, les attributs, l'or,
+   l'équipement, l'arbre de compétences, le coffre et la progression
+   d'actes survivaient.** Il fallait recharger la page pour repartir
+   vraiment de zéro — ce que personne ne devine.
+
+   Tout ce qui est SAUVEGARDÉ doit être remis à zéro ici : c'est la même
+   liste, et elle se relit en regard de `saveGame`. */
+function reinitialiserPartie(){
+  const p=player;
+  p.lvl=1;p.xp=0;p.xpNext=40;p.xpTotal=0;p.statPts=0;p.treePts=0;
+  p.baseStr=10;p.baseDex=10;p.baseVit=10;p.baseEne=10;p.baseAgi=10;
+  p.gold=60;p.frags=0;p.potions=3;p.manaPots=2;p.portals=0;p.scrollsId=2;
+  p.kills=0;p.totalDmg=0;p.arenaBossKills=0;p.arenaBest=null;
+  p.keys={};p.clesAchetees={};p.resets=0;
+  p.tree={};p.treeBonus={};p.bar=['slap',null,null,null];
+  p.skillRanks={slap:1,charge:0,tempest:0,holy:0,whirl:0,multi:0,warcry:0};
+  p.equip={weapon:null,armor:null,amulet:null,ring:null,ring2:null,
+           helm:null,gloves:null,belt:null,skates:null};
+  p.balises={};p.corpse=null;p._sacFait=false;
+  p.dons={blancs:0,magique:0};p.scenesVues={};p.dits={};
+  p.questSuivie=null;p.buffType=null;p.buffT=0;p.chill=0;
+  inventory.length=0;stash.length=0;
+  invCap=18;stashCap=30;
+  maxAct=-1;bossKilled=false;bossCleared=[false,false,false,false,false];
+  for(let i=0;i<5;i++)relicDestroyed[i]=false;
+  for(const k in actDiscovered)delete actDiscovered[k];
+  for(const k in acts)delete acts[k];        /* les mondes se régénèrent */
+  for(const k in quests)delete quests[k];
+  for(const k in qc)qc[k]=0;
+  questNew=0;
+  if(typeof computeTreeBonus==='function')computeTreeBonus();
+  if(typeof viderRepliques==='function')viderRepliques();
+}
 function startGame(cont){
   document.getElementById('overlay').style.display='none';running=true;
   village=buildVillage();
@@ -9067,9 +9158,7 @@ function startGame(cont){
     }
     toast('Progression chargée — bon retour, Outlaw !',2.4);
   }
-  else{inventory.length=0;player.corpse=null;player.balises={};invCap=18;
-       player.dons={blancs:0,magique:0};player.scenesVues={};player.dits={};
-    for(const k in actDiscovered)delete actDiscovered[k];player._sacFait=false;inventory.push(makeItem('white','weapon'));
+  else{reinitialiserPartie();inventory.push(makeItem('white','weapon'));
        /* LE PROLOGUE. Il remplace le dialogue qui s'ouvrait tout seul :
           celui-ci ne racontait rien, il listait une quête. */
        setTimeout(()=>{
