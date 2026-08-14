@@ -2881,6 +2881,49 @@ const mouse={x:0,y:0};
    fenêtre au retour (voir `reprendreFenetre`). L'une répare, l'autre
    empêche.
    ================================================================ */
+/* ================================================================
+   DIAGNOSTIC DU POINTEUR — ?diag=1
+
+   Le calcul est juste au banc d'essai : un aller-retour monde → écran →
+   monde revient à 0,00 px près, et un clic dans chaque direction envoie
+   le héros du bon côté. Si le pointage part quand même de travers dans
+   un vrai navigateur, c'est que la GÉOMÉTRIE réelle diffère de ce que le
+   jeu croit.
+
+   Plutôt que de deviner une fois de plus : ajoute `?diag=1` à l'adresse,
+   un encart affiche les chiffres vivants et le dernier clic. Une capture
+   d'écran suffit alors à trancher.
+   ================================================================ */
+let DIAG=false;
+try{DIAG=/[?&]diag=1/.test(location.search);}catch(e){}
+let _dernierClic=null;
+function majDiag(){
+  if(!DIAG)return;
+  let b=document.getElementById('diagBox');
+  if(!b){
+    b=document.createElement('div');b.id='diagBox';
+    b.style.cssText='position:fixed;left:8px;bottom:8px;z-index:99;'
+      +'background:rgba(4,6,12,.92);border:1px solid #caa53a;border-radius:6px;'
+      +'padding:8px 10px;font:11px/1.5 monospace;color:#dfe6f4;pointer-events:none;'
+      +'white-space:pre;max-width:60vw';
+    document.body.appendChild(b);
+  }
+  const r=cv.getBoundingClientRect(), e=_echelleCanevas(r);
+  b.textContent=
+     'canevas   '+cv.width+' x '+cv.height+'\n'
+    +'fenêtre   '+innerWidth+' x '+innerHeight+'\n'
+    +'rectangle '+Math.round(r.width)+' x '+Math.round(r.height)
+       +'  à ('+Math.round(r.left)+','+Math.round(r.top)+')\n'
+    +'échelle   x'+e.ex.toFixed(3)+' / x'+e.ey.toFixed(3)
+       +(e.ex===1&&e.ey===1?'   (aucune correction)':'   ← CORRECTION ACTIVE')+'\n'
+    +'origine   isoOX '+Math.round(isoOX)+'  isoOY '+Math.round(isoOY)+'\n'
+    +'héros     '+Math.round(player.x)+','+Math.round(player.y)+'\n'
+    +(_dernierClic
+       ? ('clic      écran '+Math.round(_dernierClic.sx)+','+Math.round(_dernierClic.sy)
+          +'  → monde '+Math.round(_dernierClic.wx)+','+Math.round(_dernierClic.wy)+'\n'
+          +'écart     '+Math.round(_dernierClic.wx-player.x)+','+Math.round(_dernierClic.wy-player.y))
+       : 'clic      (aucun)');
+}
 function pointeurCanevas(clientX,clientY){
   const r=cv.getBoundingClientRect();
   const e=_echelleCanevas(r);
@@ -2897,7 +2940,22 @@ function pointeurCanevas(clientX,clientY){
    correction que dans la bande 0,5x - 2x. Au-delà, ce n'est pas un décalage,
    c'est un rectangle auquel on ne peut pas se fier — on ne corrige rien. */
 function _echelleCanevas(r){
+  /* RÈGLE PRINCIPALE : si la mémoire du canevas correspond DÉJÀ à la
+     fenêtre, `resize()` est à jour et il n'y a rigoureusement rien à
+     corriger. On sort tout de suite.
+
+     C'est le cas normal sur PC : `body` est en `position:fixed` avec
+     `height:100%`, donc le canevas est affiché exactement à
+     innerWidth x innerHeight — le rapport vaut 1. Toute « correction »
+     appliquée dans ce cas ne peut que déplacer le pointeur pour rien.
+
+     La mise à l'échelle ne sert qu'au cas précis pour lequel elle a été
+     écrite : la fenêtre a changé de taille pendant que l'onglet était
+     caché, `resize()` n'a pas été rejoué, et la mémoire du canevas est
+     restée à l'ancienne taille. */
   if(!r||!r.width||!r.height)return{ex:1,ey:1};
+  if(cv.width===Math.round(innerWidth)&&cv.height===Math.round(innerHeight))
+    return{ex:1,ey:1};
   const ex=cv.width/r.width, ey=cv.height/r.height;
   if(!isFinite(ex)||!isFinite(ey))return{ex:1,ey:1};
   if(ex>2||ex<0.5||ey>2||ey<0.5)return{ex:1,ey:1};
@@ -2907,6 +2965,7 @@ cv.addEventListener('mousemove',e=>{const p=pointeurCanevas(e.clientX,e.clientY)
 cv.addEventListener('mousedown',e=>{if(!running)return;
   const p=pointeurCanevas(e.clientX,e.clientY);
   const w=screenToWorld(p.x,p.y);
+  if(DIAG)_dernierClic={sx:p.x,sy:p.y,wx:w.x,wy:w.y};
   onClick(w.x,w.y);});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 /* ================= SUPPORT TABLETTE (paysage) ================= */
@@ -5055,7 +5114,8 @@ function loop(now){
   /* La scène s'écrit pendant que la simulation est suspendue : c'est le
      seul système qui avance en pause, et c'est voulu. */
   if(typeof majScene==='function')majScene(brut);
-  render();try{appliquerVolumes();}catch(e){}
+  render();
+  if(DIAG)majDiag();try{appliquerVolumes();}catch(e){}
 requestAnimationFrame(loop);}
 
 let pathBudget=0;
@@ -7052,7 +7112,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.74 — '+'2026-08-14';
+const BUILD='v8.76 — '+'2026-08-14';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -9230,6 +9290,62 @@ const SaveIO={
            try{ if(window.OutlawSave&&window.OutlawSave.clear)window.OutlawSave.clear(); }catch(e){} }
 };
 function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets,dons:player.dons,scenesVues:player.scenesVues,dits:player.dits}));}catch(e){}}
+/* ================================================================
+   MIGRATION DES SAUVEGARDES ANTÉRIEURES              (v8.75)
+
+   Une sauvegarde d'avant la 8.66 / 8.69 / 8.71 / 8.72 se charge sans
+   erreur — vérifié : niveau, or, équipement, sac, coffre, balises, actes,
+   reliques et clés arrivent intacts. Mais trois champs n'existaient pas,
+   et leur absence produit des absurdités :
+
+     · `scenesVues` vide → un personnage niveau 26 qui a brisé trois
+       reliques revoit le PROLOGUE, puis les scènes d'accueil des actes
+       qu'il a déjà nettoyés ;
+     · `dons` vide → le premier ennemi tué lâche un objet magique
+       « garanti » destiné aux niveaux 1 à 5 ;
+     · les quêtes n'avaient ni étape ni base : une quête à 37/60 repartait
+       de sa première étape, c'est-à-dire « va reparler au PNJ ».
+
+   On ne peut pas deviner ce que le joueur a VU, mais on peut déduire ce
+   qu'il a FAIT. C'est ce que fait cette migration : elle reconstruit un
+   état cohérent à partir de la progression réelle.
+   ================================================================ */
+function migrerSauvegarde(s){
+  if(!s)return;
+  const p=player;
+  /* --- 1. les scènes déjà dépassées ne se rejouent pas --- */
+  if(!s.scenesVues){
+    p.scenesVues=p.scenesVues||{};
+    /* il a quitté le village : le prologue est derrière lui */
+    if((s.maxAct!=null?s.maxAct:maxAct)>=0||p.lvl>1)p.scenesVues.prologue=1;
+    const mx=(s.maxAct!=null?s.maxAct:maxAct);
+    for(let a=0;a<ACTS.length;a++){
+      if(a<=mx)p.scenesVues['acte'+a]=1;           // acte atteint : accueil vu
+      if(a<mx)p.scenesVues['gardien'+a]=1;         // acte dépassé : gardien vu
+      if(relicDestroyed[a])p.scenesVues['relique'+a]=1;
+    }
+    if(mx>=ACTS.length-1)p.scenesVues.gardienFinal=1;
+  }
+  /* --- 2. les cadeaux de début n'ont plus lieu d'être --- */
+  if(!s.dons&&p.lvl>DON_MAGIQUE_NIV+3)p.dons={blancs:DONS_BLANCS,magique:1,slots:[]};
+  /* --- 3. les quêtes retrouvent une étape plausible --- */
+  for(const q of QUESTS){
+    const st=quests[q.id]; if(!st)continue;
+    if(st.e==null){
+      const E=etapesDe(q);
+      if(!E||st.done){st.e=st.done?(E?E.length:0):0;}
+      else{
+        /* on replace l'étape au prorata de la progression enregistrée :
+           37/60 sur trois étapes retombe sur la deuxième, la bonne. */
+        const part=q.target?Math.min(1,(st.p||0)/q.target):0;
+        st.e=Math.max(0,Math.min(E.length-1,Math.floor(part*E.length)));
+      }
+      st.parle=false;st.lieu=false;
+      st.base=0;
+      if(E&&st.e<E.length)_ouvrirEtape(q);
+    }
+  }
+}
 /* Migration : réassocie un sprite aux objets d'anciennes sauvegardes */
 function migrateIcons(list){
   if(!list)return;
@@ -9310,6 +9426,11 @@ function loadGame(){try{const s=JSON.parse(SaveIO.read());if(!s)return false;
     }
   }
   optAppliquer();
+  /* EN DERNIER, et pas avant : la migration a besoin de `quests`, de
+     `relicDestroyed` et de `maxAct`, qui viennent d'être remplis ci-dessus.
+     Placée au milieu de la fonction, elle lisait des tableaux encore vides
+     et ne migrait rien — c'est ce que le test a montré. */
+  migrerSauvegarde(s);
   migrateAllIcons();return true;}catch(e){return false;}}
 window.addEventListener('beforeunload',()=>{if(running)saveGame();});
 /* ================================================================
