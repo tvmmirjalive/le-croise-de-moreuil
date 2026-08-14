@@ -1885,8 +1885,14 @@ function enterAct(n){
      atteint : sinon un joueur mort et rétrogradé serait enfermé au village. */
   const _min=ACT_MIN[n]||1;
   if(player.lvl<_min && n>maxAct){
-    toast('Niveau '+_min+' requis pour entrer dans '+((ACTS[n]&&ACTS[n].court)||'cet acte')
-          +' — tu es niveau '+player.lvl+'.',3.2);
+    const _nom=(ACTS[n]&&ACTS[n].court)||'cet acte';
+    toast('🔒 Niveau '+_min+' requis pour entrer dans '+_nom
+          +' — tu es niveau '+player.lvl+'. Il te manque '+(_min-player.lvl)+' niveau'
+          +((_min-player.lvl)>1?'x':'')+'.',5);
+    /* et quelqu'un le dit, pour que ce ne soit pas qu'un bandeau qui passe */
+    if(typeof replique==='function')
+      replique('aldric','*Il recule d\'un pas.* Pas encore. Il me manque '
+        +(_min-player.lvl)+' niveau'+((_min-player.lvl)>1?'x':'')+' avant d\'entrer là-dedans.');
     return;
   }
   if(!acts[n])acts[n]=buildAct(n);
@@ -5350,11 +5356,33 @@ function drawExitMark(sx,sy,isStair){
   ctx.lineTo(sx+ISO_TW*0.16,sy-46);ctx.lineTo(sx-ISO_TW*0.16,sy-46);ctx.closePath();ctx.fill();
   ctx.fillStyle=rgba(0.85);ctx.font='bold 15px Trebuchet MS';ctx.textAlign='center';
   ctx.fillText(isStair?'▲':'▼',sx,sy-30-3*pulse);
+  /* LE NIVEAU REQUIS S'AFFICHE SUR LA PORTE.
+
+     Il n'était annoncé que par un message de 3 secondes, au moment où l'on
+     essayait de passer. Un joueur qui a tué le gardien, brisé la relique et
+     qui voit la porte s'ouvrir n'a aucune raison de soupçonner un plancher
+     de niveau : il rate l'annonce une fois, et il ne sait plus quoi faire.
+
+     Sur la porte, l'information est là tant qu'elle est vraie. */
+  const _bloc=porteBloquee();
   etiquette(sx,sy-52,isStair?'Sortie':(level&&level.kind==='village'?nomActeCourant():'Porte'),
-            isStair?'#cfe8ff':'#ffe89a',11);
+            _bloc?'#ff9a5a':(isStair?'#cfe8ff':'#ffe89a'),11);
+  if(_bloc)etiquette(sx,sy-38,'🔒 Niveau '+_bloc.min+' requis — tu es niveau '+player.lvl,'#ff9a5a',10);
   ctx.textAlign='left';ctx.restore();
 }
 
+/* La porte devant laquelle on se tient refusera-t-elle le passage ?
+   Renvoie {n, min, nom} si oui, null sinon. Sert à l'étiquette de la porte
+   ET au message : une seule source, deux affichages qui ne peuvent pas se
+   contredire. */
+function porteBloquee(){
+  if(!level)return null;
+  const n=(level.kind==='village')?acteCourant():((level.actNum||0)+1);
+  if(n>=ACTS.length)return null;
+  const min=ACT_MIN[n]||1;
+  if(player.lvl>=min||n<=maxAct)return null;
+  return {n:n,min:min,nom:(ACTS[n]&&ACTS[n].court)||'cet acte'};
+}
 /* L'acte vers lequel ouvre la porte du village : le plus avancé atteint. */
 function acteCourant(){
   let a=Math.max(0,Math.min(ACTS.length-1,maxAct||0));
@@ -6975,7 +7003,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.72 — '+'2026-08-13';
+const BUILD='v8.73 — '+'2026-08-14';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
