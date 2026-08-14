@@ -2910,7 +2910,9 @@ function majDiag(){
   }
   const r=cv.getBoundingClientRect(), e=_echelleCanevas(r);
   b.textContent=
-     'canevas   '+cv.width+' x '+cv.height+'\n'
+     'rendu W,H '+W+' x '+H+'   ← le repère qui compte\n'
+    +'canevas   '+cv.width+' x '+cv.height
+      +'  (densité x'+(cv.width/Math.max(1,W)).toFixed(2)+')\n'
     +'fenêtre   '+innerWidth+' x '+innerHeight+'\n'
     +'rectangle '+Math.round(r.width)+' x '+Math.round(r.height)
        +'  à ('+Math.round(r.left)+','+Math.round(r.top)+')\n'
@@ -2940,23 +2942,30 @@ function pointeurCanevas(clientX,clientY){
    correction que dans la bande 0,5x - 2x. Au-delà, ce n'est pas un décalage,
    c'est un rectangle auquel on ne peut pas se fier — on ne corrige rien. */
 function _echelleCanevas(r){
-  /* RÈGLE PRINCIPALE : si la mémoire du canevas correspond DÉJÀ à la
-     fenêtre, `resize()` est à jour et il n'y a rigoureusement rien à
-     corriger. On sort tout de suite.
+  /* ON COMPARE AU REPÈRE DU RENDU — `W`/`H` — ET SURTOUT PAS À
+     `cv.width`/`cv.height`.
 
-     C'est le cas normal sur PC : `body` est en `position:fixed` avec
-     `height:100%`, donc le canevas est affiché exactement à
-     innerWidth x innerHeight — le rapport vaut 1. Toute « correction »
-     appliquée dans ce cas ne peut que déplacer le pointeur pour rien.
+     C'est l'erreur que j'ai traînée de la 8.67 à la 8.76. Une surcouche
+     « rendu net sur écran haute densité » redéfinit `resize` :
 
-     La mise à l'échelle ne sert qu'au cas précis pour lequel elle a été
-     écrite : la fenêtre a changé de taille pendant que l'onglet était
-     caché, `resize()` n'a pas été rejoué, et la mémoire du canevas est
-     restée à l'ancienne taille. */
+       W = innerWidth;  H = innerHeight;              // repère du RENDU
+       cv.width = W*d;  cv.height = H*d;              // mémoire du canevas
+       ctx.setTransform(d,0,0,d,0,0);                 // tout se dessine en W,H
+
+     Sur un écran Retina (d = 2), la mémoire du canevas fait donc le DOUBLE
+     du repère de rendu. Je comparais `cv.width` (2940) au rectangle affiché
+     (1470) et j'en déduisais qu'il fallait doubler chaque clic — alors que
+     `screenToWorld` et `isoOX` travaillent en 1470.
+
+     Résultat sur le Mac de Mirja : un clic au centre partait à 1 346 px de
+     là, donc dans un mur, donc le héros ne bougeait pas. Et sur Android,
+     même densité, même cause : c'est ce qui avait tué le joystick en 8.67.
+
+     `W` est le seul repère juste : c'est celui dans lequel le jeu dessine. */
   if(!r||!r.width||!r.height)return{ex:1,ey:1};
-  if(cv.width===Math.round(innerWidth)&&cv.height===Math.round(innerHeight))
-    return{ex:1,ey:1};
-  const ex=cv.width/r.width, ey=cv.height/r.height;
+  if(W===Math.round(innerWidth)&&H===Math.round(innerHeight))
+    return{ex:1,ey:1};                    // `resize` est à jour : rien à faire
+  const ex=W/r.width, ey=H/r.height;
   if(!isFinite(ex)||!isFinite(ey))return{ex:1,ey:1};
   if(ex>2||ex<0.5||ey>2||ey<0.5)return{ex:1,ey:1};
   return{ex,ey};
@@ -7112,7 +7121,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v8.76 — '+'2026-08-14';
+const BUILD='v8.77 — '+'2026-08-14';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
