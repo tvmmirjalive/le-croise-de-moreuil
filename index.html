@@ -3248,7 +3248,7 @@ addEventListener('keydown',e=>{
   else if(k==='e'){if(document.getElementById('invPanel').style.display==='block'&&invSel>=0&&inventory[invSel])equipItem(invSel);}
   else if(k==='d'){if(document.getElementById('invPanel').style.display==='block'&&invSel>=0&&inventory[invSel])salvageItem(invSel);}
   else if(k==='escape'){ if(sceneEnCours()){passerScene();return;}
-    closeAllPanels();document.getElementById('fullmap').style.display='none';}
+    closeAllPanels();fermerCarte();}
 });
 // Sélectionne le sort ET le lance immédiatement vers le curseur
 function castSlot(i){const s=player.bar&&player.bar[i];if(!s){toast('Emplacement '+(i+1)+' vide — assigne un sort (touche S)',1.4);return;}castSkillKey(s);}
@@ -7165,10 +7165,25 @@ function drawFullMap(){
     /* Le héros passe en dernier : il doit rester visible par-dessus tout. */
     marque(pt.tx,pt.ty,'toi',1.1);}
 }
+/* LA CARTE N'EST PAS UN `.panel`                                (v9.04)
+   Elle s'appelle `fullmap`, elle vit hors de la liste des panneaux, et
+   ses TROIS chemins de fermeture — l'onglet, la croix ✕, la touche Échap —
+   écrivaient chacun `display='none'` dans leur coin. Elle est donc restée
+   muette quand tous les autres ont gagné leur son. Un seul point de
+   passage, comme pour `closeAllPanels`. */
+function fermerCarte(){
+  const fm=document.getElementById('fullmap');
+  if(!fm||!fm.style.display||fm.style.display==='none')return false;
+  try{SFX.panneau&&SFX.panneau(false);}catch(e){}
+  fm.style.display='none';
+  if(typeof updateTabs==='function')updateTabs();
+  return true;
+}
 function toggleFullMap(){
   const fm=document.getElementById('fullmap');
-  if(fm.style.display==='flex'){fm.style.display='none';if(typeof updateTabs==='function')updateTabs();return;}
+  if(fm.style.display==='flex'){fermerCarte();return;}
   closeAllPanels();
+  try{SFX.panneau&&SFX.panneau(true);}catch(e){}
   const pt=tileAt(player.x,player.y);fmPan={x:pt.tx,y:pt.ty};drawFullMap();
   document.querySelector('#fullmap .fmlbl').textContent=level.name;
   fm.style.display='flex';if(typeof updateTabs==='function')updateTabs();
@@ -7254,7 +7269,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.03 — '+'2026-08-16';
+const BUILD='v9.04 — '+'2026-08-16';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -10911,7 +10926,7 @@ setupTabs();updateTabs();
      visible quand le panneau défile. En dernier, elle partait tout en bas. */
   if(el.firstChild)el.insertBefore(b,el.firstChild); else el.appendChild(b);}
   document.querySelectorAll('.panel').forEach(function(p){addX(p,function(){closeAllPanels();});});
-  var fm=document.getElementById('fullmap');if(fm){fm.style.position=fm.style.position||'fixed';addX(fm,function(){fm.style.display='none';if(typeof updateTabs==='function')updateTabs();});}
+  var fm=document.getElementById('fullmap');if(fm){fm.style.position=fm.style.position||'fixed';addX(fm,function(){fermerCarte();});}
 })();
 
 renderSkillBar();
