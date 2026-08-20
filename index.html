@@ -510,9 +510,23 @@
     background:#0e1424;border-color:#3a4a72;color:#aab6d4}
   #ovBoutons button.second:hover{border-color:#5ec8ff;color:#e8ecf6;background:#16203a}
   #ovBoutons button.danger{color:#ff9a8a;border-color:#5a2f2f}
-  #ovVue{max-width:min(620px,92vw);max-height:46vh;overflow:auto;text-align:left;
-    font-size:13px;color:#aeb9d2;line-height:1.62}
-  #ovVue:empty{display:none}
+  /* LA VUE S'OUVRE PAR-DESSUS, PLUS EN DESSOUS                    (v9.06)
+
+     Elle se dépliait sous les boutons, dans un écran titre qui ne défile pas :
+     sur téléphone, tout ce qui dépassait du bas était simplement inaccessible.
+     Signalé par Mirja, capture à l'appui. Elle couvre maintenant l'écran, avec
+     sa propre croix, et se ferme aussi en touchant à côté. */
+  #ovVue{position:fixed;top:0;right:0;bottom:0;left:0;z-index:40;display:none;
+    background:rgba(3,5,10,.97);overflow:auto;-webkit-overflow-scrolling:touch;
+    text-align:left;font-size:13px;color:#aeb9d2;line-height:1.62;
+    padding:calc(16px + var(--sa-t)) calc(14px + var(--sa-r)) calc(24px + var(--sa-b)) calc(14px + var(--sa-l))}
+  #ovVue.ouvert{display:block}
+  #ovVueBoite{position:relative;max-width:min(620px,94vw);margin:0 auto;padding-top:6px}
+  #ovVueFermer{position:absolute;top:0;right:0;width:38px;height:38px;padding:0;
+    font-size:16px;line-height:1;border:1px solid #3a4a72;border-radius:8px;
+    background:#0e1424;color:#aab6d4;cursor:pointer}
+  #ovVueFermer:hover{border-color:#5ec8ff;color:#e8ecf6;background:#16203a}
+  #ovVueBoite h3{margin-right:46px}
   #ovVue h3{color:#f4d35e;font-size:14px;margin:0 0 8px}
   #ovVue .ligne{display:flex;justify-content:space-between;align-items:center;gap:12px;
     padding:9px 12px;border:1px solid #232c44;border-radius:7px;margin-bottom:7px;background:rgba(6,10,20,.6)}
@@ -2049,38 +2063,84 @@ function allerBalise(a,bi){
   refreshHud();
   return true;
 }
+/* ================================================================
+   LA BALISE — UN REPLI PAR ACTE, LE PLUS LOIN EN TÊTE        (v9.06)
+
+   La liste était plate : le village, puis les actes, puis TOUTES les balises
+   de tous les actes, dans l'ordre où elles avaient été posées — donc Entrée,
+   30 %, 60 %… Sur téléphone, la balise la plus utile, la plus profonde, était
+   la dernière et sortait de l'écran.
+
+   Demandé par Mirja, et c'est le bon sens : ce qu'on veut atteindre depuis une
+   balise, c'est l'endroit le plus avancé du monde. Chaque acte est donc un
+   volet. Replié — l'état par défaut — il ne montre QUE sa balise la plus
+   profonde. Le déplier donne les autres, de la plus profonde à l'entrée.
+   ================================================================ */
+let _wpDeplie={};                 /* acte -> déplié ? mémorisé le temps de la partie */
 function openWaypoint(){
-  closeAllPanels();const body=document.getElementById('wpBody');body.innerHTML='';
-  const mk=(label,fn,cur)=>{const b=document.createElement('button');b.textContent=label+(cur?' (ici)':'');
-    b.disabled=!!cur;b.style.cssText='pointer-events:auto;text-align:left;font-size:13px;padding:8px 12px;border-radius:6px;border:1px solid #3a4a72;background:'+(cur?'#16203a':'#0e1424')+';color:#cdd6e6;cursor:'+(cur?'default':'pointer');
-    b.onclick=()=>{closeAllPanels();fn();};body.appendChild(b);};
-  mk('🏰 Village de Moreuil',()=>enterLevel(village,village.spawn[0]*TS+TS/2,village.spawn[1]*TS+TS/2),level.kind==='village');
-  for(let i=0;i<ACTS.length;i++)if(actDiscovered[i])mk('⚑ Acte '+(i+1)+' — '+ACTS[i].name,()=>enterAct(i),level.kind==='act'&&level.actNum===i);
-  /* Toutes les balises débloquées, de TOUS les actes découverts — pas
-     seulement celles de l'acte où l'on se trouve. */
+  closeAllPanels();
+  _wpRendre();
+  SFX.panneau&&SFX.panneau(true);
+  document.getElementById('waypointPanel').style.display='block';
+  if(typeof majPausePanneau==='function')majPausePanneau();
+  if(typeof updateTabs==='function')updateTabs();
+}
+/* Le rendu est séparé de l'ouverture : déplier un volet le rejoue sans
+   refermer le panneau ni rejouer le son d'ouverture. */
+function _wpRendre(){
+  const body=document.getElementById('wpBody');if(!body)return;
+  body.innerHTML='';
+  const BASE='pointer-events:auto;text-align:left;font-size:13px;padding:8px 12px;border-radius:6px;border:1px solid #3a4a72;color:#cdd6e6;';
+  const mk=(label,fn,cur,retrait)=>{
+    const b=document.createElement('button');
+    b.textContent=label+(cur?' (ici)':'');
+    b.disabled=!!cur;
+    b.style.cssText=BASE+'background:'+(cur?'#16203a':'#0e1424')
+      +';cursor:'+(cur?'default':'pointer')
+      +(retrait?';margin-left:16px':'');
+    b.onclick=()=>{closeAllPanels();fn();};
+    body.appendChild(b);return b;};
+  /* L'en-tête d'acte ne voyage pas : il ouvre et referme son volet. Le voyage
+     vers l'entrée de l'acte reste une ligne à part, sinon on perdrait la
+     seule façon d'y aller quand aucune balise n'y est encore débloquée. */
+  const mkVolet=(label,a,nb)=>{
+    const b=document.createElement('button');
+    b.textContent=(_wpDeplie[a]?'▾ ':'▸ ')+label+(nb>0?'   ('+nb+')':'');
+    b.style.cssText=BASE+'background:#111a2e;border-color:#4a5c8c;color:#e8ecf6;font-weight:bold;cursor:pointer;margin-top:6px';
+    b.onclick=()=>{_wpDeplie[a]=!_wpDeplie[a];_wpRendre();};
+    body.appendChild(b);return b;};
+
+  mk('🏰 Village de Moreuil',
+     ()=>enterLevel(village,village.spawn[0]*TS+TS/2,village.spawn[1]*TS+TS/2),
+     level.kind==='village');
+
   recolterBalisesVues();
   const NOMS=['Entrée','30 %','60 %','90 %','pré-boss'];
   for(let a=0;a<ACTS.length;a++){
     if(!actDiscovered[a])continue;
-    const L=balisesActe(a);
-    for(const bi of L){
-      const ici=(level.kind==='act'&&level.actNum===a&&_surBalise(bi));
-      /* Le NOM de la salle, quand on le connaît : « ◈ La Chambre Froide » se
-         retient, « Balise 3 (60 %) » non. Le nom n'est disponible que pour
-         l'acte chargé — pour les autres on garde le repère de progression. */
-      let _nomB=null;
+    /* De la plus profonde à l'entrée : c'est l'ordre dans lequel on cherche. */
+    const L=balisesActe(a).slice().sort((x,y)=>y-x);
+    mkVolet('⚑ Acte '+(a+1)+' — '+ACTS[a].name, a, L.length);
+    const nomDe=(bi)=>{
+      let n=null;
       if(level.kind==='act'&&level.actNum===a&&level.npcs){
         const _b=level.npcs.find(x=>x.type==='waypoint'&&x.bi===bi);
-        if(_b&&_b.salle)_nomB=_b.salle;
+        if(_b&&_b.salle)n=_b.salle;
       }
-      if(!_nomB&&typeof SALLES_PAR_ACTE!=='undefined'&&SALLES_PAR_ACTE[a]&&SALLES_PAR_ACTE[a][bi])
-        _nomB=SALLES_PAR_ACTE[a][bi].nom;
-      mk('◈ Acte '+(a+1)+' — '+(_nomB?_nomB+'  ·  '+(NOMS[bi]||'?'):'Balise '+(bi+1)+' ('+(NOMS[bi]||'?')+')'),
-         ((_a,_b)=>()=>allerBalise(_a,_b))(a,bi), ici);
+      if(!n&&typeof SALLES_PAR_ACTE!=='undefined'&&SALLES_PAR_ACTE[a]&&SALLES_PAR_ACTE[a][bi])
+        n=SALLES_PAR_ACTE[a][bi].nom;
+      return n?n+'  ·  '+(NOMS[bi]||'?'):'Balise '+(bi+1)+' ('+(NOMS[bi]||'?')+')';
+    };
+    /* Replié : la plus profonde seulement. Dépliée : toutes, puis l'entrée. */
+    const visibles=_wpDeplie[a]?L:L.slice(0,1);
+    for(const bi of visibles){
+      const ici=(level.kind==='act'&&level.actNum===a&&_surBalise(bi));
+      mk('◈ '+nomDe(bi), ((_a,_b)=>()=>allerBalise(_a,_b))(a,bi), ici, true);
     }
+    if(_wpDeplie[a])
+      mk('⚑ Entrée de l\'acte', ((_a)=>()=>enterAct(_a))(a),
+         level.kind==='act'&&level.actNum===a, true);
   }
-  SFX.panneau&&SFX.panneau(true);
-  document.getElementById('waypointPanel').style.display='block';if(typeof majPausePanneau==='function')majPausePanneau();if(typeof updateTabs==='function')updateTabs();
 }
 function drawFalcon(sx,sy,en){
   const R=en.r,t=performance.now()/220,flap=Math.sin(t)*10;
@@ -7341,7 +7401,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.05 — '+'2026-08-20';
+const BUILD='v9.06 — '+'2026-08-20';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -9977,10 +10037,13 @@ const OV_VUES={
     return '<h3>Réglages</h3>'+defs.map(d=>
       '<div class="ligne"><span>'+d.nom+'</span>'+
       '<button data-opt="'+d.k+'">'+(OPT[d.k]?'ACTIVÉ':'COUPÉ')+'</button></div>').join('')+
-      '<div style="font-size:11px;color:#6b789c;margin-top:6px">Les options de contrôle (joystick, ciblage, vibrations) se règlent en jeu, dans l\'onglet Options.</div>';
+      '<div style="font-size:11px;color:#6b789c;margin-top:6px">Les options de contrôle (joystick, ciblage, vibrations) se règlent en jeu, dans l\'onglet Options.</div>'+
+      /* Les Commandes ont perdu leur bouton : sept entrées ne tenaient pas sur
+         un écran de téléphone. Elles vivent ici, sous les réglages. */
+      OV_VUES.commandes();
   },
   commandes(){
-    return '<h3>Commandes</h3>'+
+    return '<h3 style="margin-top:18px">Commandes</h3>'+
       '<p><b>Au doigt</b> — glisse dans la moitié gauche pour le joystick, touche le décor à droite pour viser. '+
       'Le gros bouton frappe au corps à corps, les quatre pastilles autour lancent les sorts. Maintiens un sort pour viser.</p>'+
       '<p><b>Au clavier</b> — clic pour marcher et frapper, <b>1-4</b> pour les sorts, <b>Espace</b> potion, <b>A</b> mana, '+
@@ -10004,14 +10067,28 @@ function ovMontrer(nom){
   /* Quitter la vue des emplacements oublie l'intention : sans ça, une
      bannière « Où veux-tu commencer ? » réapparaîtrait plus tard. */
   if(nom!=='emplacements')_emplIntention=null;
-  if(ovVueCourante===nom){ovVueCourante=null;v.innerHTML='';_emplIntention=null;ovMenuBoutons();return;}
-  ovVueCourante=nom;v.innerHTML=OV_VUES[nom]?OV_VUES[nom]():'';
+  if(ovVueCourante===nom){ovFermerVue();return;}
+  ovVueCourante=nom;
+  v.innerHTML='<div id="ovVueBoite"><button id="ovVueFermer" type="button" title="Fermer">✕</button>'
+             +(OV_VUES[nom]?OV_VUES[nom]():'')+'</div>';
+  v.className='ouvert';
   v.scrollTop=0;
+  {const _f=document.getElementById('ovVueFermer'); if(_f)_f.onclick=ovFermerVue;}
+  /* Toucher le fond, à côté de la boîte, referme aussi. */
+  v.onclick=function(e){ if(e.target===v)ovFermerVue(); };
   /* Les bascules de réglage vivent dans la vue : on les rebranche à chaque rendu. */
   v.querySelectorAll&&Array.prototype.forEach.call(v.querySelectorAll('[data-opt]'),function(b){
     b.onclick=function(){const k=b.getAttribute('data-opt');
       optSet(k,!OPT[k]);b.textContent=OPT[k]?'ACTIVÉ':'COUPÉ';};});
   if(nom==='emplacements'&&typeof brancherEmplacements==='function')brancherEmplacements();
+  ovMenuBoutons();
+}
+/* Un seul point de passage pour refermer la vue du titre — même raison que
+   closeAllPanels et fermerCarte : trois chemins, trois oublis. */
+function ovFermerVue(){
+  const v=document.getElementById('ovVue');
+  ovVueCourante=null;_emplIntention=null;
+  if(v){v.innerHTML='';v.className='';v.onclick=null;}
   ovMenuBoutons();
 }
 
@@ -10257,8 +10334,7 @@ function ovMenuBoutons(){
     ouvrirEmplacements(null);
   });
   mk((ovVueCourante==='histoire'?'▾ ':'')+'📖  L\'histoire','second',function(){ovMontrer('histoire');});
-  mk((ovVueCourante==='options'?'▾ ':'')+'⚙️  Réglages','second',function(){ovMontrer('options');});
-  mk((ovVueCourante==='commandes'?'▾ ':'')+'🎮  Commandes','second',function(){ovMontrer('commandes');});
+  mk((ovVueCourante==='options'?'▾ ':'')+'⚙️  Réglages et commandes','second',function(){ovMontrer('options');});
   mk((ovVueCourante==='credits'?'▾ ':'')+'🏒  Crédits','second',function(){ovMontrer('credits');});
 }
 function ouvrirEcranTitre(){
@@ -10284,7 +10360,8 @@ function ouvrirEcranTitre(){
   const r=document.getElementById('ovResume');
   if(r)r.innerHTML=s?resumeSauvegarde(s):'Aucune partie enregistrée — la glace t\'attend.';
   const pied=document.getElementById('ovPied');if(pied)pied.textContent='build '+BUILD;
-  ovVueCourante=null;_emplIntention=null;const v=document.getElementById('ovVue');if(v)v.innerHTML='';
+  ovVueCourante=null;_emplIntention=null;
+  const v=document.getElementById('ovVue');if(v){v.innerHTML='';v.className='';v.onclick=null;}
   ovMenuBoutons();
   ov.style.display='flex';
 }
