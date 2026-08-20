@@ -1307,7 +1307,11 @@ function genLevel(kind,depth){
   const floors=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++)
     if(grid[idx(w,x,y)]===T_FLOOR)floors.push([x,y]);
   // spawn = a floor tile; for overworld center-ish, for cave near an edge
-  lvl.spawn=pick(floors);
+  /* Ce point porte AUSSI l'escalier de sortie (voir buildCave). Le tirer
+     parmi les seules cases TENABLES évite une sortie posée là où le héros ne
+     peut pas se rendre — 15 % des grottes avant cette correction. */
+  const _tenables=floors.filter(function(c){return poseObjetOk(lvl,c[0],c[1]);});
+  lvl.spawn=pick(_tenables.length?_tenables:floors);
   return {lvl,floors};
 }
 
@@ -2455,6 +2459,61 @@ function poseLibre(lvl,px,py){
 }
 
 /* ================================================================
+   RÈGLE DE POSE DES OBJETS — ajoutée le 20 août 2026
+
+   Signalée en jeu par Mirja : une sortie de grotte dans une zone interdite au
+   joueur, et un sac de mort hors d'atteinte. Le mouvement du héros n'est PAS
+   en cause — il est juste. Ce sont les objets qui se posaient sans vérifier
+   qu'on puisse aller les chercher.
+
+   La règle tient en une phrase : TOUT CE QUE LE JOUEUR DOIT ATTEINDRE SE POSE
+   SUR UNE CASE OÙ IL PEUT SE TENIR. Pas « du sol » — les cinq points de pose,
+   les mêmes que le héros. C'est la pose des objets qui s'aligne sur le
+   mouvement, jamais l'inverse.
+
+   Mesuré AVANT correction, sur le jeu livré en v9.04 :
+     · escalier de sortie de grotte : 9 sur 60 (15 %) sur une case sans point
+       de pose — une grotte sur sept ;
+     · sac de mort laissé dans une grotte : posé sur la BOUCHE elle-même,
+       c'est-à-dire, par construction, une case où l'on ne peut pas se tenir —
+       100 % des cas. Le rayon de ramassage (TS*1.5 = 66 px) le sauvait quand
+       un voisin était tenable, et le perdait sinon.
+
+   `grid[i]===T_FLOOR` ne suffit donc jamais à décider d'une pose : une case
+   de sol coincée dans un recoin n'a aucun point de pose. C'est déjà ce qui
+   avait tué 16 transitions et rendu la Piscine inaccessible.
+   ================================================================ */
+function poseObjetOk(lvl,tx,ty){
+  if(!lvl||!lvl.grid)return false;
+  if(tx<0||ty<0||tx>=lvl.w||ty>=lvl.h)return false;
+  if(!walkableCode(lvl.grid[idx(lvl.w,tx,ty)]))return false;
+  return poseLibre(lvl,tx*TS+TS/2,ty*TS+TS/2);
+}
+/* La case TENABLE la plus proche d'un point, en anneaux croissants. Rend null
+   si rien de tenable dans le rayon : c'est à l'appelant de choisir son repli,
+   pour qu'aucun objet ne soit posé « quelque part » par défaut. */
+function caseTenableProche(lvl,tx,ty,rmax,exclureCentre){
+  /* `exclureCentre` n'est pas un détail : `spotNear` balaie à partir de r=1
+     DÉLIBÉRÉMENT depuis la 8.64. Rendre la case elle-même y ferait réapparaître
+     le héros PILE sur l'escalier ou la bouche, et il repartirait aussitôt d'où
+     il vient — le va-et-vient sans fin. Vérifié : sans cette option,
+     test_transitions passe de 3 échecs sur 6 à 6 sur 6. */
+  if(!exclureCentre&&poseObjetOk(lvl,tx,ty))return{tx:tx,ty:ty};
+  const R=rmax||4;
+  for(let r=1;r<=R;r++){
+    let best=null,bd=1e9;
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+      const x=tx+dx,y=ty+dy;
+      if(!poseObjetOk(lvl,x,y))continue;
+      const d=dx*dx+dy*dy; if(d<bd){bd=d;best={tx:x,ty:y};}
+    }
+    if(best)return best;
+  }
+  return null;
+}
+
+/* ================================================================
    LES CINQ POINTS DE POSE D'UNE TUILE
 
    Découper une tuile de collision en quatre quartiers ne donne pas quatre
@@ -2740,6 +2799,11 @@ function spotNear(lvl,tx,ty){
      repartait aussitôt d'où l'on venait. Va-et-vient sans fin.
      On élargit donc la recherche jusqu'à quatre cases, du plus proche au
      plus lointain, avant d'envisager le repli. */
+  /* On cherche d'abord une case TENABLE : du sol pur ne garantit pas qu'on
+     puisse s'y tenir. Le balayage d'origine reste en repli, donc ce contrôle
+     ne peut que rendre le résultat meilleur, jamais pire. */
+  {const _t=caseTenableProche(lvl,tx,ty,4,true);
+   if(_t)return{x:_t.tx*TS+TS/2,y:_t.ty*TS+TS/2};}
   for(let r=1;r<=4;r++){
     let best=null,bd=1e9;
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
@@ -3905,7 +3969,15 @@ function deposerSacMort(){
   if(level&&level.arena)return;
   const z=sacZoneCourante(); if(!z)return;
   let x=player.x,y=player.y;
-  if(level.kind==='cave'&&level.parent){x=level.parent.tx*TS+TS/2;y=level.parent.ty*TS+TS/2;}
+  if(level.kind==='cave'&&level.parent){
+    /* On posait le sac sur la BOUCHE de grotte elle-même — jamais tenable.
+       On le pose désormais sur la case tenable la plus proche, exactement là
+       où le héros réapparaît quand il ressort. */
+    const _pl=level.parent;
+    const _t=caseTenableProche(_pl.lvl,_pl.tx,_pl.ty,4,true);
+    if(_t){x=_t.tx*TS+TS/2;y=_t.ty*TS+TS/2;}
+    else{const _sp=spotNear(_pl.lvl,_pl.tx,_pl.ty);x=_sp.x;y=_sp.y;}
+  }
   const objets=inventory.splice(0,inventory.length);
   let or=Math.floor((player.gold||0)*SAC_PART_OR);
   player.gold=Math.max(0,(player.gold||0)-or);
@@ -7269,7 +7341,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.04 — '+'2026-08-16';
+const BUILD='v9.05 — '+'2026-08-20';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
