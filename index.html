@@ -6188,6 +6188,23 @@ function renderIso(){
   const rendu=items.length===_nb?items:items.slice(0,_nb);
   rendu.sort(_parProfondeur);
   const pS=iso(player.x,player.y),playerD=fpx+fpy,scx=cam.x,scy=cam.y;
+  /* L'ANCRE DE L'ESTOMPAGE N'EST PAS CELLE DU DESSIN.              (v9.09)
+
+     §5 decies avait corrigé la comparaison de PROFONDEUR — on juge sur la
+     case, plus sur la position continue — mais avait laissé intacte la
+     fenêtre de recouvrement à l'écran juste en dessous, qui se mesurait
+     encore sur `pS`, c'est-à-dire sur la position continue du héros.
+
+     Le symptôme survivait donc : mesuré sous GRAINE=2, 1 bloc estompé dans
+     la moitié nord, 1 au centre, mais 2 dans la moitié sud — et un
+     changement d'opacité sur 21 pas de joystick successifs. Un mur qui
+     s'éclaircit d'un coup au milieu d'une case, sans que rien ne le masque.
+
+     `pS` reste l'ancre du DESSIN (voir la caméra, plus bas) : on ne la
+     touche pas. On ajoute `pE`, l'ancre de l'ESTOMPAGE, calée sur le centre
+     de la case — la même que celle du seuil de profondeur. Les deux moitiés
+     de la règle disent enfin vraiment la même chose. */
+  const pE=iso(_ptile.tx*TS+TS/2,_ptile.ty*TS+TS/2);
   /* ================================================================
      QUELS BLOCS PEUVENT ÊTRE ESTOMPÉS
 
@@ -6208,10 +6225,10 @@ function renderIso(){
      ================================================================ */
   for(const it of rendu){
     if(it.k==='w'){const s=iso((it.tx+0.5)*TS,(it.ty+0.5)*TS);
-      let al=1;if(it.d>=seuilEstompe){const dx=Math.abs(s.x-pS.x),top=s.y-ISO_WH-ISO_TH/2,bot=s.y+ISO_TH/2;if(dx<ISO_TW/2+22&&bot>pS.y-104&&top<pS.y+6)al=0.45;}
+      let al=1;if(it.d>=seuilEstompe){const dx=Math.abs(s.x-pE.x),top=s.y-ISO_WH-ISO_TH/2,bot=s.y+ISO_TH/2;if(dx<ISO_TW/2+22&&bot>pE.y-104&&top<pE.y+6)al=0.45;}
       drawIsoWall(s.x,s.y,TH,al,it.tx,it.ty);}
     else if(it.k==='edge'){const s=iso(it.X*TS,it.Y*TS);
-      let al=1;if(it.d>=seuilEstompe){const dx=Math.abs(s.x-pS.x),top=s.y-ISO_TW*0.75,bot=s.y+ISO_TH/2;if(dx<ISO_TW/2+22&&bot>pS.y-104&&top<pS.y+6)al=0.5;}
+      let al=1;if(it.d>=seuilEstompe){const dx=Math.abs(s.x-pE.x),top=s.y-ISO_TW*0.75,bot=s.y+ISO_TH/2;if(dx<ISO_TW/2+22&&bot>pE.y-104&&top<pE.y+6)al=0.5;}
       const ts=TILESETS[level.theme];ctx.save();ctx.globalAlpha=al;ctx.imageSmoothingEnabled=false;
       const RW=_tsRect(ts.wall,it.gi);ctx.drawImage(ts.wall, RW[0],RW[1],RW[2],RW[3], s.x-ISO_TW/2, s.y-ISO_TW*0.75, ISO_TW, ISO_TW);
       ctx.restore();}
@@ -7448,7 +7465,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.08 — '+'2026-08-21';
+const BUILD='v9.09 — '+'2026-08-21';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
