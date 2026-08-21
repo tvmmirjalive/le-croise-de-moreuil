@@ -973,11 +973,45 @@ let W=0,H=0; function resize(){W=cv.width=innerWidth;H=cv.height=innerHeight;}
 addEventListener('resize',resize);resize();
 addEventListener('resize',()=>{if(typeof caleBarreOnglets==='function')caleBarreOnglets();});
 
-const rand=(a,b)=>a+Math.random()*(b-a);
+/* ================================================================
+   LE HASARD, ET COMMENT LE RENDRE REPRODUCTIBLE            (v9.08)
+
+   Six tests de la batterie donnaient un verdict différent d'un passage à
+   l'autre : test_salles, test_estompage, test_tonneau, test_transitions,
+   test_chemin_sol, test_moulinet. Tant que c'est vrai, un passage vert ne
+   prouve rien — et un passage rouge non plus. Chaque enquête coûtait une
+   dizaine de tirages, comme celle du décor en 9.05.
+
+   LA RÈGLE, ET ELLE COMPTE AUTANT QUE LE RESTE : le jeu reste ALÉATOIRE
+   pour le joueur. `_alea` vaut `Math.random` et n'en bouge pas tout seul.
+   Seuls les tests appellent `semer()`. Une graine fixe livrée au joueur
+   donnerait la même carte à tout le monde — bien pire que le défaut qu'on
+   corrige ici.
+
+   Mulberry32 : trente lignes, pas de dépendance, et `Math.imul` est dans le
+   socle depuis longtemps (Chrome 28, Safari 7). `semer(null)` rend la main
+   au vrai hasard.
+   ================================================================ */
+let _alea=Math.random;
+const alea=()=>_alea();
+function semer(graine){
+  if(graine===null||graine===undefined){_alea=Math.random;return null;}
+  let s=(graine>>>0)||1;
+  _alea=function(){
+    s=(s+0x6D2B79F5)>>>0;
+    let t=s;
+    t=Math.imul(t^(t>>>15),t|1);
+    t^=t+Math.imul(t^(t>>>7),t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+  return s;
+}
+
+const rand=(a,b)=>a+alea()*(b-a);
 const randi=(a,b)=>Math.floor(rand(a,b+1));
 const dist=(ax,ay,bx,by)=>Math.hypot(ax-bx,ay-by);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-const pick=a=>a[Math.floor(Math.random()*a.length)];
+const pick=a=>a[Math.floor(alea()*a.length)];
 
 const TS=44;
 /* Ramassage. RAYON_LOOT est la distance d'aimantation automatique : le héros
@@ -1317,7 +1351,7 @@ function genLevel(kind,depth){
   const w=kind==='overworld'?70:52, h=kind==='overworld'?52:44;
   const grid=new Uint8Array(w*h);
   const fill=kind==='overworld'?0.42:0.46;
-  for(let i=0;i<w*h;i++)grid[i]=Math.random()<fill?T_WALL:T_FLOOR;
+  for(let i=0;i<w*h;i++)grid[i]=alea()<fill?T_WALL:T_FLOOR;
   cellular(grid,w,h,kind==='overworld'?4:5);
   // keep largest floor region, fill rest with wall
   const reg=largestRegion(grid,w,h,[T_WALL,T_CHASM]);
@@ -1720,7 +1754,7 @@ function acteDecouvert(a){return !!actDiscovered[a];}
 function stamp(grid,w,h,x,y){for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){grid[idx(w,clamp(x+dx,1,w-2),clamp(y+dy,1,h-2))]=T_FLOOR;}}
 function carveCorridor(grid,w,h,a,b){
   let x=a[0],y=a[1];const tx=b[0],ty=b[1];
-  if(Math.random()<0.5){ while(x!==tx){x+=x<tx?1:-1;stamp(grid,w,h,x,y);} while(y!==ty){y+=y<ty?1:-1;stamp(grid,w,h,x,y);} }
+  if(alea()<0.5){ while(x!==tx){x+=x<tx?1:-1;stamp(grid,w,h,x,y);} while(y!==ty){y+=y<ty?1:-1;stamp(grid,w,h,x,y);} }
   else { while(y!==ty){y+=y<ty?1:-1;stamp(grid,w,h,x,y);} while(x!==tx){x+=x<tx?1:-1;stamp(grid,w,h,x,y);} }
 }
 function genMaze(w,h){
@@ -1754,7 +1788,7 @@ function genDirected(w,h){
   // couloir orthogonal (L) épais entre deux points, empile centres dans out[]
   const corridor=(a,b,width,out)=>{let x=Math.round(a[0]),y=Math.round(a[1]);const tx=Math.round(b[0]),ty=Math.round(b[1]);const half=width>>1;
     const paint=()=>{for(let dy=-half;dy<=half;dy++)for(let dx=-half;dx<=half;dx++)setF(x+dx,y+dy);if(out)out.push([x,y]);};paint();
-    if(Math.random()<0.5){while(x!==tx){x+=x<tx?1:-1;paint();}while(y!==ty){y+=y<ty?1:-1;paint();}}
+    if(alea()<0.5){while(x!==tx){x+=x<tx?1:-1;paint();}while(y!==ty){y+=y<ty?1:-1;paint();}}
     else{while(y!==ty){y+=y<ty?1:-1;paint();}while(x!==tx){x+=x<tx?1:-1;paint();}}};
   // route en ESCALIER (plusieurs virages) entre deux noeuds
   const jaggedRoute=(a,b,width,out)=>{const k=randi(3,5);let prev=a;
@@ -1770,7 +1804,7 @@ function genDirected(w,h){
     nodes.push(horiz?[Math.round(mp),Math.round(cp)]:[Math.round(cp),Math.round(mp)]);}
   nodes.forEach((nd,i)=>{const big=(i===0||i===nNodes-1);
     if(big){blobRoom(nd[0],nd[1],15);disk(nd[0],nd[1],7);}
-    else if(Math.random()<0.5)rectRoom(nd[0],nd[1],randi(8,15),randi(6,12),Math.random()<0.4);
+    else if(alea()<0.5)rectRoom(nd[0],nd[1],randi(8,15),randi(6,12),alea()<0.4);
     else blobRoom(nd[0],nd[1],randi(8,13));});
   const path=[];for(let i=1;i<nNodes;i++)jaggedRoute(nodes[i-1],nodes[i],0,path);
   const cum=[0];for(let i=1;i<path.length;i++)cum.push(cum[i-1]+Math.hypot(path[i][0]-path[i-1][0],path[i][1]-path[i-1][1]));
@@ -1779,12 +1813,12 @@ function genDirected(w,h){
   // 80 branches accessoires -> salles annexes (organiques ou rect)
   const branches=[],nBr=80;
   for(let b=0;b<nBr;b++){const fr=clamp((b+0.5)/nBr+rand(-0.02,0.02),0.03,0.97);const st=at(fr);
-    const ang=(Math.random()<0.5?-1:1)*(Math.PI/2)+rand(-0.6,0.6);const dl=randi(10,32);
+    const ang=(alea()<0.5?-1:1)*(Math.PI/2)+rand(-0.6,0.6);const dl=randi(10,32);
     const mx=clamp(Math.round(st[0]+Math.cos(ang)*dl*0.5),5,w-6),my=clamp(Math.round(st[1]+Math.sin(ang)*dl*0.5),5,h-6);
     const ex=clamp(Math.round(st[0]+Math.cos(ang)*dl+rand(-6,6)),5,w-6),ey=clamp(Math.round(st[1]+Math.sin(ang)*dl+rand(-6,6)),5,h-6);
     corridor([st[0],st[1]],[mx,my],pick([2,2,3]),null);corridor([mx,my],[ex,ey],pick([2,2,3]),null);
     const rr=pick([2,2,3,3,4,4,5,6,7]);
-    if(Math.random()<0.5)rectRoom(ex,ey,randi(4,11),randi(4,9),Math.random()<0.25);else blobRoom(ex,ey,rr+3);
+    if(alea()<0.5)rectRoom(ex,ey,randi(4,11),randi(4,9),alea()<0.25);else blobRoom(ex,ey,rr+3);
     branches.push({x:ex,y:ey,prog:fr,rr});}
   for(let x=0;x<w;x++){grid[idx(w,x,0)]=T_WALL;grid[idx(w,x,h-1)]=T_WALL;}
   for(let y=0;y<h;y++){grid[idx(w,0,y)]=T_WALL;grid[idx(w,w-1,y)]=T_WALL;}
@@ -1837,17 +1871,17 @@ function buildAct(n){
   // ennemis : rampe de niveau selon la progression le long du tronc
   const nEn=Math.min(1600,Math.round(rf.length*0.028)+120);
   for(let i=0;i<nEn;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<14)continue;
-    let kind='imp';const r=Math.random();
+    let kind='imp';const r=alea();
     if(A.depth>=3&&r<0.16)kind='golem';else if(A.depth>=1&&r<0.34)kind='shade';else if(A.depth>=2&&r<0.5)kind='brute';else if(r<0.62)kind='wraith';else if(r<0.74)kind='brute';
     /* Penchant de région : deux fois sur trois, la région impose son espèce.
        Un nid grouille de diablotins, une zone sombre de spectres. */
     {const _rp=regionDe(lvl,p[0],p[1]);
-     if(_rp.penchant&&Math.random()<0.66)kind=_rp.penchant;}
+     if(_rp.penchant&&alea()<0.66)kind=_rp.penchant;}
     const _pp=progAt(p[0],p[1]);const _elvl=Math.max(1,Math.round(aStart+(aEnd-aStart)*_pp));
-    const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth,_elvl);if(Math.random()<0.10+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
+    const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth,_elvl);if(alea()<0.10+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
   // récompenses au bout des branches : coffres, camps d'élite, gemmes, butin
   lvl.caves=[];lvl.breakables=[];let _cav=0;
-  const _kw=()=>{const r=Math.random();return r<0.62?'impasse':r<0.78?'coffre':r<0.90?'élite':'gemme';};
+  const _kw=()=>{const r=alea();return r<0.62?'impasse':r<0.78?'coffre':r<0.90?'élite':'gemme';};
   for(let bi=0;bi<G.branches.length;bi++){const br=G.branches[bi];const kind=_kw();
     const bx=br.x,by=br.y;const _el=Math.max(1,Math.round(aStart+(aEnd-aStart)*br.prog));
     if(kind==='coffre'||kind==='gemme'){
@@ -1927,7 +1961,7 @@ function buildAct(n){
        if(dist(p[0],p[1],spawn[0],spawn[1])<8)continue;
        /* densité propre à la région : un nid est encombré, une zone sombre nue */
        const _rp=regionDe(lvl,p[0],p[1]);
-       if(Math.random()>(_rp.densite||1)*0.72)continue;
+       if(alea()>(_rp.densite||1)*0.72)continue;
        pris[k]=1;
        lvl.props.push({tx:p[0],ty:p[1],x:p[0]*TS+TS/2+rand(-7,7),y:p[1]*TS+TS/2+rand(-5,5),
                        kind:liste[randi(0,liste.length-1)]});
@@ -7414,7 +7448,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.07 — '+'2026-08-20';
+const BUILD='v9.08 — '+'2026-08-21';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
