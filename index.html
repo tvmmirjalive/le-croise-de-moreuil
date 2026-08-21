@@ -283,6 +283,19 @@
   #questPanel{max-height:80vh;overflow:auto}
   /* largeur définie plus bas avec la mise en deux colonnes */
   #stashPanel{max-height:84vh;overflow:auto}
+  /* CES PANNEAUX N'AVAIENT AUCUNE POSITION HORIZONTALE.              (v9.07)
+
+     `.panel` est en `position:absolute` sans `left` ni `right` : faute de
+     règle propre, ils retombaient contre le bord GAUCHE de l'écran. Mesuré en
+     1440x900 avant correction : left = 0 pour les quatre. Le profil compact
+     les centrait déjà avec des `!important` — c'est le bureau qui manquait,
+     et personne ne l'avait vu parce que les tests de HUD visent le tactile.
+
+     `optPanel` et `waypointPanel` n'avaient pas non plus de hauteur maximale :
+     une liste un peu longue sortait de l'écran sans pouvoir défiler. */
+  #waypointPanel,#optPanel,#questPanel,#stashPanel{
+    left:50%;transform:translate(-50%,-50%);
+    max-height:84vh;overflow:auto;-webkit-overflow-scrolling:touch}
   .panel h2{font-size:15px;color:#f4d35e;margin-bottom:10px;letter-spacing:1px;padding-right:34px;
     border-bottom:1px solid #2a3350;padding-bottom:6px}
   /* Les colonnes suivent la taille réelle des cases : la piste était figée à
@@ -7401,7 +7414,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.06 — '+'2026-08-20';
+const BUILD='v9.07 — '+'2026-08-20';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -9164,7 +9177,14 @@ function togglePanel(id){const el=document.getElementById(id);const open=el.styl
     el.style.display=_showMode(id);
     const _duo=!ECRAN_COURT()&&!ECRAN_ETROIT();
     if(id==='invPanel'){renderInventory();if(_duo)document.getElementById('charPanel').style.display='flex';}
-    if(id==='charPanel'){if(_duo)document.getElementById('invPanel').style.display=_showMode('invPanel');renderInventory();setCharTab(charTab||'eq');updateBadges();}
+    /* L'ONGLET PERSONNAGE N'OUVRE PLUS L'INVENTAIRE.               (v9.07)
+
+       Sur grand écran, les deux onglets ouvraient la MÊME paire : Personnage
+       tirait l'inventaire, et l'inventaire tirait le personnage. Les deux
+       boutons donnaient donc exactement le même écran.
+       La règle voulue, rappelée par Mirja : Personnage ouvre le personnage,
+       Inventaire ouvre l'inventaire ET le personnage à côté, sur PC. */
+    if(id==='charPanel'){renderInventory();setCharTab(charTab||'eq');updateBadges();}
     if(id==='skillPanel')renderSkillPanel();if(id==='optPanel'){renderOptions();}   /* la pause vient de majPausePanneau */if(id==='treePanel')renderTree();if(id==='questPanel'){questNew=0;updateQuestBadge();renderQuests();}refreshHud();}
   if(typeof majPausePanneau==='function')majPausePanneau();
   if(typeof updateTabs==='function')updateTabs();}
@@ -10729,7 +10749,15 @@ const SFX=(function(){
      la musique serait revenue au premier coup d'épée. On note donc la
      suspension VOULUE, et on refuse de la lever ici. */
   let _dortVolontairement=false;
-  function ac(){ if(!ctx){try{ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=0.32*volSfx;master.connect(ctx.destination);}catch(e){return null;}}
+  function ac(){ if(!ctx){try{ctx=new(window.AudioContext||window.webkitAudioContext)();master=ctx.createGain();master.gain.value=0.32*volSfx;master.connect(ctx.destination);
+    /* UN CONTEXTE NAÎT EN MARCHE.                                    (v9.07)
+       Il est créé PARESSEUSEMENT, au premier son. S'il naît alors que la
+       fenêtre n'a plus le focus, `_suspendreSfx` est déjà passé — il n'avait
+       rien à suspendre — et le son sort dans le vide du bureau.
+       Mesuré : après un `blur`, la musique se taisait (contexte déjà créé au
+       lancement), les effets non. C'est tout l'écart entre les deux. */
+    if(_dortVolontairement){try{ctx.suspend();}catch(e){}}
+    }catch(e){return null;}}
     if(ctx.state==='suspended'&&!_dortVolontairement)ctx.resume(); return ctx; }
   /* iOS n'autorise la création et la reprise du contexte audio que pendant un
      geste utilisateur. On le déverrouille au premier contact, une seule fois. */
@@ -11075,7 +11103,14 @@ setupTabs();updateTabs();
      visible quand le panneau défile. En dernier, elle partait tout en bas. */
   if(el.firstChild)el.insertBefore(b,el.firstChild); else el.appendChild(b);}
   document.querySelectorAll('.panel').forEach(function(p){addX(p,function(){closeAllPanels();});});
-  var fm=document.getElementById('fullmap');if(fm){fm.style.position=fm.style.position||'fixed';addX(fm,function(){fermerCarte();});}
+  /* PAS DE SECONDE CROIX SUR LA CARTE.                             (v9.07)
+
+     `#fullmap` porte déjà `#fmClose`, une croix ronde bien intégrée au cadre,
+     branchée sur toggleFullMap donc sur fermerCarte. `addX` en ajoutait une
+     seconde, plus haut et hors du cadre : son garde-fou ne cherche qu'un
+     enfant DIRECT de classe `.closeX`, or #fmClose est imbriqué dans #fmWrap
+     et porte un autre nom. On garde celle qui est dessinée pour la carte. */
+  var fm=document.getElementById('fullmap');if(fm){fm.style.position=fm.style.position||'fixed';}
 })();
 
 renderSkillBar();
