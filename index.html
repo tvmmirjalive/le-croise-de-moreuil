@@ -7477,7 +7477,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.10 — '+'2026-08-21';
+const BUILD='v9.11 — '+'2026-08-21';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -9759,15 +9759,28 @@ let saveTimer=6;
    aussi dans un vrai fichier. En navigateur le pont est absent : rien ne change. */
 const SaveIO={
   write(s){ try{localStorage.setItem(cleEmpl(emplActif),s);}catch(e){}
-            /* Le pont natif ne gère qu'une sauvegarde : seul l'emplacement 1
-               le nourrit, comme avant. */
-            if(emplActif!==1)return;
-            try{ if(window.OutlawSave&&window.OutlawSave.write)window.OutlawSave.write(s);
-                 else if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.outlawSave)
-                   window.webkit.messageHandlers.outlawSave.postMessage(s); }catch(e){} },
+            /* LE PONT NE TIENT QU'UN SEUL FICHIER.                    (v9.11)
+
+               Il ne portait que l'emplacement 1 : les 2, 3 et 4 seraient perdus
+               au changement d'origine. On y écrit maintenant une ENVELOPPE
+               contenant les quatre, plus les réglages. C'est le MÊME appel
+               natif et le MÊME fichier — aucune coque à modifier — mais on ne
+               peut pas faire les deux : l'enveloppe REMPLACE l'écriture nue,
+               sinon les deux formats s'écraseraient l'un l'autre. */
+            try{ exporterVersPont(); }catch(e){} },
   read(){ let a=null,b=null;
           try{a=localStorage.getItem(cleEmpl(emplActif));}catch(e){}
-          try{ if(emplActif===1&&window.OutlawSave&&window.OutlawSave.read)b=window.OutlawSave.read(); }catch(e){}
+          /* Le pont peut contenir DEUX formats : l'enveloppe de la v9.11, ou
+             une sauvegarde nue laissée par une version antérieure. On sait
+             lire les deux — une vieille installation ne doit rien perdre. */
+          try{ if(window.OutlawSave&&window.OutlawSave.read){
+                 const brut=window.OutlawSave.read();
+                 if(brut){
+                   let env=null; try{env=JSON.parse(brut);}catch(e){}
+                   if(env&&env.pont===PONT_V){ b=(env.emplacements||{})[String(emplActif)]||null; }
+                   else if(emplActif===1){ b=brut; }
+                 }
+               } }catch(e){}
           if(!a)return b; if(!b)return a;
           try{const pa=JSON.parse(a),pb=JSON.parse(b);
               return ((pb.xpTotal||0)>(pa.xpTotal||0))?b:a;}catch(e){return a;} },
@@ -9775,6 +9788,80 @@ const SaveIO={
            if(emplActif!==1)return;
            try{ if(window.OutlawSave&&window.OutlawSave.clear)window.OutlawSave.clear(); }catch(e){} }
 };
+/* ================================================================
+   MIGRATION DES SAUVEGARDES — avant le changement d'origine   (v9.11)
+
+   Le jeu va passer d'une origine `file://` à une origine `https://` virtuelle,
+   pour que les modules ES puissent se charger dans les WebView. Changer
+   d'origine change le `localStorage` : une origine ne peut pas lire celui
+   d'une autre, c'est l'isolation elle-même, pas un contournement à trouver.
+
+   Or le pont natif ne portait QUE l'emplacement 1 :
+
+     write(s){ localStorage.setItem(cleEmpl(emplActif), s);
+               if(emplActif !== 1) return;        // <- 2, 3 et 4 restaient là
+               window.OutlawSave.write(s); }
+
+   Les emplacements 2, 3 et 4, les réglages et l'emplacement actif auraient donc
+   été PERDUS à la bascule. La migration ne peut pas se faire après : au nouvel
+   emplacement il n'y a plus rien à lire. Elle se fait donc MAINTENANT, pendant
+   qu'on est encore en `file://`.
+
+   Les deux ponts — Android et iOS — stockent une CHAÎNE QUELCONQUE dans un
+   fichier natif, et iOS amorce son cache depuis ce fichier au chargement. On y
+   écrit donc une ENVELOPPE contenant tout : aucune coque native à modifier.
+
+   ⚠ Un joueur qui saute cette version perd ses emplacements 2 à 4. Coût
+   accepté par Mirja le 21 août 2026. */
+const PONT_V=1;
+function exporterVersPont(){
+  if(!(window.OutlawSave&&window.OutlawSave.write))return false;
+  const empl={};
+  for(let n=1;n<=NB_EMPL;n++){
+    let brut=null; try{brut=localStorage.getItem(cleEmpl(n));}catch(e){}
+    if(brut)empl[n]=brut;
+  }
+  let opt={}; try{opt=JSON.parse(JSON.stringify(OPT))||{};}catch(e){}
+  const env={pont:PONT_V,actif:emplActif,emplacements:empl,opt:opt};
+  try{ window.OutlawSave.write(JSON.stringify(env)); return true; }catch(e){ return false; }
+}
+/* Rend le NOMBRE d'emplacements restaurés, 0 s'il n'y avait rien à faire.
+   Ne remplace jamais une sauvegarde déjà présente : au retour à la même
+   origine, le stockage local fait foi. */
+function restaurerDepuisPont(){
+  if(!(window.OutlawSave&&window.OutlawSave.read))return 0;
+  let brut=null; try{brut=window.OutlawSave.read();}catch(e){}
+  if(!brut)return 0;
+  let env=null; try{env=JSON.parse(brut);}catch(e){}
+  /* ANCIEN FORMAT — une sauvegarde nue, pas une enveloppe. Une installation
+     qui n'a jamais vu cette version doit continuer de retrouver son
+     emplacement 1 : on ne casse pas les joueurs d'avant. */
+  if(!env||env.pont!==PONT_V){
+    let deja=null; try{deja=localStorage.getItem(cleEmpl(1));}catch(e){}
+    if(deja)return 0;
+    try{localStorage.setItem(cleEmpl(1),brut);}catch(e){return 0;}
+    return 1;
+  }
+  let n=0;
+  for(const k in env.emplacements){
+    const i=parseInt(k,10); if(!(i>=1&&i<=NB_EMPL))continue;
+    let deja=null; try{deja=localStorage.getItem(cleEmpl(i));}catch(e){}
+    if(deja)continue;
+    try{localStorage.setItem(cleEmpl(i),env.emplacements[k]);n++;}catch(e){}
+  }
+  /* ⚠ PAS `optSet` ICI. Il se termine par `if(running) saveGame()`, ce qui
+     réécrirait l'emplacement ACTIF avec le personnage encore en mémoire.
+     Mesuré : l'emplacement 2 repartait au niveau 14, celui du dernier
+     personnage chargé, au lieu du 12 qu'il portait. Le garde-fou d'optSet
+     protège du cas inverse — changer un réglage hors partie — et ne voyait
+     pas celui-ci. On écrit donc dans OPT, puis on applique. */
+  if(env.opt&&typeof OPT!=='undefined'){
+    for(const k in env.opt){ if(k in OPT)OPT[k]=env.opt[k]; }
+    if(typeof optAppliquer==='function'){try{optAppliquer();}catch(e){}}
+  }
+  if(env.actif>=1&&env.actif<=NB_EMPL){ try{localStorage.setItem(CLE_EMPL_ACTIF,String(env.actif));}catch(e){} }
+  return n;
+}
 function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets,dons:player.dons,scenesVues:player.scenesVues,dits:player.dits,horo:Date.now()}));}catch(e){}}
 /* ================================================================
    MIGRATION DES SAUVEGARDES ANTÉRIEURES              (v8.75)
@@ -10491,6 +10578,23 @@ function fermerEcranTitre(){
   if(bt)bt.style.display='';
   const m=document.getElementById('ovMenu');if(m)m.style.display='none';
 }
+/* LA MIGRATION SE FAIT ICI, AVANT QUE QUOI QUE CE SOIT NE LISE UNE
+   SAUVEGARDE.                                                       (v9.11)
+
+   Le jeu passera bientôt d'une origine `file://` à une origine `https://`
+   virtuelle, pour que les modules ES se chargent dans les WebView. Le
+   `localStorage` étant attaché à l'origine, il repartira vide. On le
+   reconstruit depuis le pont natif, qui survit — c'est un fichier.
+
+   Ne remplace jamais une sauvegarde déjà présente : au retour à la même
+   origine, le stockage local fait foi. Sans pont — en navigateur — ne fait
+   rien du tout. */
+try{
+  const _repris=restaurerDepuisPont();
+  if(_repris>0&&typeof toast==='function')
+    toast('💾 '+_repris+' sauvegarde'+(_repris>1?'s':'')+' restaurée'+(_repris>1?'s':'')+'.',3.5);
+}catch(e){}
+
 ouvrirEcranTitre();
 
 /* ================================================================
