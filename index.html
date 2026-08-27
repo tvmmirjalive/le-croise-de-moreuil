@@ -7477,7 +7477,7 @@ function toast(m,t){document.getElementById('toast').textContent=m;toastTimer=t|
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)essayer(); });
 })();
 
-const BUILD='v9.11 — '+'2026-08-21';
+const BUILD='v9.12 — '+'2026-08-24';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
@@ -9862,6 +9862,27 @@ function restaurerDepuisPont(){
   if(env.actif>=1&&env.actif<=NB_EMPL){ try{localStorage.setItem(CLE_EMPL_ACTIF,String(env.actif));}catch(e){} }
   return n;
 }
+/* L'AMORÇAGE — appelé une fois, au démarrage, avant toute lecture. (v9.12)
+
+   Il fait les DEUX sens, et l'ordre compte :
+
+     1. on restaure ce que le pont a gardé, si le stockage local est vide —
+        c'est le cas au lendemain d'un changement d'origine ;
+     2. on RÉÉCRIT l'enveloppe, même si personne ne sauvegarde ensuite.
+
+   Le second point est la lacune que la v9.11 avait laissée, et qui s'est vue
+   sur l'appareil : le fichier natif du Pixel datait d'AVANT la v9.11 et portait
+   encore le format nu, parce que l'enveloppe ne s'écrivait qu'à la sauvegarde.
+   Un joueur qui bascule d'origine sans avoir joué entre-temps aurait donc perdu
+   ses emplacements 2 à 4 malgré la migration.
+
+   Une migration qui attend que le joueur agisse n'est pas une migration. */
+function amorcerPont(){
+  let repris=0;
+  try{ repris=restaurerDepuisPont(); }catch(e){}
+  try{ exporterVersPont(); }catch(e){}
+  return repris;
+}
 function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets,dons:player.dons,scenesVues:player.scenesVues,dits:player.dits,horo:Date.now()}));}catch(e){}}
 /* ================================================================
    MIGRATION DES SAUVEGARDES ANTÉRIEURES              (v8.75)
@@ -10590,7 +10611,7 @@ function fermerEcranTitre(){
    origine, le stockage local fait foi. Sans pont — en navigateur — ne fait
    rien du tout. */
 try{
-  const _repris=restaurerDepuisPont();
+  const _repris=amorcerPont();
   if(_repris>0&&typeof toast==='function')
     toast('💾 '+_repris+' sauvegarde'+(_repris>1?'s':'')+' restaurée'+(_repris>1?'s':'')+'.',3.5);
 }catch(e){}
