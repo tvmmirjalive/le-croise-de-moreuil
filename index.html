@@ -4948,6 +4948,29 @@ function arenaUpdate(dt){
     }
   }
 }
+/* ⚠ LA FOSSE POSAIT SES ENNEMIS DANS LE MUR.                       (v9.16)
+
+   Signalé par Mirja en jouant. La dispersion était `rand(-2,2)` en x ET en y
+   autour d'un point d'apparition, SANS AUCUN CONTRÔLE de praticabilité. Or
+   l'arène est un disque de rayon R=13 et les huit points sont à R-2 = 11 :
+   √(13² + 2²) ≈ 13,15 tombe hors du disque. Ce n'était pas un risque, c'était
+   de l'arithmétique — mesuré : 11 ennemis sur 93, soit 11,8 %.
+
+   LES ACTES N'AVAIENT PAS CE DÉFAUT parce qu'ils tirent dans `rf`, la liste
+   des cases de SOL réelles. La Fosse retrouve ici la même garantie : on
+   n'accepte qu'une case praticable, et à défaut on retombe sur le point
+   d'apparition lui-même, qui est sur du sol par construction. */
+const ARENE_DISPERSION=2, ARENE_ESSAIS=8;
+function _arenePosePropre(sp){
+  for(let k=0;k<ARENE_ESSAIS;k++){
+    const tx=sp[0]+Math.round(rand(-ARENE_DISPERSION,ARENE_DISPERSION));
+    const ty=sp[1]+Math.round(rand(-ARENE_DISPERSION,ARENE_DISPERSION));
+    if(tx>=0&&ty>=0&&tx<level.w&&ty<level.h&&walkableCode(level.grid[idx(level.w,tx,ty)]))
+      return [tx*TS+TS/2, ty*TS+TS/2];
+  }
+  return [sp[0]*TS+TS/2, sp[1]*TS+TS/2];
+}
+
 function arenaStartWave(){
   const A=level.arena; A.wave++; A.state='fight';
   const last=(A.wave>=A.tier.waves);
@@ -4974,7 +4997,7 @@ function arenaStartWave(){
   const n=Math.round((5+A.wave*2)*(1+(mod.extra||0)));
   for(let i=0;i<n;i++){
     const sp=pick(A.spawnPts);
-    const x=(sp[0]+rand(-2,2))*TS+TS/2,y=(sp[1]+rand(-2,2))*TS+TS/2;
+    const [x,y]=_arenePosePropre(sp);
     const r=alea();
     let kind = r<0.22?'imp' : r<0.46?'wraith' : r<0.68?'shade' : r<0.87?'brute' : 'golem';
     const e=makeEnemy(kind,x,y,4,L);
@@ -8678,7 +8701,7 @@ function setToastTimer(v){toastTimer=v;}
    Sans effet au clavier-souris, où l'API n'existe pas.
    ================================================================ */
 
-const BUILD='v9.15 — '+'2026-08-29';
+const BUILD='v9.16 — '+'2026-08-29';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 
