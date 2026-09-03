@@ -1,0 +1,20 @@
+/* démarrage : dans l'ordre des préfixes, après toutes les déclarations */
+_demarrer00();
+_demarrer01();
+_demarrer08();
+_demarrer09();
+_demarrer12();
+_demarrer15();
+_demarrer17();
+_demarrer20();
+_demarrer21();
+_demarrer22();
+_demarrer26();
+_demarrer27();
+_demarrer28();
+_demarrer29();
+_demarrer31();
+_demarrer33();
+_demarrer34();
+_demarrer35();
+_demarrer36();
