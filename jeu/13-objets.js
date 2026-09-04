@@ -112,7 +112,7 @@ function hitRelic(){
   R.destroyed=true; relicDestroyed[R.act]=true; SFX.relique&&SFX.relique();
   burst(R.x,R.y,'#ffffff',60); burst(R.x,R.y,RELICS[R.act].col,60);
   showBanner(t('relique.detruite'), t('relique.detruite.sub',{nom:nomRelique(R.act)}));
-  toast(t('relique.brisee',{nom:nomRelique(R.act)}),3.6);
+  toast(tDiff('relique.brisee',{nom:nomRelique(R.act)}),3.6);
   player.gold+=200+R.act*150; gainXp(200+R.act*120);
   dropItem(R.x+20,R.y,makeItem(R.act>=3?'unique':'rare'));
   checkQuests&&checkQuests(); refreshHud();

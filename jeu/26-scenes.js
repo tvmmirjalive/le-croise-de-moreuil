@@ -11,6 +11,7 @@
 
 
 
+
 /* ================================================================
    SCÈNES — LE JEU S'ARRÊTE ET PARLE                        (v8.69)
 
@@ -68,7 +69,18 @@ const VOIX={
   bruna:{nom:'Bruna la Forgeronne',por:'por_bruna'},
   garrek:{nom:'Garrek le Marchand',por:'por_garrek'},
   anselme:{nom:'Anselme « la Cage »',por:'por_anselme'},
-  verdier:{nom:'Green Falcon',por:null,col:'#2fbf4f'},
+  /* ⚠ SON NOM N'EST PAS UNE CHAÎNE, ET IL A CESSÉ DE L'ÊTRE.       (v9.53)
+
+     Il valait 'Green Falcon'. Or DEUX répliques d'`acte4_cauchemar` et DEUX
+     de la `bascule` ne surchargent pas ce nom : celles où il tremble en
+     avouant avoir signé sans lire s'affichaient sous l'en-tête « Green
+     Falcon ». L'homme portait le nom de la chose qui l'avait mangé, dans la
+     scène même où il en était la victime.
+
+     Rien ne pouvait l'attraper : le défaut n'était pas dans le texte, il
+     était ICI. Même famille que la fuite du nom du succube (§85) — une donnée
+     résolue à l'affichage se révèle partout à la fois, ou nulle part. */
+  verdier:{nom:()=>nomVerdier(),por:null,col:'#2fbf4f'},
   /* ⚠ SON NOM N'EST PAS ÉCRIT ICI NON PLUS. La voix porte la BALISE, comme
      les textes : `nomSuccube()` la résout à l'affichage, en périphrase tant
      que Mirja n'a pas donné le nom. Le violet la sépare du vert du Falcon —
@@ -183,8 +195,64 @@ function _pointsScene(){
    anglais porte la balise lui aussi, et sa périphrase lui est propre — écrire
    le nom dans l'une des deux langues seulement serait le pire des deux mondes. */
 const SUCCUBE_BALISE='⟦ELLE⟧';
-const SUCCUBE_NOM=null;          // ← Mirja le donnera. C'est le SEUL endroit.
-function nomSuccube(){ return SUCCUBE_NOM || t('succube.innommee'); }
+/* ⚠ LE NOM EST DONNÉ — ET IL NE DOIT PAS FUIR AVANT SA SCÈNE.   (v9.51)
+
+   `VELLAUNA`, de la racine gauloise *vellauno-*, « celui qui commande ».
+   Gravé en lettres romaines sur les pierres du bois : **VELLAVNA**, huit
+   lettres, dont le second V se dit U. C'est tout le ressort de l'enquête :
+   Régis relève les lettres au fond du grand bain, Sœur Vaast donne la règle
+   de lecture, et le joueur attentif prononce le nom AVANT Aldric.
+
+   ⚠ POSER `SUCCUBE_NOM` NE SUFFIT PAS, ET LE FAIRE SEUL AURAIT TOUT CASSÉ.
+   `VOIX.elle.nom` est une fonction résolue à l'affichage : le nom se serait
+   affiché en en-tête **dès la bascule de fin de Normal**, avant que
+   quiconque le sache, et l'enquête entière serait tombée à plat — sans une
+   erreur, sans un test rouge. C'est exactement le genre de défaut que rien
+   n'attrape.
+
+   Le nom ne se résout donc qu'une fois RÉVÉLÉ. Le drapeau est posé par la
+   réplique elle-même — `{revele:true}` sur la ligne où elle se nomme — et
+   non à la fin de la scène : sinon la révélation afficherait la périphrase.
+   Il vit dans `player.scenesVues`, déjà sauvegardé et déjà remis à zéro par
+   `reinitialiserPartie` : aucun champ nouveau, aucune migration. */
+const SUCCUBE_NOM='Vellauna';
+const SUCCUBE_LETTRES='VELLAVNA';
+function nomRevele(){
+  return !!(player && player.scenesVues && player.scenesVues.nomRevele);
+}
+function revelerNom(){
+  if(!player)return;
+  if(!player.scenesVues)player.scenesVues={};
+  player.scenesVues.nomRevele=1;
+}
+/* ── LE FALCON EST TOMBÉ, VERDIER RESTE ──────────────────────────── v9.53
+
+   « Green Falcon » tant qu'il l'est ; « Coach Verdier » dès qu'il ne l'est
+   plus. La bascule se lit sur le récit, pas sur le mode : elle prend effet dès
+   la scène `final` — où il n'est déjà plus qu'un vieil homme en survêtement
+   qui pleure — et donc pendant la `bascule` elle-même, sans attendre le
+   changement de difficulté.
+
+   ⚠ `difficulty` est lu comme un GLOBAL, sans import : convention du
+   voisinage, et un `import` ici fait ÉCHOUER la validation esbuild. */
+function falconTombe(){
+  if(typeof difficulty!=='undefined' && difficulty>=1)return true;
+  /* ⚠ LA SCÈNE EN COURS COMPTE, PAS SEULEMENT LE REGISTRE.
+     Dans la `bascule`, il est assis devant les cinq reliques froides et il
+     pleure : il n'est plus le Falcon, même si le registre n'a pas encore
+     enregistré `final`. S'appuyer sur `scenesVues` seul rendait le bon
+     résultat en partie normale — `final` est joué juste avant — et le
+     MAUVAIS dès qu'on relit la scène depuis le journal, sur une sauvegarde
+     neuve. La scène sait ce qu'elle raconte : on le lui demande. */
+  if(_scene && (_scene.id==='bascule' || /_cauchemar$|_enfer$/.test(_scene.id)))return true;
+  const vues=player&&player.scenesVues;
+  return !!(vues && (vues.final || vues.bascule));
+}
+function nomVerdier(){ return falconTombe()?t('voix.verdierHomme'):t('voix.verdierFalcon'); }
+
+function nomSuccube(){
+  return (SUCCUBE_NOM && nomRevele()) ? SUCCUBE_NOM : t('succube.innommee');
+}
 function texteSuccube(tx){
   return (tx||'').split(SUCCUBE_BALISE).join(nomSuccube());
 }
@@ -195,6 +263,11 @@ function texteReplique(i){
 }
 function _replique(k){
   const S=_scene.S, r=S.repliques[k]; if(!r)return _finScene();
+  /* LA RÉVÉLATION SE FAIT ICI, PAS À LA FIN DE LA SCÈNE.           (v9.51)
+     La réplique qui porte `revele` est celle où elle prononce son nom : le
+     drapeau doit être posé AVANT que le texte soit composé, sans quoi la
+     révélation elle-même afficherait « celle qui est sortie ». */
+  if(r.revele)revelerNom();
   _scene.i=k;_scene.n=0;_scene.fini=false;
   const V=VOIX[r.qui]||VOIX.recit;
   const im=document.getElementById('sceneImg'), rd=document.getElementById('sceneRond');
@@ -277,7 +350,25 @@ function openDialogue(npc){
      Les index sont '0'..'4', 'arena' et '-1' — stables, contrairement au nom
      affiché qui, lui, se traduit. */
   const gk=(GIVER[a]?a:'-1');
-  const gtxt=function(c){ return tOu('donneur.'+gk+'.'+c, g[c]||''); };
+  /* ── LES DONNEURS CHANGENT DE TEXTE EN CAUCHEMAR ──────────────── v9.51
+
+     Même règle que les scènes, et pour la même raison : la résolution se fait
+     ICI, en un seul endroit, de sorte qu'ajouter une variante reste une
+     affaire de DONNÉES. Une voix sans variante retombe sur celle du mode
+     Normal — le comportement d'avant, à la ligne près.
+
+     ⚠ LA RÉSOLUTION EST PAR VOIX, PAS PAR DONNEUR. Un donneur qui n'aurait
+     qu'un `greet` de Cauchemar garde ses `encours` et `fin` d'origine plutôt
+     que de perdre les trois.
+
+     ⚠ `difficulty` est lu comme un GLOBAL, sans import : c'est la convention
+     du voisinage, et un `import` ici fait ÉCHOUER la validation esbuild. */
+  const gcau=(typeof difficulty!=='undefined'&&difficulty>=1
+              &&typeof GIVER_CAUCHEMAR!=='undefined')?GIVER_CAUCHEMAR[gk]:null;
+  const gtxt=function(c){
+    if(gcau&&gcau[c])return tOu('donneur.'+gk+'.'+c+'_cauchemar', gcau[c]);
+    return tOu('donneur.'+gk+'.'+c, g[c]||'');
+  };
   const gnom=tOu('donneur.'+gk+'.nom', g.name||'');
   {const POR={'faucon':'por_faucon','garrek':'por_garrek','bruna':'por_bruna','vaast':'por_vaast','poilu':'por_poilu','arena':'por_anselme','regis':'por_regis','coequipier':'por_coequipier'};
    /* ⚠ LE PORTRAIT SE CHERCHE SUR LE NOM FRANÇAIS, PAS SUR LE NOM AFFICHÉ.

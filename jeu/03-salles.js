@@ -479,11 +479,41 @@ function _actArene(lvl, n, bpos){
   lvl.bossArena={x:bpos[0],y:bpos[1],r:15};
 }
 
+/* ⚠ AUCUN ENNEMI COLLÉ À UNE BALISE.                              (v9.50)
+
+   Défaut trouvé par Mirja en jouant : on arrive par voyage rapide au milieu
+   d'un groupe, on n'a rien vu venir, on meurt gratuitement. Les balises sont
+   posées par `_actBalises` AVANT les ennemis ; la boucle de pose tirait dans
+   les cases de sol sans jamais les regarder. Mesuré sur 6 graines × 5 actes
+   par `_outils/matrice_balises.js` : 37 % des balises avaient un ennemi à
+   moins de 3 cases, et la plus proche était à 0,0 — littéralement dessus.
+
+   ⚠ LE RAYON N'EST PAS UN CHIFFRE DE CONFORT. Un ennemi s'éveille à 300
+   unités du héros (`17-visee.js`), soit 300/44 = 6,82 cases. Sept, c'est
+   cette portée arrondie au-dessus, et rien de plus : en dessous le joueur
+   arrive déjà repéré, au-dessus on vide les actes sans rien gagner. Le coût
+   mesuré est de 1,2 % de l'effectif.
+
+   Le point d'apparition du héros avait déjà son écart — 14 cases, en dur dans
+   la boucle — ce qui protégeait la balise d'entrée par ricochet, et elle
+   seule. Les quatre autres n'étaient protégées par rien. */
+const EXCLUSION_BALISE=7;
+function _actPresDUneBalise(lvl,px,py,marge){
+  const r=EXCLUSION_BALISE+(marge||0);
+  for(const n of lvl.npcs){
+    if(n.type!=='waypoint')continue;
+    const dx=px-n.tx, dy=py-n.ty;
+    if(dx*dx+dy*dy<r*r)return true;
+  }
+  return false;
+}
+
 /* Les ennemis : une rampe de niveau selon l'avancement le long du tronc. */
 function _actEnnemis(lvl, A, rf, progAt){
   const spawn=lvl.spawn,aStart=lvl.aStart,aEnd=lvl.aEnd;
   const nEn=Math.min(1600,Math.round(rf.length*0.028)+120);
   for(let i=0;i<nEn;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<14)continue;
+    if(_actPresDUneBalise(lvl,p[0],p[1]))continue;
     let kind='imp';const r=alea();
     if(A.depth>=3&&r<0.16)kind='golem';else if(A.depth>=1&&r<0.34)kind='shade';else if(A.depth>=2&&r<0.5)kind='brute';else if(r<0.62)kind='wraith';else if(r<0.74)kind='brute';
     /* Penchant de région : deux fois sur trois, la région impose son espèce.
@@ -552,7 +582,31 @@ function _actBranches(lvl, A, G){
     if(kind==='coffre'||kind==='gemme'){
       {const _c=poserObjet(lvl,bx,by,{opened:false,depth:A.depth,gem:kind==='gemme'},5);if(_c)lvl.chests.push(_c);}
     } else if(kind==='élite'){
-      for(let k=0;k<2;k++){const e=makeEnemy(A.depth>=2?'brute':'wraith',bx*TS+TS/2+rand(-20,20),by*TS+TS/2+rand(-20,20),A.depth,_el);makeElite(e);lvl.enemies.push(e);}
+      /* LE CAMP SE DÉPLACE, IL NE DISPARAÎT PAS.                   (v9.50)
+
+         Deux élites tombées à trois cases d'une balise, c'est pire que dix
+         diablotins : on ne les esquive pas. Mais une branche porte aussi son
+         coffre, et supprimer le camp supprimerait la récompense. On pousse
+         donc le camp à l'opposé de la balise, puis on recale sur du sol.
+
+         ⚠ ET SI LE RECALAGE RETOMBE DANS LE DISQUE, ON RENONCE AUX ÉLITES —
+         PAS AU COFFRE. C'est la leçon d'`_arenePosePropre` (v9.16) : un
+         repli qui ne peut pas échouer vaut mieux qu'une boucle qui insiste.
+         Les 0,5 case de marge couvrent la dispersion `rand(-20,20)` de la
+         pose, qui vaut presque une demi-case. */
+      let ex=bx, ey=by, poser=true;
+      if(_actPresDUneBalise(lvl,ex,ey,0.5)){
+        let bal=null,bd=1e18;
+        for(const n of lvl.npcs){if(n.type!=='waypoint')continue;
+          const d=(ex-n.tx)*(ex-n.tx)+(ey-n.ty)*(ey-n.ty);if(d<bd){bd=d;bal=n;}}
+        const d=Math.sqrt(bd)||1;
+        const ux=(ex-bal.tx)/d, uy=(ey-bal.ty)/d;
+        const q=_actCaseSolProche(lvl,Math.round(bal.tx+ux*(EXCLUSION_BALISE+2)),
+                                      Math.round(bal.ty+uy*(EXCLUSION_BALISE+2)));
+        ex=q[0];ey=q[1];
+        if(_actPresDUneBalise(lvl,ex,ey,0.5))poser=false;
+      }
+      if(poser)for(let k=0;k<2;k++){const e=makeEnemy(A.depth>=2?'brute':'wraith',ex*TS+TS/2+rand(-20,20),ey*TS+TS/2+rand(-20,20),A.depth,_el);makeElite(e);lvl.enemies.push(e);}
       {const _c=poserObjet(lvl,bx,by,{opened:false,depth:A.depth},5);if(_c)lvl.chests.push(_c);}
     } else {
       for(let k=0;k<randi(2,4);k++){const q=_actCaseSolProche(lvl,bx+randi(-2,2),by+randi(-2,2));lvl.breakables.push({tx:q[0],ty:q[1],x:q[0]*TS+TS/2,y:q[1]*TS+TS/2,broken:false,r:14});}

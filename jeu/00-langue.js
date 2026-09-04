@@ -136,6 +136,10 @@ const TEXTES={
     'relique.detruite':'RELIQUE DÉTRUITE',
     'relique.detruite.sub':'{nom} — la porte s’ouvre',
     'relique.brisee':'✦ {nom} brisée ! Le Falcon perd une ancre.',
+    /* ── LES QUATRE CHAÎNES QUI NOMMAIENT LE FALCON EN PERMANENCE (v9.53)
+       Elles sont lues par `tDiff`, qui prend la variante dès le Cauchemar. En
+       Normal elles ne bougent pas : là, le Falcon EST l'ennemi. */
+    'relique.brisee_cauchemar':'✦ Écho de {nom} brisé ! Elle vient de lâcher quelque chose.',
     'objet.pasDeParchemin':'Aucun Parchemin d’Identification — achète-en au marchand 🛒',
     'forge.rienIci':'Rien à réparer ici',
     'forge.manqueOr':'Il te manque {or} or pour cette pièce',
@@ -225,6 +229,7 @@ const TEXTES={
     'sac.jete':'Objet jeté au sol',
     'fosse.nomNiveau':'La Fosse — {palier}',
     'fosse.pasDeCle':'Il te faut une clé {palier} — arrache-la à un lieutenant du Falcon',
+    'fosse.pasDeCle_cauchemar':'Il te faut une clé {palier} — arrache-la à l’un de ses gardiens recopiés',
     'fosse.pasDecho':'Aucun écho disponible : tue d’abord un boss de campagne',
     'fosse.banniere':'LA FOSSE — {palier}',
     'fosse.niveauEchos':'Niveau des échos : +{n}',
@@ -327,8 +332,10 @@ const TEXTES={
     'boutique.merchant.3':'« Achète tant qu’il reste une ville pour dépenser. »',
     'boutique.smith.0':'« Ramène-moi du métal, je te ramène un chef-d’œuvre. »',
     'boutique.smith.1':'« Frappe fort, mais frappe juste. Le Falcon ne te laissera qu’une occasion. »',
+    'boutique.smith.1_cauchemar':'« Frappe fort, mais frappe juste. Ce qu’elle renvoie ne se casse qu’une fois. »',
     'boutique.smith.2':'« Une gemme bien sertie vaut mille prières. »',
     'boutique.smith.3':'« Le Coach ? Un jour je lui forgerai un cercueil sur mesure. »',
+    'boutique.smith.3_cauchemar':'« Le Coach ? *Elle repose son marteau.* Il est venu me rendre son sifflet, la semaine dernière. Il tremblait. Je lui ai forgé une canne. »',
     'boutique.potSoin.nom':'Potion de soin',
     'boutique.potSoin.aide':'Rend 50% des PV',
     'boutique.potSoin.bouton':'Acheter',
@@ -508,6 +515,9 @@ const TEXTES={
     'fosse.palierEchos':'Palier {n} — les échos y sont {n} fois plus tenaces',
     'cine.passer':'Toucher pour passer',
     'succube.innommee':'celle qui est sortie',
+    /* Verdier porte deux noms selon l’endroit du récit — voir `nomVerdier`. */
+    'voix.verdierFalcon':'Green Falcon',
+    'voix.verdierHomme':'Coach Verdier',
     'scene.reprendre':'<b>Cliquer</b> pour reprendre',
     'scene.suite':'<b>Cliquer</b> pour la suite',
     'scene.tout':'<b>Cliquer</b> pour tout afficher',
@@ -555,6 +565,7 @@ const TEXTES={
     'quete.ou.niveau':'niveau {n} requis',
     'quete.ou.portail':'au village, près du portail',
     'quete.ou.lieutenants':'aux lieutenants du Falcon',
+    'quete.ou.lieutenants_cauchemar':'aux gardiens qu’elle a recopiés',
     'quete.ou.fosse':'dans la Fosse',
     'quete.ou.recrache':'la Fosse en recrache',
     'bous.anselme':'Il est près du portail de la Fosse.',
@@ -670,6 +681,7 @@ const TEXTES={
     'relique.detruite':'RELIC DESTROYED',
     'relique.detruite.sub':'{nom} — the door opens',
     'relique.brisee':'✦ {nom} broken! The Falcon loses an anchor.',
+    'relique.brisee_cauchemar':'✦ Echo of {nom} broken! She has just let something go.',
     'objet.pasDeParchemin':'No Scroll of Identification — buy one from the merchant 🛒',
     'forge.rienIci':'Nothing to repair here',
     'forge.manqueOr':'You are {or} gold short for this piece',
@@ -759,6 +771,7 @@ const TEXTES={
     'sac.jete':'Item dropped on the floor',
     'fosse.nomNiveau':'The Pit — {palier}',
     'fosse.pasDeCle':'You need a {palier} key — take one off a lieutenant of the Falcon',
+    'fosse.pasDeCle_cauchemar':'You need a {palier} key — take one off one of her copied-out guardians',
     'fosse.pasDecho':'No echo available: kill a campaign boss first',
     'fosse.banniere':'THE PIT — {palier}',
     'fosse.niveauEchos':'Echo level: +{n}',
@@ -861,8 +874,10 @@ const TEXTES={
     'boutique.merchant.3':'“Buy while there is still a town to spend it in.”',
     'boutique.smith.0':'“Bring me metal, I bring you a masterpiece.”',
     'boutique.smith.1':'“Hit hard, but hit true. The Falcon will give you one chance.”',
+    'boutique.smith.1_cauchemar':'“Hit hard, but hit true. What she sends back only breaks once.”',
     'boutique.smith.2':'“A well-set gem is worth a thousand prayers.”',
     'boutique.smith.3':'“The Coach? One day I shall forge him a coffin made to measure.”',
+    'boutique.smith.3_cauchemar':'“The Coach? *She puts down her hammer.* He came in last week to hand me back his whistle. He was shaking. I forged him a walking stick.”',
     'boutique.potSoin.nom':'Healing potion',
     'boutique.potSoin.aide':'Restores 50% of health',
     'boutique.potSoin.bouton':'Buy',
@@ -1054,15 +1069,19 @@ const TEXTES={
     'scene.final_cauchemar.2':'I did not break five relics to set you free. I broke them to draw you out.',
     'scene.final_cauchemar.3':'You do not know what I am.',
     'scene.final_cauchemar.4':'No. But Verdier signed under a line. Sister Vaast burned a register. The Poilu guarded a door for a hundred and eight years. *He raises his stick.* And the tiling of the deep end never burned.',
-    'scene.final_cauchemar.5':'*He speaks the word cut beneath the water since 1974.*',
-    'scene.final_cauchemar.6':'⟦ELLE⟧.',
-    /* ⚠ PAS DE CLÉ POUR CE NOM-LÀ. La réplique de la révélation porte
+    'scene.final_cauchemar.5':'Eight letters under the water, since 1974. V. E. L. L. A. V. N. A. *A pause.* A mason cut them where fire does not go, because his grandfather had watched the rest burn.',
+    'scene.final_cauchemar.6':'*The frost climbs the shards all at once.* Letters. They are only letters. You cannot even say them.',
+    'scene.final_cauchemar.7':'Sister Vaast taught me this morning. On a Roman stone, that V is not a V. *He looks up.* It is a U.',
+    'scene.final_cauchemar.8':'*He speaks the word nobody in Moreuil has said for two thousand years.*',
+    'scene.final_cauchemar.9':'⟦ELLE⟧.',
+    /* ⚠ PAS DE CLÉ POUR CE NOM-LÀ — la réplique 9. La réplique de la révélation porte
        `nom:''` EXPRÈS — le nom s'affiche dans le texte, pas en en-tête. Une
        clé anglaise vide ferait tomber « aucune traduction n'est vide », et
        ce contrôle a raison : une chaîne vide au dictionnaire est presque
        toujours un oubli. Ici on ne met pas la clé, et `tOu` retombe sur le
        français, qui est vide lui aussi — volontairement. */
-    'scene.final_cauchemar.7':'*He tightens the straps.* Charmed. I am Aldric, last of the Moreuil Outlaws. And on this Stilmat, we play by MY rules.',
+    'scene.final_cauchemar.10':'*The frost pulls back like a hand withdrawn.* Who gave it to you. WHO GAVE IT TO YOU.',
+    'scene.final_cauchemar.11':'*He tightens the straps.* Charmed. I am Aldric, last of the Moreuil Outlaws. And on this Stilmat, we play by MY rules.',
     'forge.onglet.eclats':'Shards',
     'forge.eclats':'THE FIVE SHARDS',
     'forge.eclats.pasEncore':'The relics are still whole. Come back when you have broken them — and when you know what came out of them.',
@@ -1087,6 +1106,8 @@ const TEXTES={
     'fosse.palierEchos':'Tier {n} — the echoes here are {n} times harder to put down',
     'cine.passer':'Tap to skip',
     'succube.innommee':'the one that came out',
+    'voix.verdierFalcon':'Green Falcon',
+    'voix.verdierHomme':'Coach Verdier',
     'voix.elle':'the one that came out',
     'scene.reprendre':'<b>Click</b> to carry on',
     'scene.suite':'<b>Click</b> for the next line',
@@ -1135,6 +1156,7 @@ const TEXTES={
     'quete.ou.niveau':'level {n} required',
     'quete.ou.portail':'in the village, by the gateway',
     'quete.ou.lieutenants':'from the Falcon’s lieutenants',
+    'quete.ou.lieutenants_cauchemar':'from the guardians she copied out',
     'quete.ou.fosse':'in the Pit',
     'quete.ou.recrache':'the Pit spits them back out',
     'bous.anselme':'He is by the gateway to the Pit.',
@@ -1298,6 +1320,151 @@ const TEXTES={
     'quete.m4e.desc':'The Outlaws are free, the town is saved, the legend is written. “Right. Who is putting the pucks away, then?” Reach level 20 to settle your legend.',
     'quete.m4e.e0':'Become a legend of Moreuil',
     'quete.m4e.e1':'Have the Old Outlaw confirm it',
+    /* ── LES QUÊTES DU CAUCHEMAR (v9.52) ───────────────────────────────
+       ⚠ LE NOM N'APPARAÎT DANS AUCUNE, dans aucune des deux langues : le
+       journal est lisible à tout moment, et une quête qui l'écrirait viderait
+       l'enquête avant sa scène — comme l'aurait fait l'en-tête de voix (§85).
+       Les 75 secondaires génériques n'ont pas de variante : elles ne
+       contredisent rien. */
+    'quete.m0a.nom_cauchemar':'Back to the Chlorine',
+    'quete.m0a.desc_cauchemar':'The pool is empty and the water laps anyway. “She came through before me.” Clear the entrance: Régis has something cut in stone to show you, and he dare not go back down alone.',
+    'quete.m0a.e0_cauchemar':'Find Régis, who has not slept',
+    'quete.m0a.e1_cauchemar':'Clear the entrance to the pool',
+    'quete.m0a.e2_cauchemar':'Go back and hear Régis out',
+    'quete.m0b.nom_cauchemar':'The Echo of the Whistle',
+    'quete.m0b.desc_cauchemar':'The Whistle has been in pieces for months, and it still blows. This is no longer the relic: it is what she rebuilt out of the town’s memory of it. Break the echo — each one costs her something.',
+    'quete.m0b.e0_cauchemar':'Hear Régis on the whistle that blows by itself',
+    'quete.m0b.e1_cauchemar':'Go down into the flooded changing rooms',
+    'quete.m0b.e2_cauchemar':'Force three lockers',
+    'quete.m0b.e3_cauchemar':'Break the echo of the Whistle',
+    'quete.m0b.e4_cauchemar':'Back to Régis — he is already in his trunks',
+    'quete.m0c.nom_cauchemar':'What the Water Keeps',
+    'quete.m0c.desc_cauchemar':'“The tiling down there is under thirty years of lime scale and a layer of imps.” You do not copy eight chiselled letters with vermin at your back.',
+    'quete.m0c.e0_cauchemar':'Clear the vermin out of the pool',
+    'quete.m0c.e1_cauchemar':'Tell Régis he can dive',
+    'quete.m0d.nom_cauchemar':'The Lifeguard, Again',
+    'quete.m0d.desc_cauchemar':'He is back at the deep end, whistle round his neck, with no memory of his first death. She copies everything — echoes of relics, echoes of guardians, the whole night wound back identical.',
+    'quete.m0d.e0_cauchemar':'Ask Régis who guards the bottom this time',
+    'quete.m0d.e1_cauchemar':'Put down two champions',
+    'quete.m0d.e2_cauchemar':'Tell Régis',
+    'quete.m0e.nom_cauchemar':'Eight Letters',
+    'quete.m0e.desc_cauchemar':'Régis surfaces soaked, with eight letters copied from under the tiling — and no sound to say them with. First fragment. The Cold Store holds another, in a frozen mouth.',
+    'quete.m0e.e0_cauchemar':'Put down the guardian of the deep end',
+    'quete.m0e.e1_cauchemar':'Take the road to the Cold Store',
+    'quete.m1a.nom_cauchemar':'Marceau Still Talks',
+    'quete.m1a.desc_cauchemar':'The cold has not let go, and Marceau’s voice is not quite his own any more. Hold the cavern long enough for him to finish his sentence: what he heard being counted belongs to the name we are after.',
+    'quete.m1a.e0_cauchemar':'Talk to Marceau — and listen to who answers',
+    'quete.m1a.e1_cauchemar':'Drive back what prowls in the cold',
+    'quete.m1a.e2_cauchemar':'Go back to him',
+    'quete.m1b.nom_cauchemar':'The Echo of the Puck',
+    'quete.m1b.desc_cauchemar':'The puck has been remade, and it weighs more than it did. “She put everything the town still holds into it. That is a lot of grudge for a lump of rubber.” Break the second echo.',
+    'quete.m1b.e0_cauchemar':'Get the back locker pointed out once more',
+    'quete.m1b.e1_cauchemar':'Reach the back of the cold store',
+    'quete.m1b.e2_cauchemar':'Open six lockers',
+    'quete.m1b.e3_cauchemar':'Break the echo of the Puck',
+    'quete.m1b.e4_cauchemar':'Go back to Marceau',
+    'quete.m1c.nom_cauchemar':'Eleven Years Counted',
+    'quete.m1c.desc_cauchemar':'Marceau took eleven years to freeze to death, and somebody counted out loud beside him — not his years. Scatter the wraiths still repeating the numbers: they count back further than the town, and the name we are after is older than it is.',
+    'quete.m1c.e0_cauchemar':'Silence the wraiths that are counting',
+    'quete.m1c.e1_cauchemar':'Tell Marceau how far back she went',
+    'quete.m1d.nom_cauchemar':'Guardians Copied Out',
+    'quete.m1d.desc_cauchemar':'Five echoes of the Frost Guardians, back identical down to the cracks in their steel. Aldric counts: “Five. Same as the first time. She invents nothing — she copies.”',
+    'quete.m1d.e0_cauchemar':'Hear Marceau describe the Guardians',
+    'quete.m1d.e1_cauchemar':'Bring down five champions',
+    'quete.m1d.e2_cauchemar':'Tell Marceau',
+    'quete.m1e.nom_cauchemar':'Older Than the Town',
+    'quete.m1e.desc_cauchemar':'Second fragment: she was here before the pact, before the pool, before the trenches. The Wood of Moreuil is the only place old enough to have kept her name on a stone.',
+    'quete.m1e.e0_cauchemar':'Put down the echo of Frost-Heart',
+    'quete.m1e.e1_cauchemar':'Take the road to the Wood',
+    'quete.m2a.nom_cauchemar':'The Wood That Counted',
+    'quete.m2a.desc_cauchemar':'A hundred and eight years the Poilu has stood guard over a scraped stone without knowing what he was guarding. Now he does. Hold the line while he tells it.',
+    'quete.m2a.e0_cauchemar':'Report to the Poilu a second time',
+    'quete.m2a.e1_cauchemar':'Clear the paths',
+    'quete.m2a.e2_cauchemar':'Make your report',
+    'quete.m2b.nom_cauchemar':'The Echo of the Medal',
+    'quete.m2b.desc_cauchemar':'The Medal has come back out of the mud, spotless, as though 1918 never happened. Third echo. Search the battlefield caches, then give it back to the earth.',
+    'quete.m2b.e0_cauchemar':'Question the Poilu about the medal that came back',
+    'quete.m2b.e1_cauchemar':'Climb down into a shell hole',
+    'quete.m2b.e2_cauchemar':'Search ten caches',
+    'quete.m2b.e3_cauchemar':'Break the echo of the Medal',
+    'quete.m2b.e4_cauchemar':'Return to the Poilu’s post',
+    'quete.m2c.nom_cauchemar':'The Scraped Stone',
+    'quete.m2c.desc_cauchemar':'At the mouth of the second trench, a stone carries grooves badly erased with bayonets — they erased the word, not the grooves. The bone brutes are camped on it. Clear them off.',
+    'quete.m2c.e0_cauchemar':'Break the bone brutes camped on the stone',
+    'quete.m2c.e1_cauchemar':'Count the grooves with the Poilu',
+    'quete.m2d.nom_cauchemar':'Hunting the Copies',
+    'quete.m2d.desc_cauchemar':'The same echoes of emerald-eyed elites, in the same place, at the same hour. “She plays the night on a loop. I changed my plan.” Put down eight champions.',
+    'quete.m2d.e0_cauchemar':'Ask the Poilu where the leaders are',
+    'quete.m2d.e1_cauchemar':'Bring down eight champions',
+    'quete.m2d.e2_cauchemar':'Report back',
+    'quete.m2e.nom_cauchemar':'Eight Grooves, Eight Letters',
+    'quete.m2e.desc_cauchemar':'Third fragment: the count comes out right. What is left is how to pronounce a word you only have the letters of — and Sister Vaast, who burned the registers, may know what she did not burn.',
+    'quete.m2e.e0_cauchemar':'Put down the echo of the Elder of the Wood',
+    'quete.m2e.e1_cauchemar':'Make for the church of Saint-Vaast',
+    'quete.m3a.nom_cauchemar':'The Nave, Once More',
+    'quete.m3a.desc_cauchemar':'Blue fire is back on the altar, and Sister Vaast has not moved from her place. “You were expecting me.” — “I have been expecting you since 1918, Aldric.” Cut your way to the choir: she kept a register she was not entitled to burn.',
+    'quete.m3a.e0_cauchemar':'Talk to Sister Vaast',
+    'quete.m3a.e1_cauchemar':'Purge the nave',
+    'quete.m3a.e2_cauchemar':'Go back to her',
+    'quete.m3b.nom_cauchemar':'The Echo of the Chalice',
+    'quete.m3b.desc_cauchemar':'The chalice is overflowing again and the crypt breathes under the flagstones. Fourth echo, and the last before the sports hall. Open the reliquaries, then break it.',
+    'quete.m3b.e0_cauchemar':'Hear Sister Vaast on the chalice that came back',
+    'quete.m3b.e1_cauchemar':'Go down into the crypt',
+    'quete.m3b.e2_cauchemar':'Open fifteen reliquaries',
+    'quete.m3b.e3_cauchemar':'Break the echo of the Chalice',
+    'quete.m3b.e4_cauchemar':'Come back up to Sister Vaast',
+    'quete.m3c.nom_cauchemar':'The Angel Copied Out',
+    'quete.m3c.desc_cauchemar':'The Seraph is back, six wings and not a memory of his fall — an echo recalls nothing, which is what makes it convenient. Take down twelve champions to break through his guard.',
+    'quete.m3c.e0_cauchemar':'Have the Seraph described to you, again',
+    'quete.m3c.e1_cauchemar':'Bring down twelve champions',
+    'quete.m3c.e2_cauchemar':'Tell Sister Vaast',
+    'quete.m3d.nom_cauchemar':'What Was Not Burned',
+    'quete.m3d.desc_cauchemar':'One does not burn an order: one files it. The 1918 order to burn carries the word in the margin, in the bishop’s own hand, and under the word a note for his secretary. Silence the wraiths guarding the cabinet.',
+    'quete.m3d.e0_cauchemar':'Silence what haunts the archives',
+    'quete.m3d.e1_cauchemar':'Have the bishop’s note read to you',
+    'quete.m3e.nom_cauchemar':'In the Roman Manner',
+    'quete.m3e.desc_cauchemar':'Fourth fragment, and it is the key: on a Roman stone there is no U — they cut a V, and they say U. One signature left to see, at the back of a sports hall locker.',
+    'quete.m3e.e0_cauchemar':'Put down the echo of the Seraph',
+    'quete.m3e.e1_cauchemar':'Make for the school sports hall',
+    'quete.m4a.nom_cauchemar':'Home, One Last Time',
+    'quete.m4a.desc_cauchemar':'The Stilmat cracks under the wheels and the Old Outlaw waits at the edge, as on the first night. “Do you know what name you are going to say?” — “Almost.” Take the floor back.',
+    'quete.m4a.e0_cauchemar':'Find the Old Outlaw at the sports hall',
+    'quete.m4a.e1_cauchemar':'Take the floor back, metre by metre',
+    'quete.m4a.e2_cauchemar':'Take stock with him',
+    'quete.m4b.nom_cauchemar':'The Echo of the Cup',
+    'quete.m4b.desc_cauchemar':'The Cup stands whole on its plinth again, and Verdier’s contract has stayed in the locker, folded in two, signed under an empty line. Fifth and last echo.',
+    'quete.m4b.e0_cauchemar':'Have the four broken echoes confirmed',
+    'quete.m4b.e1_cauchemar':'Search twenty lockers',
+    'quete.m4b.e2_cauchemar':'Break the echo of the Cup',
+    'quete.m4b.e3_cauchemar':'Go back to the Old Outlaw',
+    'quete.m4c.nom_cauchemar':'The Door Sent Back',
+    'quete.m4c.desc_cauchemar':'She does not show herself. She opens the door again and pushes the Green Falcon out in front of her one last time. “You really could not come up with anything else?” Put down the echo.',
+    'quete.m4c.e0_cauchemar':'Hear the Old Outlaw’s last piece of advice',
+    'quete.m4c.e1_cauchemar':'Face the echo with the emerald wings',
+    'quete.m4d.nom_cauchemar':'Five Shards in a Star',
+    'quete.m4d.desc_cauchemar':'Bruna reforges the five shards, Aldric drives them into the Stilmat, and the frost stops dead at their circle. For the first time since the pact, she is SOMEWHERE. Clear the sports hall before saying the name.',
+    'quete.m4d.e0_cauchemar':'Clear the sports hall around the star',
+    'quete.m4d.e1_cauchemar':'Speak up',
+    'quete.m4e.nom_cauchemar':'The Word Under the Water',
+    'quete.m4e.desc_cauchemar':'Eight letters copied from under a tiled floor, eight grooves counted in a stone, a rule of reading saved from a fire in 1918. All that is missing is a voice solid enough to carry the name.',
+    'quete.m4e.e0_cauchemar':'Grow solid enough to say the word',
+    'quete.m4e.e1_cauchemar':'Have the Old Outlaw confirm it',
+    'quete.b0.nom_cauchemar':'The Echo of the Lifeguard',
+    'quete.b0.desc_cauchemar':'He clings to his post once more, whistle round his neck and hate in his belly, with no memory of his first death. Put down the echo to open the way out of the Pool.',
+    'quete.b1.nom_cauchemar':'The Echo of Frost-Heart',
+    'quete.b1.desc_cauchemar':'The heart of frost beats for the whole cavern again, copied out down to its cracks. Break the echo — cold does not touch it, strike physical or holy.',
+    'quete.b2.nom_cauchemar':'The Echo of the Elder',
+    'quete.b2.desc_cauchemar':'The woodland entity is back at the treeline, roots and all, standing guard over a scraped stone. Bring the echo down to reach the Church.',
+    'quete.b3.nom_cauchemar':'The Echo of the Seraph',
+    'quete.b3.desc_cauchemar':'The fallen angel watches over the burning choir once more — an echo copied out down to the feathers he is missing. Remind him, stick in hand, that holy stings.',
+    'quete.a2.nom_cauchemar':'The First Key',
+    'quete.a2.desc_cauchemar':'Every copied-out guardian carries its key to the Pit — an echo has the same pockets as the original. Take it off one.',
+    'quete.s72.nom_cauchemar':'Echo killer — Sports Hall',
+    'quete.s72.desc_cauchemar':'Echoes of champions patrol the floor, in the same places as on the first night. Cut down the marked ones. “Easy. Well — almost.”',
+    'quete.s72.e0_cauchemar':'Bring down champions',
+    'quete.s72.e1_cauchemar':'Report to the Old Outlaw',
+    'quete.s75.nom_cauchemar':'Intensive training — School Sports Hall',
+    'quete.s75.desc_cauchemar':'It will take a solid voice to carry that name, and a body behind it to hold what follows. Build up strength before what comes next. “For the team.”',
 
     /* LES 87 QUÊTES SECONDAIRES.
 
@@ -1751,6 +1918,32 @@ const TEXTES={
     'donneur.-1.greet':'Aldric… my boy. Verdier sold our souls for a lump of gilded metal, and the demon kept its word: there he is, the Green Falcon, perched on the ruins of our town. His strength hangs on five cursed relics, hidden in the four corners of Moreuil. Break them one by one — start with the Swimming Pool. And for the love of hockey, do not be late. Not tonight.',
     'donneur.-1.encours':'Still here, lad? *He does not look up.* As long as the Falcon has his relics, everything you do out there only half counts. Go on.',
     'donneur.-1.fin':'Well played. *He nods, for a long time.* Your father would have liked to see that. I see it, which is something.',
+    /* ── LES DONNEURS EN CAUCHEMAR (v9.51) ─────────────────────────────
+       ⚠ LE NOM N'APPARAÎT DANS AUCUNE DE CES LIGNES, dans aucune des deux
+       langues. Elles portent les LETTRES et la RÈGLE ; c'est le joueur qui
+       assemble. Écrire le nom ici, même une fois, viderait le Cauchemar de
+       son sujet — et rien ne l'aurait signalé. */
+    'donneur.-1.greet_cauchemar':'So you came back, and you do not look pleased. *The old man does not get up.* No, lad, I am not surprised. I knew before you did what came out of those five trinkets.<br><br>I knew, and I said nothing. A name spoken is a hold — and a hold works both ways. Say it with nothing to hold her by, and all you have done is offer her your hand.<br><br>And Verdier? *The old man drops his voice.* He is at home, at the end of the street. He does not go out any more. He worked out before any of us that he was made to sign, and it consoles him not at all. He is not the one to break this time.<br><br>Now you have the star. So go to the pool. In 1974, when they poured the deep end, the mason was the grandson of a man from the wood. He cut something under the tiling, where fire does not go. Régis will show you.',
+    'donneur.-1.encours_cauchemar':'She is listening to you search, lad. *He turns a page he is not reading.* It amuses her. Let it amuse her, and go and pick up your letters.',
+    'donneur.-1.fin_cauchemar':'You said it. *The old man closes his eyes for a long moment.* Fifty years that word waited under the water for somebody able to carry it.',
+    'donneur.0.greet_cauchemar':'I was waiting for you. *Régis is soaked to the shoulders.* I went down six times. The tiling at the bottom, under the lime scale: there are letters. Cut with a chisel, not scratched with a finger.<br><br>I copied them one by one. **EIGHT.** A V, an E, two L, an A, another V, an N, an A. I recited them all night and they make no word at all. It is not a language from here, Outlaw — not Picard, not church Latin, nothing I can read.<br><br>Take them anyway. Somebody half drowned to put them there.<br><br>Oh — and the Coach walked past the gate yesterday. He stood there ten minutes and did not come in. Twenty years he has swum here on a Tuesday, Outlaw. Now he does not dare.',
+    'donneur.0.encours_cauchemar':'The water is calm, and that is exactly what worries me. *He stares at the deep end.* She knows we found it.',
+    'donneur.0.fin_cauchemar':'Eight letters. *He laughs, a little too loudly.* Eight letters, and the pool has gone quiet for good. At least I dived for something.',
+    'donneur.1.greet_cauchemar':'She talked, Aldric. *Marceau’s lips do not move.* Through the eleven years it took me to freeze to death, she counted. Out loud. In the dark.<br><br>Not the years, captain. Hers. She went back so far that I stopped following. She was here before the pact, before the Coach, before the pool and before the trenches.<br><br>So when you find her — do not treat her as something Verdier made. He made nothing. He opened.',
+    'donneur.1.encours_cauchemar':'She has stopped counting. *A long crack.* Since you came in, she has been listening.',
+    'donneur.1.fin_cauchemar':'The cold has let go, and she has gone quiet. *A pause.* It is the first time in eleven years that I hear silence too.',
+    'donneur.2.greet_cauchemar':'You have come for the stone. *The Poilu does not even salute.* It is over there, at the mouth of the second trench. We scraped it in 1918, under orders, with bayonets.<br><br>Badly scraped. We erased the word, not the grooves. A hundred and eight years I have run my finger through them at night, having nothing better to do. **Eight letters, lad.** I will vouch for that — I have had the time to count.<br><br>Eight grooves in a rock, that is all that is left of a name four regiments heard. Make better use of it than we did.<br><br>And tell him, that Verdier of yours. *He looks away.* I called him a sell-out to your face. I had a hundred and eight years of anger and only one name to hang it on, so I took his. It was not the right one.',
+    'donneur.2.encours_cauchemar':'You are marking time, soldier. *He scrapes off the frost.* The stone will say no more. What is missing is the way to say it.',
+    'donneur.2.fin_cauchemar':'Eight grooves, and you filled them. *He comes to attention, properly this time.* Stand easy — all of us.',
+    'donneur.3.greet_cauchemar':'I did not burn everything, Aldric. *Sister Vaast produces a sheet folded in four.* Here is the ORDER to burn. One does not burn an order: one files it.<br><br>It carries the word in the margin, in the bishop’s own hand — and beneath it a note for his secretary, because even he could not read it. “To be pronounced in the Roman manner.”<br><br>On a Roman stone there is no U, Aldric. **They cut a V, and they say U.** That is what I have been keeping for a hundred and eight years without knowing I kept it.<br><br>One last thing. Verdier used to sit in the back row **before** the pact, not after. He was already asking forgiveness for something he had not yet done. Somebody whispered him his sin before making him commit it.',
+    'donneur.3.encours_cauchemar':'I have told you what I had. *She grips her rosary.* The rest is under the water, and water was never afraid of fire.',
+    'donneur.3.fin_cauchemar':'They had me destroy a weapon by telling me it was a poison. *She breathes out.* You have just given me back a hundred and eight years.',
+    'donneur.4.greet_cauchemar':'The locker is open this time. *Verdier’s contract is still in it, folded in two.* Look at the bottom line: he signed UNDER something. There is nothing above it. Nothing at all.<br><br>The Coach says she introduced herself, once, in the dark. That he heard her say her name, and that she took it back before he could repeat it.<br><br>She always takes back whatever could be turned against her. All that matters is that she has one.',
+    'donneur.4.encours_cauchemar':'He is waiting for you on the Stilmat, and he is not shouting at all. *A pause.* This time it is not him doing the saving.',
+    'donneur.4.fin_cauchemar':'You named her. *The whole gym looks smaller.* Go and tell the others they can come home. Again.',
+    'donneur.arena.greet_cauchemar':'You. You are after a name. *Anselme cuts you off before you speak.* I can tell by the way you came in.<br><br>Nine years in the Pit, lad. I heard men shout it as they went down. They had found it too — and they had nothing to hold her with. The name without the star does not catch her: it hands her your arm.<br><br>So go down. Take your tiers, reforge your shards, and do not say that word until the floor will hold under you. The Pit will teach you the rest.<br><br>*He catches you by the arm.* One thing. I said no to Verdier, and I was proud of it for nine years in the dark. Except she never spoke to me. You do not refuse a voice you cannot hear. I spent my life believing myself the harder man, when he simply had not had my luck.',
+    'donneur.arena.encours_cauchemar':'Going back down? *He nods.* Good. Every tier is one more slab under your feet the day you open your mouth.',
+    'donneur.arena.fin_cauchemar':'You said it, and you are still standing. *He spits on the floor, satisfied.* Nine years I waited for somebody to say it that way round.',
 
     /* ======== LES OBJETS : 159 BASES, 16 AFFIXES, 5 RARETÉS ========
 
@@ -2385,6 +2578,30 @@ function t(cle,vars){
 function tOu(cle,repli,vars){
   const s=t(cle,vars);
   return s===''?String(repli==null?'':repli):s;
+}
+
+/* tDiff('cle') — LE MÊME LIBELLÉ, MAIS PAS DANS TOUS LES MODES.   (v9.53)
+
+   Quatre chaînes d'interface nommaient le Green Falcon en permanence — « Le
+   Falcon perd une ancre », « arrache-la à un lieutenant du Falcon » — et
+   s'affichaient telles quelles en Cauchemar, où il est tombé depuis
+   longtemps. Elles suivent maintenant la difficulté, par la même règle que
+   les scènes, les donneurs et les quêtes : l'Enfer retombe sur le Cauchemar.
+
+   ⚠ CE N'EST PAS `t()` QUI CHANGE. Cinq cents clés n'ont aucune raison de
+   payer un test de difficulté à chaque appel, et surtout : un accesseur qui
+   cherche silencieusement une variante partout finirait par en trouver une
+   qu'on n'a pas voulue. On l'appelle aux quatre points concernés, et là
+   seulement.
+
+   ⚠ `difficulty` est lu comme un GLOBAL, sans import — un `import` ici ferait
+   ÉCHOUER la validation esbuild. */
+function tDiff(cle,vars){
+  if(typeof difficulty!=='undefined' && difficulty>=1){
+    const s=t(cle+'_cauchemar',vars);
+    if(s!=='')return s;
+  }
+  return t(cle,vars);
 }
 
 /* Les nombres suivent la langue : 1 234 en français, 1,234 en anglais. */

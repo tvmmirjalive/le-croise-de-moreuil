@@ -215,7 +215,7 @@ function arenaEnter(tierId){
   /* ⚠ LE CONTRÔLE DE L'ÉCHO PASSE AVANT LE PAIEMENT. Il était après : la clé
      était déjà décomptée quand le refus tombait, et le joueur la perdait pour
      rien. Un seul chemin de sortie doit débiter, et c'est le dernier. */
-  if(!payerEntree(tier)){toast(t('fosse.pasDeCle',{palier:nomPalier(tier).toLowerCase()}),2.6);return;}
+  if(!payerEntree(tier)){toast(tDiff('fosse.pasDeCle',{palier:nomPalier(tier).toLowerCase()}),2.6);return;}
   arenaReturn={lvl:village,x:village.spawn[0]*TS+TS/2,y:village.spawn[1]*TS+TS/2};
   const a=buildArena(tier); closeAllPanels();
   enterLevel(a,a.spawn[0]*TS+TS/2,a.spawn[1]*TS+TS/2);

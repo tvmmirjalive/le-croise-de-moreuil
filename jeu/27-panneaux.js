@@ -16,6 +16,7 @@
 
 
 
+
 /* ================================================================
    OUVRIR UN PANNEAU SUSPEND LA PARTIE                      (v8.78)
 
@@ -222,7 +223,7 @@ function _shopReplique(body){
      d'en avoir quatre en anglais AUSSI, sans les recopier en français. */
   const nb=(shopNpc.type==='merchant'||shopNpc.type==='smith')?4:0;
   if(nb){const q=document.createElement('div');q.style.cssText='font-size:11px;color:#93a1c4;font-style:italic;margin-bottom:8px';
-    q.textContent=t('boutique.'+shopNpc.type+'.'+randi(0,nb-1));body.appendChild(q);}
+    q.textContent=tDiff('boutique.'+shopNpc.type+'.'+randi(0,nb-1));body.appendChild(q);}
 }
 
 /* UN ARTICLE À VENDRE. Six blocs du marchand étaient bâtis sur ce moule, à

@@ -23,6 +23,7 @@
 
 
 
+
 /* ================================================================
    ENTRÉE TACTILE — DEUX ZONES DISJOINTES
    Gauche : joystick de déplacement. Droite : viser et agir.
@@ -96,7 +97,23 @@ function onClick(wx,wy){
   if(level.npcs)for(const npc of level.npcs){
     const nx=npc.tx*TS+TS/2,ny=npc.ty*TS+TS/2;
     if(dist(wx,wy,nx,ny)<TS*0.75){clearIntents();player._npc=npc;
-      if(dist(player.x,player.y,nx,ny)<TS*1.6){npc.type==='arenamaster'?(qc.talkArena=1,checkQuests&&checkQuests(),openDialogue(npc)):npc.type==='arena'?openArena():npc.type==='return'?usePortal():npc.type==='stash'?toggleStash():npc.type==='waypoint'?(debloquerBalise(npc.acte,npc.bi),openWaypoint()):npc.type==='quest'?openDialogue(npc):openShop(npc);}else{const _w=_walkNear(npc.tx,npc.ty);setPathTo(_w.x,_w.y);}return;}}
+      /* ⚠ ON REMET `_npc` À `null` QUAND ON A OUVERT ICI MÊME.        (v9.50)
+
+         Le défaut des DEUX APPUIS sur la croix venait de cette ligne. `_npc`
+         est posé avant le test de distance, et la branche PROCHE ne le
+         reprenait jamais : le panneau s'ouvrait, la partie se mettait en
+         pause, la croix fermait — et à l'image suivante
+         `_interactionsProches()` voyait `_npc` toujours posé, le héros
+         toujours à portée, et ROUVRAIT le panneau. Le second appui semblait
+         marcher parce que `_pnjInteragir` avait alors fait le ménage.
+         Exactement deux appuis, jamais trois, et seulement pour les PNJ et
+         les balises — c'est le symptôme décrit.
+
+         La branche recopiait en outre la chaîne de sept ternaires que la
+         Phase 4 avait extraite dans `_pnjInteragir` : le correctif supprime
+         la duplication du même geste. */
+      if(dist(player.x,player.y,nx,ny)<TS*1.6){_pnjInteragir(npc);player._npc=null;}
+      else{const _w=_walkNear(npc.tx,npc.ty);setPathTo(_w.x,_w.y);}return;}}
   // chest (cave)
   if(level.chests)for(const ch of level.chests){
     if(ch.opened)continue;

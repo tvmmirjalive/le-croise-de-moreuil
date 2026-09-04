@@ -52,7 +52,7 @@ function objectifQuete(q){
     case 'reach':   return [t('quete.obj.reach'), t('quete.ou.sortie',{lieu:lieu})];
     case 'level':   return [t('quete.obj.level'), t('quete.ou.niveau',{n:q.target})];
     case 'talkArena':return [t('quete.obj.talkArena'), t('quete.ou.portail')];
-    case 'key':     return [t('quete.obj.key'), t('quete.ou.lieutenants')];
+    case 'key':     return [t('quete.obj.key'), tDiff('quete.ou.lieutenants')];
     case 'echo':    return [t('quete.obj.echo'), t('quete.ou.fosse')];
     case 'arena': case 'arenaT': case 'arenaAll': case 'noPot':
                     return [t('quete.obj.arena'), t('quete.ou.fosse')];
@@ -356,6 +356,62 @@ function renderQuests(){initQuests();const box=document.getElementById('questLis
 }
 const GIVER={
  'arena':{name:'Anselme \u00ab la Cage \u00bb, Ma\u00eetre de la Fosse',ico:'\ud83c\udfc6',greet:'Ah. Le petit Aldric. \u2014 Regarde-moi bien : un \u0153il, deux genoux morts, et le seul Outlaw qui ait dit NON \u00e0 Verdier. Pour \u00e7a il m\u2019a jet\u00e9 dans la Fosse, sous le gymnase, l\u00e0 o\u00f9 le d\u00e9mon jetait ceux qui refusaient de signer. J\u2019y suis rest\u00e9 neuf ans. J\u2019ai arr\u00eat\u00e9 des choses qu\u2019aucun gardien n\u2019aurait d\u00fb voir arriver.<br><br>Et j\u2019ai compris un truc, gamin : quand tu tues une cr\u00e9ature de la Faille, elle ne meurt pas vraiment. Il en reste un \u00e9cho, et cet \u00e9cho, la Fosse sait le rappeler \u2014 en pire.<br><br>Alors ram\u00e8ne-moi une cl\u00e9 prise sur un boss, et je t\u2019ouvre le portail. Bronze, argent, or : trois paliers, trois fa\u00e7ons de mourir. Tu ressortiras plus riche, ou tu ressortiras humili\u00e9. Mais tu ressortiras \u2014 la Fosse ne garde plus personne. J\u2019ai pay\u00e9 pour \u00e7a.',encours:'Toujours en vie ? *Il rit sans desserrer les dents.* La Fosse t\'a laissé ressortir. Elle ne le fait pas pour tout le monde.',fin:'Voilà. *Il crache par terre.* Neuf ans que j\'attendais de voir quelqu\'un ressortir de là en marchant droit.'},"0":{"name":"Régis, le Maître-Nageur","ico":"🛟","greet":"Un survivant ! Enfin ! Trois jours que je garde ce bassin, trois jours que l'eau me murmure des choses. La première relique du Falcon dort ici — le Sifflet du Pacte, celui que Verdier a fait sonner pour sceller le marché. Chaque nuit, je l'entends siffler tout seul. Trouve-le. Et brise-le avant qu'il ne m'appelle, moi aussi.","encours":"L'eau est encore plus noire qu'hier, Outlaw. Fais vite — je ne sais pas combien de temps je tiens à siffler contre elle.","fin":"Le bassin s'est tu. *Il se laisse tomber sur un banc.* Trois jours que je n'avais pas entendu le silence. Merci, gamin."},"1":{"name":"Un Coéquipier Gelé","ico":"👻","greet":"A-Aldric… c'est toi ? On a signé, mon vieux… le Coach a juré qu'on gagnerait, et on a gagné. Regarde ce que la victoire a fait de nous. La Rondelle Maudite est ici — celle du but en or, figée dans la glace avec nos âmes. Détruis-la, capitaine. Qu'on puisse enfin quitter cette glaci\u00e8re.","encours":"Il fait plus froid, tu sens ? *Sa voix craque comme la glace.* Chaque minute que tu perds, la glacière en gagne une.","fin":"Le froid a lâché d'un cran. *Un temps.* Je peux presque bouger les doigts. Presque."},"2":{"name":"Un Poilu de 1918","ico":"🎖️","greet":"Halte-là ! …Ah, un vivant. Repos. Le démon a corrompu jusqu'à nos médailles, petit : celle de 1918 est devenue l'une de ses reliques. Cent ans qu'on monte la garde sous ces arbres, et voilà qu'on sert un traître. Brise-la, et rends-nous le silence qu'on a mérité. Le nom du vendu ? Verdier. Retiens-le bien.","encours":"Vous traînez, soldat. *Il gratte le givre de son casque.* On a perdu des tranchées pour moins que ça.","fin":"Repos. *Il salue, maladroitement.* Vous en avez fait plus en une nuit que nous en quatre ans."},"3":{"name":"Sœur Vaast","ico":"⛪","greet":"Bénie soit ta crosse, Outlaw. La créature de Verdier a dressé son autel dans notre chœur et souillé le calice de la paroisse. Le Calice Profané est la quatrième relique — brise-le, et rappelle au Séraphin déchu une vérité qu'il a oubliée en tombant : le sacré, ça pique.","encours":"Le calice déborde toujours, Aldric. J'entends la crypte respirer sous mes pieds. Ne me laisse pas seule avec ça.","fin":"La pierre est redevenue de la pierre. *Elle expire.* Je vais pouvoir rouvrir les portes aux vivants."},"4":{"name":"Le Casier du Coach","ico":"🥅","greet":"Le casier du Coach Verdier. Vide, comme ses promesses. La dernière relique, c'est la Coupe Maudite — celle qu'il a levée le soir du pacte, pendant qu'on applaudissait notre propre condamnation. Brise-la, et le Falcon n'aura plus rien pour se protéger. Il t'attend sur le Stilmat. Il t'a toujours attendu.","encours":"Il est là, derrière la porte du gymnase. *Il baisse la voix.* Il a cessé de crier, c'est mauvais signe — il économise.","fin":"C'est fini. *Un long silence.* Va dire aux autres qu'ils peuvent rentrer, Outlaw. Va leur dire."},"-1":{"name":"Le Vieux Outlaw","ico":"🦅","greet":"Aldric… mon garçon. Verdier a vendu notre âme pour un bout de métal doré, et le démon a tenu parole : le voilà Green Falcon, perché sur les ruines de notre ville. Sa force tient à cinq reliques maudites, cachées aux quatre coins de Moreuil. Brise-les une à une — commence par la Piscine. Et pour l'amour du hockey, ne sois pas en retard. Pas cette nuit.","encours":"Toujours là, gamin ? *Il ne lève pas les yeux.* Tant que le Falcon a ses reliques, tout ce que tu fais ici ne compte qu'à moitié. Va.","fin":"Bien joué. *Il hoche la tête, longuement.* Ton père aurait aimé voir ça. Moi je le vois, c'est déjà quelque chose."}};
+
+/* ================================================================
+   LES DONNEURS EN CAUCHEMAR — L'ENQUÊTE SUR SON NOM        (v9.51)
+
+   Le Cauchemar n'est pas la campagne rejouée : c'est une enquête. Aldric sait
+   maintenant que le Green Falcon n'était qu'une PORTE, et que ce qui est
+   passé par cette porte n'a pas de nom qu'il puisse prononcer.
+
+   Chaque donneur apporte UN fragment, et aucun ne donne le nom. Ils
+   s'assemblent en deux morceaux, et deux seulement :
+
+     · Régis relève les LETTRES au fond du grand bain — VELLAVNA, huit ;
+     · Sœur Vaast donne la RÈGLE de lecture — sur une pierre romaine, ce V-là
+       se dit U.
+
+   VELLAVNA + (V→U) = Vellauna. **Le joueur attentif prononce le nom avant
+   Aldric**, et c'est la seule façon qu'une révélation de nom vaille quelque
+   chose : sinon le jeu se contente d'annoncer un mot que personne n'attendait.
+
+   ⚠ AUCUN ASSET NOUVEAU. Ces sept-là ont déjà leur portrait, et le succube
+   n'apparaît pas — son sprite n'existe pas encore. C'est la contrainte qui a
+   dessiné le découpage, et elle l'a plutôt bien servi : une enquête se mène
+   auprès de témoins, pas face au coupable.
+
+   ⚠ ET L'ENFER RETOMBE ICI. Même règle que les scènes : `difficulty>=1`. Un
+   `GIVER_ENFER` écrit un jour l'emportera sans rien changer d'autre. */
+const GIVER_CAUCHEMAR={
+ '-1':{
+  greet:"Tu es revenu, et tu n'as pas l'air content. *Le vieux ne se lève pas.* Non, gamin, je ne suis pas surpris. J'ai su avant toi ce qui était sorti de ces cinq bibelots.<br><br>J'ai su, et je me suis tu. Un nom qu'on prononce, c'est une prise — et une prise, ça marche dans les deux sens. Le dire sans rien pour la tenir, c'est lui tendre la main.<br><br>Et Verdier ? *Le vieux baisse la voix.* Il est chez lui, au bout de la rue. Il ne sort plus. Il a compris avant nous tous qu'on l'avait fait signer, et ça ne le console de rien. Ce n'est pas lui qu'il faut casser cette fois.<br><br>Maintenant tu as l'étoile. Alors va à la piscine. En 1974, quand ils ont coulé le grand bain, le maçon était le petit-fils d'un gars du bois. Il a taillé quelque chose sous le carrelage, là où le feu ne va pas. Régis te montrera.",
+  encours:"Elle t'écoute chercher, gamin. *Il tourne une page qu'il ne lit pas.* Ça l'amuse. Laisse-la s'amuser, et ramasse tes lettres.",
+  fin:"Tu l'as dit. *Le vieux ferme les yeux un long moment.* Cinquante ans que ce mot attendait sous l'eau que quelqu'un ait de quoi le porter."},
+ '0':{
+  greet:"Je t'attendais. *Régis est trempé jusqu'aux épaules.* J'y suis descendu six fois. Le carrelage du fond, sous le calcaire : il y a des lettres. Taillées au ciseau, pas au doigt.<br><br>Je les ai relevées une à une. **HUIT.** Un V, un E, deux L, un A, encore un V, un N, un A. Je les ai récitées toute la nuit et ça ne fait aucun mot. Ce n'est pas une langue d'ici, Outlaw — ni du picard, ni du latin d'église, rien que je sache lire.<br><br>Prends-les quand même. Quelqu'un s'est noyé à moitié pour les mettre là.<br><br>Ah — et le Coach est passé devant la grille, hier. Il est resté dix minutes, il n'est pas entré. Vingt ans qu'il vient nager le mardi, Outlaw. Maintenant il n'ose plus.",
+  encours:"L'eau est calme, et c'est bien ça qui m'inquiète. *Il fixe le grand bain.* Elle sait qu'on a trouvé.",
+  fin:"Huit lettres. *Il rit, un peu trop fort.* Huit lettres, et le bassin s'est tu pour de bon. J'aurai plongé pour quelque chose."},
+ '1':{
+  greet:"Elle parlait, Aldric. *Marceau ne bouge pas les lèvres.* Pendant les onze ans où j'ai mis à mourir de froid, elle comptait. À voix haute. Dans le noir.<br><br>Pas les années, capitaine. Les siennes. Elle est remontée si loin que j'ai cessé de suivre. Elle était là avant le pacte, avant le Coach, avant la piscine et avant les tranchées.<br><br>Alors quand tu la trouveras — ne la traite pas comme une chose que Verdier a fabriquée. Il n'a rien fabriqué. Il a ouvert.",
+  encours:"Elle a arrêté de compter. *Un long craquement.* Depuis que tu es entré, elle écoute.",
+  fin:"Le froid a lâché, et elle s'est tue. *Un temps.* C'est la première fois en onze ans que j'entends le silence, moi aussi."},
+ '2':{
+  greet:"Vous venez pour la pierre. *Le Poilu ne salue même pas.* Elle est là-bas, à l'entrée de la seconde tranchée. On l'a grattée en 1918, sur ordre, avec des baïonnettes.<br><br>Mal grattée. On a effacé le mot, pas les creux. Cent-huit ans que je passe le doigt dedans la nuit, faute d'avoir mieux à faire. **Huit lettres, mon gars.** J'en réponds — j'ai eu le temps de compter.<br><br>Huit creux dans un caillou, c'est tout ce qu'il reste d'un nom que quatre régiments ont entendu. Faites-en meilleur usage que nous.<br><br>Et dites-lui, à votre Verdier. *Il détourne les yeux.* Je l'ai traité de vendu devant vous. J'avais cent-huit ans de colère et un seul nom à mettre dessus, alors j'ai pris le sien. Ce n'était pas le bon.",
+  encours:"Vous piétinez, soldat. *Il gratte le givre.* La pierre ne dira rien de plus. Ce qui manque, c'est la façon de le dire.",
+  fin:"Huit creux, et vous les avez remplis. *Il se met au garde-à-vous, pour de bon cette fois.* Repos, pour tout le monde."},
+ '3':{
+  greet:"Je n'ai pas tout brûlé, Aldric. *Sœur Vaast sort une feuille pliée en quatre.* Voici l'ORDRE de brûler. On ne brûle pas un ordre : on le classe.<br><br>Il porte le mot en marge, de la main de l'évêque — et dessous, une note pour son secrétaire, parce que même lui ne savait pas le lire. « Se prononce à la romaine. »<br><br>Sur une pierre romaine, il n'y a pas de U, Aldric. **On y taille un V, et on le dit U.** Voilà ce que j'ai gardé pendant cent-huit ans sans savoir que je le gardais.<br><br>Une dernière chose. Verdier venait s'asseoir au dernier rang **avant** le pacte, pas après. Il demandait déjà pardon pour une chose qu'il n'avait pas encore faite. On lui a soufflé sa faute avant de la lui faire commettre.",
+  encours:"J'ai dit ce que j'avais. *Elle serre son chapelet.* Le reste est sous l'eau, et l'eau n'a jamais eu peur du feu.",
+  fin:"On m'a fait détruire une arme en me disant que c'était un poison. *Elle expire.* Vous venez de me rendre cent-huit ans."},
+ '4':{
+  greet:"Le casier est ouvert cette fois. *Le contrat de Verdier y est encore, plié en deux.* Regarde la ligne du bas : il a signé SOUS quelque chose. Il n'y a rien au-dessus. Rien du tout.<br><br>Le Coach dit qu'elle s'est présentée, une fois, dans le noir. Qu'il l'a entendue dire son nom, et qu'elle le lui a repris avant qu'il ait pu le répéter.<br><br>Elle reprend toujours ce qu'on pourrait retourner contre elle. Tout ce qui compte, c'est qu'elle en ait un.",
+  encours:"Il t'attend sur le Stilmat, et il ne crie plus du tout. *Un temps.* Cette fois, ce n'est pas lui qui économise.",
+  fin:"Tu l'as nommée. *Le gymnase entier a l'air plus petit.* Va dire aux autres qu'ils peuvent rentrer. Encore une fois."},
+ 'arena':{
+  greet:"Toi, tu cherches un nom. *Anselme te coupe avant que tu parles.* Je le vois à ta façon d'entrer.<br><br>Neuf ans dans la Fosse, gamin. J'ai entendu des hommes le crier en tombant. Ils l'avaient trouvé, eux aussi — et ils n'avaient rien pour la tenir. Le nom sans l'étoile, ça ne l'attrape pas : ça lui donne ta main.<br><br>Alors descends. Ramasse tes paliers, reforge tes éclats, et ne dis ce mot que le jour où le sol tiendra sous toi. La Fosse t'apprendra le reste.<br><br>*Il te rattrape par le bras.* Une chose. J'ai dit non à Verdier, et j'en ai été fier neuf ans dans le noir. Sauf que moi, elle ne m'a jamais parlé. On ne refuse pas une voix qu'on n'entend pas. J'ai passé ma vie à me croire plus solide qu'un homme qui n'avait simplement pas eu ma chance.",
+  encours:"Tu redescends ? *Il hoche la tête.* Bien. Chaque palier est une dalle de plus sous tes pieds le jour où tu ouvriras la bouche.",
+  fin:"Tu l'as dit, et tu es debout. *Il crache par terre, satisfait.* Neuf ans que j'attendais que quelqu'un le dise dans ce sens-là."}
+};
 
 /* Aide de TEST, rendue à son propriétaire.                        (Phase 5)
    Elle vivait dans 19-halos.js, loin de la variable qu'elle écrit — ce

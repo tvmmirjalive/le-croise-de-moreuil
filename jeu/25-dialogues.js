@@ -218,9 +218,13 @@ final_cauchemar:{repliques:[
  {qui:'aldric',texte:"Je n'ai pas cassé cinq reliques pour te libérer. Je les ai cassées pour te faire sortir."},
  {qui:'elle',texte:"Tu ne sais pas ce que je suis."},
  {qui:'aldric',texte:"Non. Mais Verdier a signé sous une ligne. Sœur Vaast a brûlé un registre. Le Poilu a gardé une porte pendant cent-huit ans. *Il lève sa crosse.* Et le carrelage du grand bain, lui, n'a pas brûlé."},
- {qui:'recit',texte:"*Il prononce le mot gravé sous l'eau depuis 1974.*"},
- {qui:'elle',nom:'',texte:"⟦ELLE⟧."},
- {qui:'aldric',texte:"*Il resserre les sangles.* Enchantée. Moi c'est Aldric, dernier des Outlaws de Moreuil. Et sur ce Stilmat, on joue à MES règles."}
+ {qui:'aldric',texte:"Huit lettres sous l'eau, depuis 1974. V. E. L. L. A. V. N. A. *Un temps.* Un maçon les a taillées là où le feu ne va pas, parce que son grand-père avait vu brûler le reste."},
+ {qui:'elle',texte:"*Le givre remonte d'un coup le long des éclats.* Des lettres. Ce ne sont que des lettres. Tu ne sais même pas les dire."},
+ {qui:'aldric',texte:"Sœur Vaast me l'a appris ce matin. Sur une pierre romaine, ce V-là n'est pas un V. *Il lève les yeux.* C'est un U."},
+ {qui:'recit',texte:"*Il prononce le mot que personne à Moreuil n'a dit depuis deux mille ans.*"},
+ {qui:'elle',nom:'',revele:true,texte:"⟦ELLE⟧."},
+ {qui:'elle',texte:"*Le givre se rétracte comme une main qu'on retire.* Qui te l'a donné. QUI TE L'A DONNÉ."},
+ {qui:'aldric',texte:"*Il resserre les sangles.* Enchanté. Moi c'est Aldric, dernier des Outlaws de Moreuil. Et sur ce Stilmat, on joue à MES règles."}
 ]}
 
 };
@@ -329,7 +333,18 @@ function _afficherReplique(){
   const por=(typeof _voixPortrait==='function')?_voixPortrait(r.qui):null;
   if(im){ if(por){im.src=por;im.style.display='';} else im.style.display='none'; }
   const nm=document.getElementById('replNom');
-  if(nm){nm.textContent=V.nom||'';nm.style.color=V.col||'#f4d35e';}
+  /* ⚠ UN NOM DE VOIX PEUT ÊTRE UNE FONCTION.                        (v9.53)
+     `_replique` le résout depuis la v9.42 ; ici, non — on écrivait `V.nom`
+     tel quel. `VOIX.elle.nom` en est une depuis autant de temps, et
+     `VOIX.verdier.nom` depuis la v9.53 : une bulle donnée à l'une des deux
+     aurait écrit le CODE SOURCE de la fonction à l'écran. Latent — les trois
+     seuls appels passent par Aldric — et armé au premier usage. On corrige
+     avant que ça se voie, pas après. */
+  if(nm){
+    const vn=(typeof V.nom==='function')?V.nom():(V.nom||'');
+    nm.textContent=(typeof texteSuccube==='function')?texteSuccube(vn):vn;
+    nm.style.color=V.col||'#f4d35e';
+  }
   const tx=document.getElementById('replTxt');
   if(tx)tx.innerHTML=(typeof _echapper==='function')?_echapper(r.texte):r.texte;
   b.classList.add('on');
