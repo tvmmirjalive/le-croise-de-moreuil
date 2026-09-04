@@ -369,6 +369,35 @@ function makeEnemy(kind,x,y,depth,elvl){
       col:'#8a5ad0',name:'Gardien du Repaire',bkind:'hooligan',wcol:'rgba(138,90,208,0.32)',res:{phys:20,cold:20,holy:-30},hitCd:0,hurt:0,boss:true,special:3,
       aggro:false,path:null,pcd:0,slow:0};
   }
+  /* ⚠ UN TIREUR SE BÂTIT SUR SON ESPÈCE DE BASE, PUIS SE CORRIGE.
+     Recopier la courbe de PV, de dégâts et d'XP pour quatre espèces de plus,
+     c'était quatre occasions de la laisser diverger. On fabrique donc la
+     base, et on applique des FACTEURS — le rythme est dans la table, la
+     courbe reste unique. */
+  if(TIREURS[kind]){
+    const TI=TIREURS[kind];
+    const e=makeEnemy(TI.base==='poilu'?'brute':TI.base,x,y,depth,elvl);
+    e.kind=kind;           /* ce qu'il EST                                  */
+    e.base=TI.base;        /* la planche qu'il emprunte — voir drawEnemy    */
+    e.tireur=kind;         /* le drapeau que lit l'IA                       */
+    e.name=TI.nom;
+    e.r=TI.r;
+    e.teinte=TI.teinte;
+    if(TI.npc)e.npcSprite=TI.npc;
+    e.hpMax=Math.max(1,Math.round(e.hpMax*TI.hp));e.hp=e.hpMax;
+    e.dmg=Math.max(1,Math.round(e.dmg*TI.dmg));
+    e.spd=TI.spd;
+    e.xp=Math.round(e.xp*TI.xp);
+    if(TI.el)e.element=TI.el;
+    e._tirCd=alea()*TI.cd;   /* ils ne tirent pas tous sur le même temps   */
+    /* ⚠ SON PROPRE BIAIS DE FUITE. Sans lui, quatre fuyards reculent vers
+       le même point et s'empilent en un tas infranchissable. Un angle tiré
+       à la naissance suffit, et il ne coûte AUCUN calcul par image — une
+       répulsion deux à deux serait quadratique sur neuf cents ennemis. */
+    e._biais=rand(-0.55,0.55);
+    e._accule=false;
+    return e;
+  }
   const t=ENEMY_TYPES[kind];const dmH=multDiffHp(), dmD=multDiffDmg(), xm=multDiffXp();
   const L=Math.max(1,elvl||1);
   /* ================================================================
@@ -394,6 +423,35 @@ function makeEnemy(kind,x,y,depth,elvl){
     col:t.col,name:t.name,res:t.res||{},hitCd:0,hurt:0,aggro:false,path:null,pcd:0,slow:0,
     wander:0,wx:x,wy:y};
 }
+/* Poser une variante sur un ennemi déjà fabriqué. Appelée juste après
+   `makeEnemy`, AVANT `makeElite` : l'élite se pose par-dessus. */
+function appliquerVariante(en,vi){
+  const v=VARIANTES[vi]; if(!en||!v)return en;
+  en.variante=vi;
+  en.element=v.el;        /* ce que ses coups infligent    */
+  en.teinte=v.teinte;     /* ce qui le rend reconnaissable */
+  en.res=Object.assign({},en.res||{},v.res||{});
+  /* ⚠ ON MÉMORISE LA FAIBLESSE À PART. `makeElite` peut poser `cold:75`
+     (modificateur Glacial) par-dessus un « de Braise » dont toute la
+     contrepartie est `cold:-35` — et supprimer ainsi la seule réponse que le
+     joueur avait. Elle est réappliquée après le modificateur. */
+  en._faiblesse={};
+  for(const k in (v.res||{}))if(v.res[k]<0)en._faiblesse[k]=v.res[k];
+  en.hpMax=Math.round(en.hpMax*(v.hp||1));en.hp=en.hpMax;
+  en.dmg=Math.round(en.dmg*(v.dmg||1));
+  return en;
+}
+/* Faut-il en poser une, et laquelle ? La région a son mot à dire : le « gel »
+   fait naître du Givre, le « brasier » de la Braise. Une région cesse ainsi
+   d'être une teinte de sol pour devenir un lieu. */
+function tirerVariante(acte,region){
+  if(alea()>=partVariante(acte))return -1;
+  if(region&&region.penchantVar&&alea()<0.7){
+    for(let i=0;i<VARIANTES.length;i++)if(VARIANTES[i].id===region.penchantVar)return i;
+  }
+  return randi(0,VARIANTES.length-1);
+}
+
 const ELITE_MODS=[
  {n:'Rapide',col:'#7dff9a',apply:e=>{e.spd*=1.6;}},
  {n:'Colossal',col:'#c8a0ff',apply:e=>{e.hp=e.hpMax=Math.round(e.hpMax*1.7);e.r=Math.round(e.r*1.35);e.spd*=0.85;e.dmg=Math.round(e.dmg*1.25);}},
@@ -407,8 +465,8 @@ function nomElite(en){
   if(!m)return en.eliteName||base;      /* ancienne partie : nom déjà figé */
   return base+' '+tOu('elite.'+_cleObjet(m.n), m.n);
 }
-function makeElite(en){
-  const m=pick(ELITE_MODS);
+function makeElite(en,forcer){
+  const m=(forcer!=null&&ELITE_MODS[forcer])?ELITE_MODS[forcer]:pick(ELITE_MODS);
   /* ⚠ LE NOM D'ÉLITE ÉTAIT FIGÉ À LA NAISSANCE : `en.name+' '+m.n`, en
      français, une fois pour toutes. On garde l'INDICE du modificateur et on
      recompose à l'affichage — sinon les élites déjà sur la carte gardaient
@@ -416,15 +474,30 @@ function makeElite(en){
   en.elite=true;en.eliteMod=ELITE_MODS.indexOf(m);en.auraCol=m.col;
   en.hp=en.hpMax=Math.round(en.hpMax*2.2);en.dmg=Math.round(en.dmg*1.9);
   en.xp=Math.round(en.xp*3);en.r=Math.round(en.r*1.15);m.apply(en);
+  /* ⚠ LA FAIBLESSE DE LA VARIANTE SURVIT AU MODIFICATEUR (§96).
+     `Glacial` pose `cold:75` ; sur un « de Braise » il effacerait le `cold:-35`
+     qui EST toute la réponse du joueur. Une élite doit être plus dure, pas
+     imprenable par ce qui devait marcher. */
+  if(en._faiblesse)en.res=Object.assign({},en.res,en._faiblesse);
 }
 function scatterEnemies(lvl,floors,count,depth,elvl){
   const pool=[...floors];
+  let _tireursGrotte=0;
   for(let i=0;i<count&&pool.length;i++){
     const[tx,ty]=pool.splice(randi(0,pool.length-1),1)[0];
     let kind='imp';const r=alea();
     if(depth>=2&&r<0.35)kind='brute';else if(r<0.55)kind='wraith';
     else if(depth>=1&&r<0.7)kind='brute';
-    const _e=makeEnemy(kind,tx*TS+TS/2,ty*TS+TS/2,depth,elvl||1);if(alea()<0.12+depth*0.03)makeElite(_e);lvl.enemies.push(_e);
+    /* ⚠ LES GROTTES ET LES PLAINES N'AVAIENT AUCUN TIREUR.        (v9.60)
+       Elles recevaient les variantes depuis la v9.56 mais pas les tireurs :
+       le même angle mort que la Fosse (§105), un cran plus bas. Trouvé par
+       l'agent `recensement`. Le plafond y est le même qu'en donjon — une
+       grotte est étroite, on ne veut pas d'un couloir de tir. */
+    {const _t=tirerTireur(depth);
+     if(_t&&_tireursGrotte<TIREURS_MAX_SALLE){kind=_t;_tireursGrotte++;}}
+    const _e=makeEnemy(kind,tx*TS+TS/2,ty*TS+TS/2,depth,elvl||1);
+    {const _v=tirerVariante(depth,null);if(_v>=0)appliquerVariante(_e,_v);}
+    if(alea()<0.12+depth*0.03)makeElite(_e);lvl.enemies.push(_e);
   }
 }
 

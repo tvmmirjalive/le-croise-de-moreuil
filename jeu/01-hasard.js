@@ -70,6 +70,11 @@ const player={
   baseStr:10,baseDex:10,baseVit:10,baseEne:10,baseAgi:10,
   lvl:1,xp:0,xpNext:40,xpTotal:0,statPts:0,paraLvl:0,paraXp:0,para:{},paraBonus:{},
   hp:100,mp:50,potions:3,manaPots:2,portals:0,gold:60,frags:0,arenaBossKills:0,scrollsId:2,chill:0,
+  /* Les états élémentaires SUBIS. `chill` existait seul depuis toujours ;
+     les trois autres arrivent avec les ennemis élémentaires (v9.54). Aucun
+     n'entre dans la sauvegarde : un état dure quelques secondes, le
+     recharger serait absurde — et `reinitialiserPartie` les remet à zéro. */
+  burn:0,burnDps:0,venom:0,venomT:0,
   corpse:null,_sacFait:false,   /* sac laissé à la mort — voir la section SAC DE MORT */
   clesAchetees:{}, resets:0,    /* puits d'or : clés de la Fosse, réinitialisations d'arbre */
   atkCd:0,path:null,attackTarget:null,

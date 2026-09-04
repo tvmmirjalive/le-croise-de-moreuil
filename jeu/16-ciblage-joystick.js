@@ -16,7 +16,14 @@
    pouce dans un jeu d'action. Le principe est de choisir l'ennemi
    que le joueur VOUDRAIT viser, pas simplement le plus proche.
    ================================================================ */
-const CIBLE_PORTEE=340;          // au-delà, on ne cible pas
+/* ⚠ PORTÉE DE CIBLAGE ET PORTÉE DE TIR DOIVENT ALLER ENSEMBLE.    (v9.60)
+   Elle valait 340 px, et le Soldat de 1918 tire à 360 : il pouvait donc
+   tirer sans jamais être visé par le ciblage automatique. Un adversaire
+   qu'on subit sans pouvoir y répondre n'est pas une difficulté, c'est une
+   frustration. Portée à 380 — le score privilégie de toute façon le plus
+   proche (1000−d), donc élargir le rayon ne détourne pas la visée d'un
+   ennemi collé au héros. Trouvé par l'agent `recensement`. */
+const CIBLE_PORTEE=380;          // au-delà, on ne cible pas
 let _cibleAuto=null, _cibleT=0;
 
 function scoreCible(en){

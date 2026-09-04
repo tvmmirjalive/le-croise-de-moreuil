@@ -223,6 +223,28 @@ const SFX=(function(){
     multi:   ech('multi',       function(){seq([[560,0.08,'square',0.15,,,0],[620,0.08,'square',0.15,,,70],[700,0.08,'square',0.15,,,140]]);}),
     palet:   ech('palet_impact',function(){noise(0.06,0.14,1800,600);}),
 
+    /* ---- LES TIRS D'ENNEMIS ----                                (v9.57)
+       ⚠ AUCUN ÉCHANTILLON. Le projet a déjà appris qu'« un son qui joue n'est
+       pas un son qu'on entend » : mapper quatre évènements neufs sur des
+       échantillons existants sans les écouter, c'est fabriquer trois sons
+       faux. Ceux-ci sont SYNTHÉTISÉS — du code, donc audible et réglable
+       sans matière première. Les noms d'évènement (`tir_magie`, `tir_balle`,
+       `tir_venin`) n'existent pas dans SFX_ECH : le repli joue toujours. Le
+       jour où Mirja enregistre les prises, il suffit de les y ajouter et
+       elles prennent le dessus toutes seules. */
+    tir: function(quoi,opt){
+      if(quoi==='balle'){
+        if(jouerEch('tir_balle',opt))return;
+        noise(0.05,0.22,2600,900);beep(180,0.05,'square',0.10,90,60);
+      } else if(quoi==='venin'){
+        if(jouerEch('tir_venin',opt))return;
+        noise(0.14,0.16,900,260);beep(120,0.14,'sawtooth',0.10,60,70);
+      } else {
+        if(jouerEch('tir_magie',opt))return;
+        beep(420,0.16,'triangle',0.12,1150,180);noise(0.10,0.07,1800,700);
+      }
+    },
+
     /* ---- MONDE ---- */
     boss:    ech('boss',        function(){beep(85,0.75,'sawtooth',0.34,600,48);noise(0.6,0.2,300,80);}),
     gate:    ech('passage',     function(){beep(300,0.4,'sine',0.20,3200,950);beep(600,0.3,'sine',0.10,3200,0);}),

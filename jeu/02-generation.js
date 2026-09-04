@@ -4,6 +4,7 @@
 
 
 
+
 /* ================================================================
    LA BESACE
 
@@ -58,6 +59,139 @@ const ENEMY_TYPES={
   shade:{name:'Ombre rôdeuse',r:12,hp:26,dmg:9,spd:2.4,xp:14,col:'#7a4fb0',res:{cold:20,holy:-30}},
   golem:{name:'Golem de givre',r:22,hp:120,dmg:16,spd:0.8,xp:34,col:'#5a86b8',res:{phys:35,cold:65,holy:-20}}};
 
+/* ================================================================
+   LES ENNEMIS À DISTANCE                                     (v9.57)
+
+   Quatre espèces qui tirent au lieu d'aller au contact, et qui reculent quand
+   le héros s'approche. Aucune ne coûte une image de plus : chacune emprunte
+   la planche d'une espèce existante et la porte teintée.
+
+   ⚠ CE QUI LES SÉPARE EST LE RYTHME, PAS L'ÉLÉMENT. Quatre ennemis qui
+   reculent à la même vitesse en tirant à la même cadence ne font pas quatre
+   ennemis : ils font le même, peint de quatre couleurs. Et une famille
+   entière qui recule sans qu'on la rattrape jamais devient une corvée, pas
+   une difficulté — d'où le Cracheur, lent EXPRÈS, et le Soldat qui ne fuit
+   presque pas.
+
+   ⚠ LE SOLDAT EMPRUNTE UNE PLANCHE DE PNJ. `poilu` est le donneur de quête
+   du Bois : 448×112, QUATRE IMAGES FIXES — pas de marche, pas de huit
+   directions, pas d'attaque, là où les cinq espèces d'ennemis en ont 32.
+   Un ennemi ordinaire bâti là-dessus glisserait de travers en regardant
+   ailleurs. Celui-ci TIENT SA LIGNE : il recule d'un pas et continue de
+   tirer. Une planche fixe ne se voit pas sur un ennemi qui reste debout.
+   Et les soldats de 1918 étaient déjà écrits dans le bandeau du Bois sans
+   jamais apparaître — les poser rattrape le texte au lieu d'y ajouter.
+   ================================================================ */
+const TIREURS={
+  sorcier: {base:'shade', nom:'Jeteur de Sorts',    teinte:'170,120,255',
+            r:12, hp:0.70, dmg:1.00, spd:1.9, xp:1.6,
+            portee:280, fuite:150, cd:2.0,  vitesse:5.0,  projR:11, ecart:0.06,
+            el:null,     son:'magie',  acte:1},
+  tireur:  {base:'imp',   nom:'Franc-Tireur',       teinte:'90,110,140',
+            r:12, hp:0.50, dmg:0.55, spd:2.6, xp:1.5,
+            portee:300, fuite:190, cd:0.85, vitesse:9.0,  projR:6,  ecart:0.10,
+            el:'phys',   son:'balle',  acte:1},
+  /* ⚠ LE PLUS PUNITIF DES QUATRE, ET C'EST MESURÉ. Il est le seul qu'on
+     puisse rejoindre : s'il ne punit pas celui qui ne le rejoint pas, sa
+     lenteur n'est qu'un cadeau. Dégâts montés de 1,50 à 1,70 après la mesure
+     de pression de la v9.58, où le Soldat le dépassait à deux actes sur
+     quatre — le moins atteignable ne doit pas être le plus dur. Puis
+     redescendus à 1,60 : à 1,70 il TALONNAIT le corps à corps (×1,01 à
+     l'acte 5, graine 2), et un ennemi qu'on ne peut pas frapper tout de
+     suite n'a pas le droit de faire aussi mal qu'un ennemi collé à soi. */
+  cracheur:{base:'brute', nom:'Cracheur de Venin',  teinte:'150,220,90',
+            r:18, hp:1.50, dmg:1.60, spd:0.7, xp:1.8,
+            portee:200, fuite:90,  cd:2.5,  vitesse:4.0,  projR:13, ecart:0.05,
+            el:'venom',  son:'venin',  acte:2},
+  /* ⚠ SA TEINTE DOIT RESTER LOIN DE CELLE DU PNJ DU BOIS, qui partage sa
+     planche : si le soldat hostile ressemble au donneur, le joueur frappe le
+     donneur ou hésite devant chaque soldat. Bleu-vert spectral, franc. */
+  soldat:  {base:'poilu', nom:'Soldat de 1918',     teinte:'110,200,180',
+            /* Cadence portée de 2,2 s à 3,2 s : à exposition égale il
+               dépassait le Cracheur en pression, alors qu'il est le plus
+               difficile à rejoindre. Un fusil de 1918 se recharge à la
+               main — la fiction et la mesure disent la même chose. */
+            r:14, hp:1.00, dmg:1.15, spd:0.35, xp:1.7,
+            portee:360, fuite:70,  cd:3.2,  vitesse:12.0, projR:5,  ecart:0.02,
+            el:'phys',   son:'balle',  acte:2, npc:'poilu'}
+};
+/* La part d'ennemis qui tirent, par acte. L'acte 1 n'en a aucun : on
+   rencontre la faune ordinaire avant d'apprendre à traverser un tir. */
+const TIREUR_PART=[0, 0.10, 0.16, 0.20, 0.24];
+/* ⚠ ET LA DIFFICULTÉ PÈSE, COMME SUR LES VARIANTES.               (v9.60)
+   `partVariante` intègre `difficulty` depuis la v9.56 ; `tirerTireur` ne le
+   faisait pas. L'Enfer n'avait donc pas un tireur de plus que le Normal —
+   une moitié du chantier montait avec la difficulté, l'autre non. */
+const TIREUR_PART_DIFF=0.07, TIREUR_PART_MAX=0.40;
+const TIREURS_MAX_SALLE=3;   /* au-delà, une salle devient un stand de tir */
+/* Quelle espèce de tireur, à quel acte ? Le Soldat ne naît QUE dans le Bois :
+   les soldats de 1918 sont ceux du Bois, pas une faune générique. */
+const ACTE_BOIS=2;
+function partTireur(acte){
+  const base=TIREUR_PART[Math.max(0,Math.min(4,acte|0))]||0;
+  if(base<=0)return 0;
+  const d=(typeof difficulty!=='undefined')?difficulty:0;
+  return Math.min(TIREUR_PART_MAX, base+d*TIREUR_PART_DIFF);
+}
+function tirerTireur(acte){
+  const part=partTireur(acte);
+  if(part<=0||alea()>=part)return null;
+  const possibles=[];
+  for(const k in TIREURS){
+    const t=TIREURS[k];
+    if(t.acte>acte)continue;
+    if(k==='soldat'&&acte!==ACTE_BOIS)continue;    /* le Bois, et lui seul */
+    possibles.push(k);
+  }
+  if(!possibles.length)return null;
+  return possibles[randi(0,possibles.length-1)];
+}
+
+/* ================================================================
+   LES VARIANTES ÉLÉMENTAIRES                                 (v9.56)
+
+   ⚠ UNE VARIANTE N'EST PAS UN `kind`. C'est un champ posé sur un ennemi
+   existant, comme `en.elite`. Si « Diablotin de Braise » devenait un `kind`,
+   il faudrait le déclarer dans `ENEMY_DIR_KEYS`, `ENEMY_DR`, `ENEMY_SET`,
+   `ENEMY_ANIM_SRC`, dans les compteurs de quête et dans le dictionnaire —
+   cinq tables pour un ennemi qui partage EXACTEMENT les mêmes planches.
+   En champ, tout reste en place : le rendu cherche par `en.kind`, les quêtes
+   comptent `qc[en.kind]` (une variante compte donc pour son espèce, ce qui
+   est voulu), et les ennemis ne sont pas sauvegardés — aucune migration.
+
+   ⚠ LE HÉROS N'A AUCUNE RÉSISTANCE ÉLÉMENTAIRE, ET N'EN AURA PAS (§94).
+   L'élément qu'une variante INFLIGE est neuf ; l'élément qu'elle SUBIT reste
+   dans le triangle phys/cold/holy que le héros possède déjà. Le « de Braise »
+   crache du feu mais encaisse `cold:-35` : la Tempête de Givre le déchire.
+   Contre-jeu immédiat, zéro statistique nouvelle. Voir Plan §3.
+
+   ⚠ LES NOMS NE PEUVENT PAS ÊTRE DES ADJECTIFS. `Ardent` et `Glacial` sont
+   déjà des modificateurs d'ÉLITE : « Diablotin Ardent Ardent » n'est pas un
+   nom, et deux mécaniques sous le même mot ne s'expliquent pas. La variante
+   prend donc un complément là où l'élite prend un adjectif.
+   ================================================================ */
+const VARIANTES=[
+ {id:'braise', nom:'de Braise', el:'fire',  teinte:'255,120,50',
+  res:{cold:-35,holy:10},  hp:0.95, dmg:1.15},
+ {id:'givre',  nom:'de Givre',  el:'cold',  teinte:'120,200,255',
+  res:{cold:70,phys:-15},  hp:1.10, dmg:1.00},
+ {id:'orage',  nom:"d'Orage",   el:'shock', teinte:'190,150,255',
+  res:{holy:-30,phys:20},  hp:1.00, dmg:1.10},
+ {id:'venin',  nom:'de Venin',  el:'venom', teinte:'150,220,90',
+  res:{holy:-25,cold:15},  hp:1.15, dmg:0.90}
+];
+/* La part d'ennemis qui portent une variante, par acte. L'acte 1 n'en a
+   AUCUNE : le joueur doit rencontrer la faune ordinaire avant sa version
+   colorée, sinon la couleur ne veut rien dire. */
+const VARIANTE_PART=[0, 0.14, 0.22, 0.30, 0.38];
+const VARIANTE_PART_DIFF=0.10;   /* et davantage en Cauchemar puis en Enfer */
+function partVariante(acte){
+  const base=VARIANTE_PART[Math.max(0,Math.min(4,acte|0))]||0;
+  if(base<=0)return 0;
+  const d=(typeof difficulty!=='undefined')?difficulty:0;
+  return Math.min(0.55, base+d*VARIANTE_PART_DIFF);
+}
+
 /* LES NOMS D'ENNEMIS, D'ACTES ET DE NIVEAUX.
 
    Même réduction que pour les objets (§40) : la clé se déduit du nom
@@ -68,7 +202,14 @@ const ENEMY_TYPES={
    Les ennemis ne sont pas sauvegardés : aucune précaution de ce côté. */
 function nomEnnemi(en){
   const n=(en&&en.name)||'';
-  return n?tOu('ennemi.'+_cleObjet(n), n):'';
+  if(!n)return '';
+  const base=tOu('ennemi.'+_cleObjet(n), n);
+  /* ⚠ RECOMPOSÉ, JAMAIS FIGÉ. Le nom d'élite avait été écrit en français une
+     fois pour toutes à la naissance, et les élites déjà sur la carte gardaient
+     ce nom après un changement de langue (corrigé en 9.28). On garde
+     l'INDICE de la variante, et on rassemble ici. */
+  const v=(en&&en.variante!=null)?VARIANTES[en.variante]:null;
+  return v?base+' '+tOu('variante.'+v.id, v.nom):base;
 }
 function nomActe(i,court){
   const a=ACTS[i]; if(!a)return '';

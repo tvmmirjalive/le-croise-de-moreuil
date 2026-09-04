@@ -29,6 +29,7 @@
 
 
 
+
 /* ================================================================
    MAINTIEN POUR VISER
    Garder le doigt sur un emplacement de sort ouvre un indicateur au
@@ -149,6 +150,7 @@ let pathBudget=0;
 /* Les minuteurs du héros : refroidissements, régénération de mana, verrous. */
 function _majMinuteursHeros(dt, st){
   if(player.chill>0)player.chill-=dt;
+  majStatuts(dt);      /* brûlure et venin — voir 11-progression.js */
   if((player._mpLock||0)>0)player._mpLock-=dt;
   else player.mp=Math.min(st.mpMax,player.mp+(2+st.ene*0.15)*dt);
   if((player._chargeLock||0)>0)player._chargeLock-=dt;
@@ -240,6 +242,94 @@ function _majBrouillard(){
       if(!level.seen[_i]){level.seen[_i]=1;if(typeof salirDalle==='function')salirDalle(nx,ny);}}}
 }
 
+/* ================================================================
+   LES ENNEMIS À DISTANCE — TROIS BANDES                      (v9.57)
+
+        fuite            tir              approche
+   0 ──────── fuite ──────── portee ────────→
+
+   Sous `fuite`, il recule. Entre les deux, il tire s'il voit. Au-delà, il se
+   rapproche par le chemin ordinaire — on retombe alors dans la poursuite.
+   ================================================================ */
+
+/* ⚠ IL N'EXISTAIT AUCUNE LIGNE DE VUE DANS LE MOTEUR. Sans elle, le Jeteur
+   de Sorts tire à travers les murs, et le joueur reçoit des boules venues de
+   nulle part. Un échantillonnage tous les 12 px suffit : c'est la moitié
+   d'un demi-corps, et le coût est nul comparé au A*. */
+const LOS_PAS=12;
+function ligneDeVue(x0,y0,x1,y1){
+  const dx=x1-x0, dy=y1-y0, d=Math.sqrt(dx*dx+dy*dy);
+  const n=Math.ceil(d/LOS_PAS);
+  for(let i=1;i<n;i++){
+    const t=i/n;
+    if(!isWalkablePx(level,x0+dx*t,y0+dy*t))return false;
+  }
+  return true;
+}
+
+/* Les cinq directions de fuite, essayées dans l'ordre : dos au héros, puis
+   ±45°, puis ±90° — on longe le mur au lieu de s'y écraser. */
+const RECUL_ANGLES=[0, 0.79, -0.79, 1.57, -1.57];
+const TIR_CD_ACCULE=1.4;   /* acculé, il tire un peu moins vite            */
+/* ⚠ ON SONDE PLUS LOIN QU'ON N'AVANCE, ET C'EST TOUT LE POINT.
+   La première version testait la praticabilité AU PAS DE DÉPLACEMENT. Pour
+   le Cracheur, ce pas vaut 0,7 px : le point sondé était encore dans sa
+   propre case, donc toujours praticable, donc il ne se savait JAMAIS acculé.
+   Il rampait vers le mur trois secondes durant et ne se retournait qu'une
+   fois collé — quand il se retournait. Une créature regarde devant elle sur
+   la longueur de son corps, pas sur la longueur d'un pas. */
+/* ⚠ ET LA SONDE DOIT DÉPASSER LA DEMI-CASE. Une case fait 44 px : sonder à
+   16 px, c'était encore regarder DANS SA PROPRE CASE, et la réponse est
+   alors toujours « praticable ». Deuxième version du même défaut, trouvée
+   par le même test. Il faut passer 22 px pour voir la case voisine — d'où
+   0,7 case. L'ennemi s'arrête ainsi une trentaine de pixels avant le mur au
+   lieu de s'y écraser, ce qui est aussi ce qu'on veut voir à l'écran. */
+const RECUL_SONDE=TS*0.7;
+
+/* Rend `false` quand AUCUNE des cinq directions n'est praticable : l'ennemi
+   est acculé. Sans ce retour, il vibrerait sur place indéfiniment — une
+   cible immobile, ou pire, un ennemi coincé dans un angle. */
+function _reculer(en,spd){
+  const a0=Math.atan2(en.y-player.y,en.x-player.x)+(en._biais||0);
+  for(let i=0;i<RECUL_ANGLES.length;i++){
+    const a=a0+RECUL_ANGLES[i];
+    const ca=Math.cos(a), sa=Math.sin(a);
+    const sx=en.x+ca*RECUL_SONDE, sy=en.y+sa*RECUL_SONDE;   /* où l'on REGARDE */
+    if(isWalkablePx(level,sx,sy)&&isWalkablePx(level,sx,en.y)&&isWalkablePx(level,en.x,sy)){
+      en.x+=ca*spd;en.y+=sa*spd;en.path=null;return true;    /* où l'on VA */
+    }
+  }
+  return false;
+}
+
+function _tirer(en,TI){
+  const a=Math.atan2(player.y-en.y,player.x-en.x)+rand(-TI.ecart,TI.ecart);
+  const el=en.element||TI.el||'phys';
+  projectiles.push({x:en.x,y:en.y,
+    vx:Math.cos(a)*TI.vitesse, vy:Math.sin(a)*TI.vitesse,
+    dmg:en.dmg, bounces:0, r:TI.projR, life:3, t:0,
+    hitSet:new Set(), enemy:true, lvl:en.lvl,
+    type:el, col:(typeof DMG_COL!=='undefined'&&DMG_COL[el])||'#ffd85e',
+    trail:[]});
+  if(SFX&&SFX.tir)SFX.tir(TI.son,{x:en.x,y:en.y});
+}
+
+/* Rend `true` quand le tireur a pris la main : il ne faut alors PAS
+   enchaîner sur la poursuite au contact. */
+function _majTireur(en,dt,dP,spd){
+  const TI=TIREURS[en.tireur]; if(!TI)return false;
+  en._tirCd=Math.max(0,(en._tirCd||0)-dt);
+  if(dP>TI.portee)return false;          /* trop loin : il se rapproche */
+  if(dP<TI.fuite)en._accule=!_reculer(en,spd);
+  else en._accule=false;
+  if(en._tirCd<=0&&ligneDeVue(en.x,en.y,player.x,player.y)){
+    en._tirCd=TI.cd*(en._accule?TIR_CD_ACCULE:1);
+    _tirer(en,TI);
+    if(!en.boss){en._atkT=0.45;en._atkDur=0.45;en._atkIdx=randi(0,1);}
+  }
+  return true;
+}
+
 /* Un ennemi : ses minuteurs, sa visibilité, puis sa poursuite ou sa flânerie. */
 function _majEnnemi(en, dt){
   if(en.dying){en.dieT=(en.dieT||0)+dt;return;}
@@ -253,6 +343,12 @@ function _majEnnemi(en, dt){
   const spd=en.spd*(en.slow>0?0.45:1);
   if(en.boss&&en._dash){ if(bossPhaseUpdate(en,dt))return; }
   if(en.aggro&&!(en.frozen>0)){
+    /* Un tireur ne va pas au contact : il tient sa distance et tire. Il ne
+       retombe dans la poursuite ordinaire que lorsqu'il est HORS de portée. */
+    if(en.tireur&&_majTireur(en,dt,dP,spd)){
+      if(en.boss)bossPhaseUpdate(en,dt);
+      return;
+    }
     if(dP>en.r+player.r+2){
       // path toward player, throttled
       en.pcd-=dt;
@@ -272,7 +368,7 @@ function _majEnnemi(en, dt){
       } else { const a=Math.atan2(player.y-en.y,player.x-en.x);
         const nxp=en.x+Math.cos(a)*spd,nyp=en.y+Math.sin(a)*spd;
         if(isWalkablePx(level,nxp,en.y))en.x=nxp; if(isWalkablePx(level,en.x,nyp))en.y=nyp; }
-    } else if(en.hitCd<=0){en.hitCd=1.0;damagePlayer(en.dmg,en.lvl);
+    } else if(en.hitCd<=0){en.hitCd=1.0;damagePlayer(en.dmg,en.lvl,en.element);
       if(en.vamp){en.hp=Math.min(en.hpMax,en.hp+Math.round(en.dmg*0.6));floatText(en.x,en.y-en.r-18,'+vol','#ff6b9a');}
       if(en.chill){player.chill=2.2;floatText(player.x,player.y-40,'GELÉ','#7fd0ff');}if(!en.boss){en._atkT=0.55;en._atkDur=0.55;en._atkIdx=randi(0,1);}}
     if(en.boss)bossPhaseUpdate(en,dt);
@@ -307,7 +403,11 @@ function _majProjectiles(dt){
        qui transforme un rond qui se téléporte en objet lancé. */
     if(p.trail){p.trail.unshift(p.x,p.y);if(p.trail.length>16)p.trail.length=16;}
     if(p.spin!=null)p.spin+=(p.spinV||16)*dt;
-    if(p.enemy){if(dist(p.x,p.y,player.x,player.y)<player.r+p.r){damagePlayer(p.dmg,p.lvl);projectiles.splice(i,1);continue;}}
+    if(p.enemy){if(dist(p.x,p.y,player.x,player.y)<player.r+p.r){
+      /* ⚠ `p.type` ÉTAIT PERDU EN ROUTE. Le projectile portait déjà son type
+         — les boss s'en servent pour la couleur — mais `damagePlayer` ne le
+         recevait pas : une boule de feu faisait des dégâts anonymes. */
+      damagePlayer(p.dmg,p.lvl,p.type);projectiles.splice(i,1);continue;}}
     else{for(const en of level.enemies){if(p.hitSet.has(en))continue;
       if(dist(p.x,p.y,en.x,en.y)<en.r+p.r){hitEnemy(en,p.dmg,p.type||'phys');p.hitSet.add(en);
         if(!p.perce)p.bounces--;}}

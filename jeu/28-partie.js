@@ -60,6 +60,12 @@ function reinitialiserPartie(){
   p.balises={};p.corpse=null;p._sacFait=false;p._finale=false;
   p.dons={blancs:0,magique:0};p.scenesVues={};p.dits={};
   p.questSuivie=null;p.buffType=null;p.buffT=0;p.chill=0;
+  /* ⚠ `_burnTic` ET `_mpLock` MANQUAIENT.                          (v9.60)
+     Le premier laisse le compteur de brûlure à mi-course et fait sauter le
+     premier tic de la partie suivante ; le second laisse le mana verrouillé
+     au premier pas d'une partie neuve. Deux secondes chacun, invisibles,
+     et faux. Trouvés par l'agent `recensement`. */
+  p.burn=0;p.burnDps=0;p._burnTic=0;p.venom=0;p.venomT=0;p._mpLock=0;
   inventory.length=0;stash.length=0;
   setInvCap(18);stashCap=30;
   maxAct=-1;bossKilled=false;bossCleared=[false,false,false,false,false];

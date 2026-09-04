@@ -179,6 +179,20 @@ function devToBoss(){
 
 /* ---------------- EFFECTS ---------------- */
 const projectiles=[],floaters=[],particles=[];
+
+/* LA COULEUR D'UN CHIFFRE DE DÉGÂTS, PAR ÉLÉMENT.
+
+   Elle était en 09-entree-tactile.js, où seul `hitEnemy` s'en servait — et
+   `fire` y était déclarée sans être employée nulle part : la couleur avait
+   été posée d'avance, l'élément jamais écrit. La v9.54 met `fire` en service,
+   ajoute `shock` et `venom`, et descend la table ici : la brûlure et le venin
+   affichent leurs dégâts depuis 11-progression.js, qui ne peut pas importer
+   de 09 puisque c'est 09 qui importe 11.
+
+   Un élément sans couleur de chiffre est un élément que le joueur ne peut
+   pas distinguer : `test_statuts.js` exige une entrée pour chacun. */
+const DMG_COL={phys:'#ffd85e',cold:'#7fd0ff',holy:'#fff2a0',fire:'#ff9a4d',
+               shock:'#c9a8ff',venom:'#9fe06a'};
 function floatText(x,y,txt,col,big){floaters.push({x,y,txt,col,t:0,life:big?1.2:0.9,big});}
 /* ── PARTICULES ──────────────────────────────────────────────────────────
    Toutes les gerbes du jeu sortaient de la même fonction et donnaient le même

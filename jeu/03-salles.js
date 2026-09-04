@@ -90,13 +90,13 @@ const ANOMALIES={
   braise:  {nom:'Braises',      spd:1.0,  dot:1.6,  col:'#ff9a5a'}
 };
 const REGION_PROFILS=[
-  {id:'coeur',   teinte:null,                 densite:1.0, vision:7, penchant:null,     anomalie:null},
-  {id:'sombre',  teinte:'rgba(10,14,34,0.34)',densite:0.7, vision:5, penchant:'wraith', anomalie:null},
-  {id:'nid',     teinte:'rgba(70,20,30,0.20)',densite:1.5, vision:7, penchant:'imp',    anomalie:null},
-  {id:'ruine',   teinte:'rgba(120,96,60,0.22)',densite:1.3,vision:6, penchant:'brute',  anomalie:'gravats'},
-  {id:'gel',     teinte:'rgba(120,190,255,0.24)',densite:0.8,vision:8,penchant:'wraith',anomalie:'glisse'},
-  {id:'malsain', teinte:'rgba(90,40,120,0.24)',densite:1.1,vision:6, penchant:'shade',  anomalie:'morsure'},
-  {id:'brasier', teinte:'rgba(150,60,20,0.22)',densite:1.0,vision:7, penchant:'golem',  anomalie:'braise'}
+  {id:'coeur',   teinte:null,                 densite:1.0, vision:7, penchant:null,     anomalie:null,      penchantVar:null},
+  {id:'sombre',  teinte:'rgba(10,14,34,0.34)',densite:0.7, vision:5, penchant:'wraith', anomalie:null,      penchantVar:'orage'},
+  {id:'nid',     teinte:'rgba(70,20,30,0.20)',densite:1.5, vision:7, penchant:'imp',    anomalie:null,      penchantVar:'braise'},
+  {id:'ruine',   teinte:'rgba(120,96,60,0.22)',densite:1.3,vision:6, penchant:'brute',  anomalie:'gravats', penchantVar:null},
+  {id:'gel',     teinte:'rgba(120,190,255,0.24)',densite:0.8,vision:8,penchant:'wraith',anomalie:'glisse',  penchantVar:'givre'},
+  {id:'malsain', teinte:'rgba(90,40,120,0.24)',densite:1.1,vision:6, penchant:'shade',  anomalie:'morsure', penchantVar:'venin'},
+  {id:'brasier', teinte:'rgba(150,60,20,0.22)',densite:1.0,vision:7, penchant:'golem',  anomalie:'braise',  penchantVar:'braise'}
 ];
 /* UNE RÉGION PAR PILIER.
 
@@ -259,6 +259,16 @@ function decorerSalle(lvl,S,def,liste,pris){
       pose(tx+Math.round(Math.cos(th)*2.2), ty+Math.round(Math.sin(th)*2.2));} }
 }
 /* Le profil de la région d'une case, ou d'une position en pixels. */
+/* Dans quelle salle tombe cette case, ou null. Sert au plafond de tireurs :
+   un stand de tir se fabrique salle par salle, pas niveau par niveau. */
+function _salleDe(lvl,tx,ty){
+  const S=lvl.salles; if(!S)return null;
+  for(let i=0;i<S.length;i++){
+    const s=S[i], dx=tx-s.tx, dy=ty-s.ty, r=(s.r||6)+1;
+    if(dx*dx+dy*dy<=r*r)return i;
+  }
+  return null;
+}
 function regionDe(lvl,tx,ty){
   if(!lvl||!lvl.region)return REGION_PROFILS[0];
   if(tx<0||ty<0||tx>=lvl.w||ty>=lvl.h)return REGION_PROFILS[0];
@@ -510,6 +520,8 @@ function _actPresDUneBalise(lvl,px,py,marge){
 
 /* Les ennemis : une rampe de niveau selon l'avancement le long du tronc. */
 function _actEnnemis(lvl, A, rf, progAt){
+  /* Combien de tireurs déjà posés, PAR SALLE. Voir le plafond plus bas. */
+  const _tireursPoses={};
   const spawn=lvl.spawn,aStart=lvl.aStart,aEnd=lvl.aEnd;
   const nEn=Math.min(1600,Math.round(rf.length*0.028)+120);
   for(let i=0;i<nEn;i++){const p=rf[randi(0,rf.length-1)];if(dist(p[0],p[1],spawn[0],spawn[1])<14)continue;
@@ -518,10 +530,31 @@ function _actEnnemis(lvl, A, rf, progAt){
     if(A.depth>=3&&r<0.16)kind='golem';else if(A.depth>=1&&r<0.34)kind='shade';else if(A.depth>=2&&r<0.5)kind='brute';else if(r<0.62)kind='wraith';else if(r<0.74)kind='brute';
     /* Penchant de région : deux fois sur trois, la région impose son espèce.
        Un nid grouille de diablotins, une zone sombre de spectres. */
-    {const _rp=regionDe(lvl,p[0],p[1]);
-     if(_rp.penchant&&alea()<0.66)kind=_rp.penchant;}
+    const _rp=regionDe(lvl,p[0],p[1]);
+    if(_rp.penchant&&alea()<0.66)kind=_rp.penchant;
+    /* ⚠ UN PLAFOND, ET IL EST LOCAL. Sans lui une salle peut tirer au sort
+       six tireurs et devenir un stand de tir : le joueur y entre sous le feu
+       de tous les côtés sans jamais pouvoir en rejoindre un. Le plafond
+       compte par SALLE — `lvl.salles` est déjà rempli quand on peuple. */
+    {const _t=tirerTireur(A.depth);
+     if(_t){
+       /* ⚠ LE HORS-SALLE N'EST PAS UNE SALLE. Première version : toutes les
+          cases hors salle partageaient UN SEUL seau — et comme l'immense
+          majorité des ennemis naît hors des salles nommées, le niveau entier
+          était plafonné à trois tireurs. Le Bois n'en portait qu'UN.
+          Hors salle, le voisinage se compte donc par blocs de huit cases :
+          la densité reste locale, sans plafond global. */
+       const _sa=_salleDe(lvl,p[0],p[1]);
+       const _cle=_sa==null?('z'+(p[0]>>3)+'_'+(p[1]>>3)):('s'+_sa);
+       const _n=_tireursPoses[_cle]||0;
+       if(_n<TIREURS_MAX_SALLE){kind=_t;_tireursPoses[_cle]=_n+1;}
+     }}
     const _pp=progAt(p[0],p[1]);const _elvl=Math.max(1,Math.round(aStart+(aEnd-aStart)*_pp));
-    const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth,_elvl);if(alea()<0.10+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
+    const e=makeEnemy(kind,p[0]*TS+TS/2,p[1]*TS+TS/2,A.depth,_elvl);
+    /* La région décide de la couleur autant que du peuple : `_rp` a servi
+       plus haut à choisir l'espèce, il choisit ici la variante. */
+    {const _v=tirerVariante(A.depth,_rp);if(_v>=0)appliquerVariante(e,_v);}
+    if(alea()<0.10+A.depth*0.03)makeElite(e);lvl.enemies.push(e);}
 }
 
 /* PLACEMENT DE L'ENTRÉE DE GROTTE — contrainte imposée par le sprite lui-même.
@@ -606,7 +639,11 @@ function _actBranches(lvl, A, G){
         ex=q[0];ey=q[1];
         if(_actPresDUneBalise(lvl,ex,ey,0.5))poser=false;
       }
-      if(poser)for(let k=0;k<2;k++){const e=makeEnemy(A.depth>=2?'brute':'wraith',ex*TS+TS/2+rand(-20,20),ey*TS+TS/2+rand(-20,20),A.depth,_el);makeElite(e);lvl.enemies.push(e);}
+      if(poser)for(let k=0;k<2;k++){const e=makeEnemy(A.depth>=2?'brute':'wraith',ex*TS+TS/2+rand(-20,20),ey*TS+TS/2+rand(-20,20),A.depth,_el);
+        /* La variante AVANT l'élite : `makeElite` réapplique la faiblesse
+           en sortie, et l'ordre inverse la lui ferait écraser (§96). */
+        {const _v=tirerVariante(A.depth,null);if(_v>=0)appliquerVariante(e,_v);}
+        makeElite(e);lvl.enemies.push(e);}
       {const _c=poserObjet(lvl,bx,by,{opened:false,depth:A.depth},5);if(_c)lvl.chests.push(_c);}
     } else {
       for(let k=0;k<randi(2,4);k++){const q=_actCaseSolProche(lvl,bx+randi(-2,2),by+randi(-2,2));lvl.breakables.push({tx:q[0],ty:q[1],x:q[0]*TS+TS/2,y:q[1]*TS+TS/2,broken:false,r:14});}

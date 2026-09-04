@@ -73,7 +73,14 @@ const BOSS_MOVES={
   summon:(en,kind,n,lvl)=>{let ok=0;
     for(let i=0;i<n*3&&ok<n;i++){const a=rand(0,6.28),d=52+rand(0,34);
       const bx=en.x+Math.cos(a)*d,by=en.y+Math.sin(a)*d;
-      if(isWalkablePx(level,bx,by)){level.enemies.push(makeEnemy(kind,bx,by,lvl));ok++;}}
+      if(isWalkablePx(level,bx,by)){
+        const _r=makeEnemy(kind,bx,by,lvl);
+        /* Les renforts d'un boss sont des démons comme les autres : ils ont
+           le droit à une couleur. Sans ça, la seule salle du jeu où l'on
+           reçoit des ennemis en pleine bataille était aussi la seule où ils
+           étaient tous gris. (v9.60, agent `recensement`) */
+        {const _v=tirerVariante(level.depth||0,null);if(_v>=0)appliquerVariante(_r,_v);}
+        level.enemies.push(_r);ok++;}}
     if(ok)floatText(en.x,en.y-en.r-24,'renforts !','#ffb45e');},
   ground:(en,n,r,dmg,col,kind)=>{
     addZone(player.x,player.y,r,1.0,dmg,col,kind);

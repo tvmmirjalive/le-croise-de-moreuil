@@ -162,6 +162,9 @@ const TEXTES={
     'prog.or':'{or} or',
     'combat.gele':'GELÉ',
     'combat.bloque':'BLOQUÉ',
+    'combat.brule':'EN FEU',
+    'combat.decharge':'DÉCHARGE',
+    'combat.venin':'VENIN ×{n}',
     'prog.niveau':'{n} !  +5 stats · +1 skill',
     'prog.plusDeMana':'Plus de potions de mana',
     'prog.manaPlein':'Mana déjà plein',
@@ -704,6 +707,9 @@ const TEXTES={
     'prog.or':'{or} gold',
     'combat.gele':'FROZEN',
     'combat.bloque':'BLOCKED',
+    'combat.brule':'BURNING',
+    'combat.decharge':'SHOCKED',
+    'combat.venin':'VENOM x{n}',
     'prog.niveau':'{n}!  +5 stats · +1 skill',
     'prog.plusDeMana':'No mana potions left',
     'prog.manaPlein':'Mana already full',
@@ -2289,6 +2295,16 @@ const TEXTES={
        ACT_BOSSES et la liste de PNJ du village. `NPC_KEY` est indexé par le
        nom de PNJ pour retrouver son portrait : la donnée doit rester
        française, sinon les portraits disparaissent en anglais. */
+    /* Les variantes élémentaires. Le français vit dans VARIANTES ; seul
+       l'anglais entre au dictionnaire, comme pour les élites. */
+    'variante.braise':'Emberborn',
+    'variante.givre':'Frostborn',
+    'variante.orage':'Stormborn',
+    'variante.venin':'Venomous',
+    'ennemi.jeteur_de_sorts':'Spellcaster',
+    'ennemi.franc_tireur':'Sharpshooter',
+    'ennemi.cracheur_de_venin':'Venomspitter',
+    'ennemi.soldat_de_1918':'Soldier of 1918',
     'ennemi.diablotin':'Imp',
     'ennemi.spectre_bleu':'Blue Spectre',
     'ennemi.brute_d_os':'Bone Brute',

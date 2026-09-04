@@ -158,7 +158,7 @@ function usePotion(){
   if(level&&level.arena&&level.arena.noPot){toast(t('prog.sobriete'),1.6);return;}
   if(player.potions<=0){toast(t('prog.plusDePotions'),1);return;}
   const st=P();if(player.hp>=st.hpMax){toast(t('prog.viePleine'),1);return;}
-  player.potions--;player.hp=Math.min(st.hpMax,player.hp+Math.round(st.hpMax*(0.5+((player.equip.belt&&player.equip.belt.pot)||0))));SFX.potion();
+  player.potions--;soigner(Math.round(st.hpMax*(0.5+((player.equip.belt&&player.equip.belt.pot)||0))));SFX.potion();
   playOnce('Drinking');
   floatText(player.x,player.y-30,'+SOIN','#7dff9a');burst(player.x,player.y,'#7dff9a',12);refreshHud();
 }
@@ -207,7 +207,128 @@ function degatsMultEcart(nivEnnemi,nivJoueur){
   const dur=Math.max(0,d-DEG_ECART.seuil)*DEG_ECART.dur;
   return Math.min(DEG_ECART.plafond,1+doux+dur);
 }
-function damagePlayer(dmg,niveauSource){
+/* ================================================================
+   LES QUATRE ÉLÉMENTS SUBIS PAR LE HÉROS                     (v9.54)
+
+   ⚠ LE HÉROS N'A AUCUNE RÉSISTANCE ÉLÉMENTAIRE, ET C'EST VOULU.
+
+   La v9.35 avait déjà retiré `holy` et `cold` des lignes de parangon en
+   constatant qu'elles étaient INERTES depuis leur écriture : `holy` est un
+   sort, `cold` une résistance d'ENNEMI. Les remettre côté héros aurait
+   demandé une ligne d'affixe, une case de panneau, un ensemble et un
+   rééquilibrage complet — pour une statistique que le joueur ne peut pas
+   lire pendant un combat.
+
+   La contrepartie n'est donc pas une résistance qu'on PORTE, c'est une
+   faiblesse que l'ennemi PORTE, exprimée dans le triangle phys/cold/holy
+   que le héros possède déjà (voir Plan_ennemis_elementaires.md §3). Ce que
+   l'élément change ici, c'est un ÉTAT — quelque chose qui se voit, qui dure
+   quelques secondes, et auquel on répond en jouant.
+
+   Aucun de ces états n'entre dans la sauvegarde : recharger une brûlure de
+   trois secondes n'aurait aucun sens. `reinitialiserPartie` les efface.
+   ================================================================ */
+const BRULURE_DUREE=3.0;    /* secondes                                    */
+const BRULURE_PART=0.30;    /* part du coup rejouée en dégâts sur la durée */
+const BRULURE_TIC=0.5;      /* ⚠ sans palier, la brûlure crache un chiffre
+                               flottant par image : illisible, et la vie
+                               tombait en décimales dans le bandeau.       */
+const GEL_DUREE=2.2;        /* aligné sur `en.chill`, qui existait déjà    */
+const DECHARGE_MANA=2.6;    /* > le verrou ordinaire de 1,5 s de damagePlayer */
+const VENIN_MAX=3;
+const VENIN_DUREE=5.0;
+const VENIN_SOIN=0.22;      /* soin perdu PAR CHARGE : 66 % à trois        */
+
+/* ⚠ LE VENIN NE « COUPE PAS LA RÉGÉNÉRATION » : IL N'Y EN A PAS.
+
+   Le plan parlait de régénération de vie. En relisant le code : le héros
+   n'en a aucune — la vie ne revient que par potion, par Cri de Guerre et
+   par vol de vie. Couper une régénération inexistante aurait fait un
+   quatrième état décoratif, exactement ce que §3 cherche à éviter.
+
+   Le venin réduit donc LE SOIN REÇU, sur ces trois voies. C'est ce qui rend
+   le Cracheur dangereux : on ne peut pas simplement boire. */
+function malusSoinVenin(){
+  return Math.max(0, 1-Math.min(VENIN_MAX,player.venom||0)*VENIN_SOIN);
+}
+/* LE POINT DE PASSAGE UNIQUE DU SOIN. Trois endroits rendaient de la vie —
+   la potion, le Cri de Guerre, le vol de vie — chacun avec son propre
+   `Math.min(st.hpMax, …)`. Le venin devait mordre sur les trois : plutôt
+   que de recopier le malus trois fois, tout passe ici. Renvoie ce qui a
+   RÉELLEMENT été rendu, pour que l'appelant puisse l'afficher. */
+function soigner(montant){
+  if(!(montant>0))return 0;
+  const st=P();
+  const eff=Math.max(1,Math.round(montant*malusSoinVenin()));
+  const avant=player.hp;
+  player.hp=Math.min(st.hpMax,player.hp+eff);
+  return player.hp-avant;
+}
+
+/* L'état posé par un coup élémentaire. Appelé APRÈS que les dégâts ont été
+   encaissés : un coup bloqué ne pose rien, puisque `damagePlayer` sort
+   avant. */
+function appliquerStatutElement(type,degatsRecus){
+  if(!type||type==='phys'||type==='holy')return;
+  if(type==='fire'){
+    /* On garde le PIRE et on renouvelle la durée. Empiler les dégâts par
+       seconde ferait qu'un ennemi de feu à cadence rapide tue par
+       accumulation invisible, sans que le joueur voie jamais de gros coup. */
+    const dps=Math.max(1,(degatsRecus*BRULURE_PART)/BRULURE_DUREE);
+    player.burnDps=Math.max(player.burnDps||0,dps);
+    player.burn=BRULURE_DUREE;
+    floatText(player.x,player.y-44,t('combat.brule'),DMG_COL.fire);
+  } else if(type==='cold'){
+    player.chill=Math.max(player.chill||0,GEL_DUREE);
+    floatText(player.x,player.y-40,t('combat.gele'),DMG_COL.cold);
+  } else if(type==='shock'){
+    player._mpLock=Math.max(player._mpLock||0,DECHARGE_MANA);
+    floatText(player.x,player.y-44,t('combat.decharge'),DMG_COL.shock);
+  } else if(type==='venom'){
+    const avant=player.venom||0;
+    player.venom=Math.min(VENIN_MAX,avant+1);
+    player.venomT=VENIN_DUREE;      /* chaque charge relance la durée entière */
+    if(player.venom>avant)floatText(player.x,player.y-44,
+      t('combat.venin',{n:player.venom}),DMG_COL.venom);
+  }
+}
+
+/* Les états qui s'écoulent, une image à la fois. Appelé par
+   `_majMinuteursHeros`, aux côtés du gel et du verrou de mana. */
+function majStatuts(dt){
+  if(player.dying||player._finale)return;
+  if((player.burn||0)>0){
+    player.burn-=dt;
+    player._burnTic=(player._burnTic||0)+dt;
+    if(player._burnTic>=BRULURE_TIC){
+      player._burnTic-=BRULURE_TIC;
+      const n=Math.max(1,Math.round((player.burnDps||0)*BRULURE_TIC));
+      player.hp-=n;
+      floatText(player.x,player.y-28,n,DMG_COL.fire);
+      verifierMortDuHeros();
+    }
+    if(player.burn<=0){player.burn=0;player.burnDps=0;player._burnTic=0;}
+  }
+  if((player.venomT||0)>0){
+    player.venomT-=dt;
+    if(player.venomT<=0){player.venomT=0;player.venom=0;}
+  }
+}
+
+/* LA MORT, EN UN SEUL ENDROIT. Elle était écrite en toutes lettres à la fin
+   de `damagePlayer` ; la brûlure peut tuer elle aussi, et recopier ce bloc
+   aurait laissé deux morts qui divergent — l'une déposant le sac, l'autre
+   non. */
+function verifierMortDuHeros(){
+  if(player.hp>0||player.dying)return;
+  player.hp=0;player.dying=true;player.dyingT=0;player.path=null;
+  player.attackTarget=null;player.anim='Idle';player.animOnce=false;
+  SFX.death();vibrer(VIB.mort);SFX.hurt();
+  burst(player.x,player.y,'#7fd0ff',26);burst(player.x,player.y,'#ff6b6b',16);
+  if(!player._sacFait){player._sacFait=true;deposerSacMort();}
+}
+
+function damagePlayer(dmg,niveauSource,type){
   if(player.dying)return;
   /* ON NE MEURT PAS APRÈS AVOIR GAGNÉ.
 
@@ -229,13 +350,16 @@ function damagePlayer(dmg,niveauSource){
   const red=Math.max(1,Math.round(dmg*(1-reductionDef(st.def,niveauSource||player.lvl))));
   if(alea()<USURE_PROT)wearGear([pick(SLOTS_PROT)],1);
   player.hp-=red;player.hurt=0.2;player._mpLock=1.5;
+  /* L'état vient APRÈS l'encaissement : il lit les dégâts RÉELLEMENT subis,
+     défense et blocage déduits. Une brûlure calculée sur les dégâts bruts
+     ignorerait toute l'armure du joueur. */
+  appliquerStatutElement(type,red);
   if(typeof alerteVieBasse==='function')alerteVieBasse(player.hp/Math.max(1,st.hpMax));
   /* Le chiffre vire au rouge vif et porte un signe quand l'écart de niveau
      pèse : sans ça le joueur voit juste « je meurs vite » sans comprendre. */
   floatText(player.x,player.y-28,(_me>=1.3?'‼ ':'')+red,_me>=1.3?'#ff2d2d':(_me>1.01?'#ff8a5a':'#ff6b6b'));
   SFX.hurt();vibrer(VIB.degats);
-  if(player.hp<=0){player.hp=0;player.dying=true;player.dyingT=0;player.path=null;player.attackTarget=null;player.anim='Idle';player.animOnce=false;SFX.death();vibrer(VIB.mort);SFX.hurt();burst(player.x,player.y,'#7fd0ff',26);burst(player.x,player.y,'#ff6b6b',16);}refreshHud();
-  if(player.dying&&!player._sacFait){player._sacFait=true;deposerSacMort();}
+  verifierMortDuHeros();refreshHud();
 }
 
 

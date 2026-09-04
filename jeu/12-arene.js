@@ -24,6 +24,24 @@
 /* ================================================================
    ARÈNE DE LA FOSSE — vagues, giga-boss, clés, butin définitif
    ================================================================ */
+/* ================================================================
+   LA PART DES NOUVEAUX ENNEMIS DANS LA FOSSE                 (v9.59)
+   Réglages propres à l'arène : l'acte 5 porte 36 % de variantes et 20 % de
+   tireurs, mais un acte se traverse et une arène s'endure.
+   ================================================================ */
+const FOSSE_VARIANTE_BASE=0.30, FOSSE_VARIANTE_PALIER=0.10;  /* 40 / 50 / 60 % */
+const FOSSE_TIREUR_PART=0.16;      /* un ennemi sur six tenté             */
+const FOSSE_TIREUR_PART_MAX=0.25;  /* jamais plus d'un quart de la vague  */
+const FOSSE_TIREURS_MAX=3;         /* ni plus de trois, quelle que soit   */
+/* ⚠ LE SOLDAT DE 1918 ENTRE DANS LA FOSSE, ET C'EST COHÉRENT : l'arène
+   d'Anselme convoque les ÉCHOS de ce qu'on a affronté — ses boss sont les
+   gardiens des cinq actes. Le soldat du Bois y a donc sa place, là où il
+   n'en a aucune dans les quatre autres actes. */
+function tirerTireurFosse(){
+  const noms=Object.keys(TIREURS);
+  return noms[randi(0,noms.length-1)];
+}
+
 const ARENA_TIERS=[
  /* ⚠ `gratuit` N'EST PAS UNE FAVEUR, C'EST LA PORTE DE SORTIE DU JOUEUR
     RUINÉ. Sans un palier qui ne coûte rien, quelqu'un à court de clés de
@@ -48,6 +66,18 @@ const ARENA_TIERS=[
 function nomPalier(tier){ return tier?tOu('fosse.palier.'+tier.id, tier.nom):''; }
 function nomModArene(m){ return (m&&m.nom)?tOu('fosse.mod.'+m.id, m.nom):''; }
 
+/* ⚠ LE MODIFICATEUR DE VAGUE PASSE PAR ICI, ET PAR NULLE PART AILLEURS.
+   « SPECTRAUX » ajoute `phys:+30`. Sur un « de Givre », dont toute la
+   contrepartie est `phys:-15`, il rendait l'ennemi RÉSISTANT au corps à
+   corps — c'est-à-dire immunisé contre la seule réponse que le joueur avait.
+   Même défaut que le modificateur d'élite `Glacial` (§96), même correctif :
+   la faiblesse est réappliquée après coup. */
+function arenaAppliquerMod(e,mod){
+  if(!e||!mod)return e;
+  mod.apply(e);
+  if(e._faiblesse)e.res=Object.assign({},e.res,e._faiblesse);
+  return e;
+}
 const ARENA_MODS=[
  {id:'rapide',   nom:'ENNEMIS RAPIDES',   apply:e=>{e.spd*=1.55;}},
  {id:'blinde',   nom:'ENNEMIS BLINDÉS',   apply:e=>{e.hp=e.hpMax=Math.round(e.hpMax*1.6);}},
@@ -343,13 +373,32 @@ function arenaStartWave(){
     return;
   }
   const n=Math.round(effectifVague(A.wave)*(1+(mod.extra||0)));
+  /* ⚠ LA FOSSE PEUPLAIT SES VAGUES TOUTE SEULE.                    (v9.59)
+     Elle tirait dans les cinq espèces ordinaires et n'appelait ni
+     `tirerVariante` ni `tirerTireur` : tout le chantier élémentaire
+     s'arrêtait à la porte de l'arène — c'est-à-dire précisément là où le
+     joueur passe sa fin de partie. Signalé par Mirja.
+
+     ⚠ ET LES TIREURS Y SONT PLAFONNÉS PLUS SÉVÈREMENT QU'EN DONJON. Dans un
+     acte on contourne un tireur ; dans une arène fermée on le prend de face.
+     Une vague pleine de tireurs, c'est un peloton d'exécution. */
+  let tireurs=0;
   for(let i=0;i<n;i++){
     const sp=pick(A.spawnPts);
     const [x,y]=_arenePosePropre(sp);
     const r=alea();
     let kind = r<0.22?'imp' : r<0.46?'wraith' : r<0.68?'shade' : r<0.87?'brute' : 'golem';
+    if(tireurs<FOSSE_TIREURS_MAX && tireurs<n*FOSSE_TIREUR_PART_MAX
+       && alea()<FOSSE_TIREUR_PART){
+      const _t=tirerTireurFosse();
+      if(_t){kind=_t;tireurs++;}
+    }
     const e=marquer(makeEnemy(kind,x,y,4,L));
-    mod.apply(e); e.aggro=true;
+    /* La part de variantes monte avec le palier : la Fosse est l'après-jeu,
+       l'acte 5 en porte déjà 36 %. */
+    if(alea()<FOSSE_VARIANTE_BASE+FOSSE_VARIANTE_PALIER*A.tier.id)
+      appliquerVariante(e,randi(0,VARIANTES.length-1));
+    arenaAppliquerMod(e,mod); e.aggro=true;
     if(alea()<0.10+0.05*A.tier.id)makeElite(e);
     level.enemies.push(e);
   }

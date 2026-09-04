@@ -23,7 +23,7 @@ const HERO_ATLAS={move:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABIAAAAQACA
    `getImageData` — appel qui lève une exception dès que le canevas est
    teinté, donc dès que les images deviennent des fichiers séparés.
 
-   349 planches mesurées. Régénérer après tout ajout de planche. */
+   356 planches mesurées. Régénérer après tout ajout de planche. */
 const FRAC_SOL={
   'b:anim:ent_atk':0.95536,
   'b:anim:ent_atk2':0.95536,
@@ -80,53 +80,53 @@ const FRAC_SOL={
   'b:anim:swimmer_idle_sw':0.99107,
   'b:anim:swimmer_walk':0.97321,
   'b:dir:ent|0':0.96,
-  'b:dir:ent|1':0.97,
-  'b:dir:ent|2':0.98,
-  'b:dir:ent|3':0.96,
-  'b:dir:ent|4':0.95,
-  'b:dir:ent|5':0.96,
-  'b:dir:ent|6':0.98,
-  'b:dir:ent|7':0.97,
+  'b:dir:ent|1':0.98,
+  'b:dir:ent|2':1,
+  'b:dir:ent|3':0.99,
+  'b:dir:ent|4':0.96,
+  'b:dir:ent|5':0.99,
+  'b:dir:ent|6':1,
+  'b:dir:ent|7':0.98,
   'b:dir:falcon|0':0.97,
   'b:dir:falcon|1':0.98,
   'b:dir:falcon|2':0.98,
   'b:dir:falcon|3':0.97,
-  'b:dir:falcon|4':0.93,
+  'b:dir:falcon|4':0.96,
   'b:dir:falcon|5':0.97,
   'b:dir:falcon|6':0.98,
   'b:dir:falcon|7':0.98,
-  'b:dir:hooligan|0':0.97,
-  'b:dir:hooligan|1':0.97,
+  'b:dir:hooligan|0':0.98,
+  'b:dir:hooligan|1':0.99,
   'b:dir:hooligan|2':1,
   'b:dir:hooligan|3':1,
-  'b:dir:hooligan|4':0.97,
+  'b:dir:hooligan|4':0.98,
   'b:dir:hooligan|5':1,
   'b:dir:hooligan|6':1,
-  'b:dir:hooligan|7':0.97,
-  'b:dir:iceheart|0':0.95,
-  'b:dir:iceheart|1':0.97,
-  'b:dir:iceheart|2':0.99,
-  'b:dir:iceheart|3':0.97,
+  'b:dir:hooligan|7':0.99,
+  'b:dir:iceheart|0':0.97,
+  'b:dir:iceheart|1':0.98,
+  'b:dir:iceheart|2':1,
+  'b:dir:iceheart|3':1,
   'b:dir:iceheart|4':0.98,
-  'b:dir:iceheart|5':0.97,
-  'b:dir:iceheart|6':0.99,
-  'b:dir:iceheart|7':0.97,
+  'b:dir:iceheart|5':1,
+  'b:dir:iceheart|6':1,
+  'b:dir:iceheart|7':0.98,
   'b:dir:seraphin|0':1,
   'b:dir:seraphin|1':1,
   'b:dir:seraphin|2':1,
   'b:dir:seraphin|3':1,
-  'b:dir:seraphin|4':0.98,
+  'b:dir:seraphin|4':0.99,
   'b:dir:seraphin|5':1,
   'b:dir:seraphin|6':1,
   'b:dir:seraphin|7':1,
-  'b:dir:swimmer|0':0.98,
-  'b:dir:swimmer|1':0.99,
+  'b:dir:swimmer|0':1,
+  'b:dir:swimmer|1':1,
   'b:dir:swimmer|2':1,
-  'b:dir:swimmer|3':0.98,
-  'b:dir:swimmer|4':0.97,
-  'b:dir:swimmer|5':0.98,
+  'b:dir:swimmer|3':1,
+  'b:dir:swimmer|4':1,
+  'b:dir:swimmer|5':1,
   'b:dir:swimmer|6':1,
-  'b:dir:swimmer|7':0.99,
+  'b:dir:swimmer|7':1,
   'e:brute':0.76667,
   'e:brute_a0':0.75,
   'e:brute_a1':0.75,
@@ -315,6 +315,13 @@ const FRAC_SOL={
   'h:Picking_Up':0.73438,
   'h:move':0.74219,
   'n:_am':0.75,
+  'n:bruna':0.75,
+  'n:coequipier':0.75,
+  'n:faucon':0.75,
+  'n:garrek':0.75,
+  'n:poilu':0.75893,
+  'n:regis':0.75,
+  'n:vaast':0.75,
   'p:arena_chest_closed':0.875,
   'p:arena_chest_open':0.875,
   'p:arena_master_sw':1,
@@ -672,6 +679,80 @@ function fractionSol(im,cw,ch,cle){
 function hautSprite(sy,DR,im,cw,ch,cle,ombreY){
   return sy+DR*(ombreY==null?0.02:ombreY)-fractionSol(im,cw,ch,cle)*DR;
 }
+/* ================================================================
+   LA TEINTE D'UN SPRITE, PAR COMPOSITION                     (v9.55)
+
+   Une variante élémentaire, c'est le même sprite d'une autre couleur : le
+   jeu porte 160 planches d'ennemis, il n'en produira pas une de plus.
+
+   ⚠ PAS `ctx.filter`. C'est la façon évidente — et elle ÉCHOUE EN SILENCE
+   sur le socle : le filtre Canvas2D n'est arrivé dans Safari qu'en 16.4,
+   quand le socle du projet est iOS 13. La propriété n'y lève rien, elle est
+   simplement IGNORÉE : le sprite sort à sa couleur d'origine, toutes les
+   variantes se ressemblent, et ça ne se voit que sur l'appareil — jamais
+   dans la batterie, jamais sur PC. `test_compat.js` monte la garde depuis
+   la v9.54.
+
+   ⚠ PAS DE PRÉ-TEINTURE NON PLUS. Mesuré en lisant l'en-tête PNG des 160
+   planches : 20,0 Mio décodés, 0,134 Mio par planche. Teindre tout d'avance
+   pour quatre variantes coûterait +80 Mio sur les 89,8 du jeu. On teint donc
+   LA CASE RÉELLEMENT DESSINÉE, dans un canevas UNIQUE réutilisé d'un ennemi
+   à l'autre : la mémoire ne bouge pas.
+   ================================================================ */
+const TEINTE_COULEUR=0.72;   /* combien la couleur mange le sprite      */
+const TEINTE_LUEUR=0.20;     /* ce qu'on lui rend en clarté ensuite     */
+
+/* Le canevas de teinture. UN SEUL pour tout le jeu : un canevas par image,
+   ce seraient soixante allocations par seconde. */
+let _teintureCv=null,_teintureCtx=null;
+function _teinturier(w,h){
+  if(!_teintureCv){
+    if(typeof document==='undefined'||!document.createElement)return null;
+    _teintureCv=document.createElement('canvas');
+    _teintureCtx=_teintureCv.getContext('2d');
+    if(!_teintureCtx)return null;
+  }
+  /* Changer `width` VIDE le canevas — c'est la façon la plus rapide de le
+     nettoyer. Quand la taille ne change pas, il faut effacer à la main. */
+  if(_teintureCv.width!==w||_teintureCv.height!==h){_teintureCv.width=w;_teintureCv.height=h;}
+  else _teintureCtx.clearRect(0,0,w,h);
+  return _teintureCtx;
+}
+
+/* Une case de planche, teintée. Rend le canevas de travail — à dessiner tout
+   de suite : le suivant l'écrasera. */
+function teinterCase(im,sx,sy,sw,sh,rgb){
+  if(!im||!rgb)return null;
+  const w=Math.max(1,Math.round(sw)),h=Math.max(1,Math.round(sh));
+  const g=_teinturier(w,h); if(!g)return null;
+  const col='rgb('+rgb+')';
+  g.imageSmoothingEnabled=false;
+  g.globalCompositeOperation='source-over';
+  g.globalAlpha=1;
+  g.drawImage(im,sx,sy,sw,sh,0,0,w,h);
+  /* `multiply` colore, mais il ne fait qu'ASSOMBRIR : un diablotin rouge
+     teinté en vert deviendrait noir. La passe `lighter` lui rend sa clarté,
+     sans quoi les variantes sombres sont illisibles sur un sol sombre. */
+  g.globalCompositeOperation='multiply';
+  g.globalAlpha=TEINTE_COULEUR;
+  g.fillStyle=col;
+  g.fillRect(0,0,w,h);
+  g.globalCompositeOperation='lighter';
+  g.globalAlpha=TEINTE_LUEUR;
+  g.fillRect(0,0,w,h);
+  /* ⚠ CE DÉCOUPAGE EST OBLIGATOIRE, ET IL VIENT EN DERNIER.
+     Les deux passes précédentes ont peint le rectangle ENTIER, fond
+     transparent compris. Sans `destination-in`, l'ennemi traîne un carré de
+     couleur derrière lui. */
+  g.globalAlpha=1;
+  g.globalCompositeOperation='destination-in';
+  g.drawImage(im,sx,sy,sw,sh,0,0,w,h);
+  /* Et on REND le contexte à son état neutre : un canevas laissé en
+     `destination-in` efface tout ce qu'on y dessinerait au tour suivant. */
+  g.globalCompositeOperation='source-over';
+  return _teintureCv;
+}
+
 const ENEMY_DR={imp:92,wraith:118,brute:130,golem:138,shade:120,swimmer:145,seraphin:158,gardien:128};
 const ENEMY_SET={
  imp:{walk:'imp',atk:['imp_a0','imp_a1']},
@@ -725,11 +806,21 @@ function drawEnemySprite(sx,sy,en,key){
   const nf=ENEMY_ANIM_N[sk]||6,DR=ENEMY_DR[key]||120;ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='rgba(0,0,0,0.35)';ctx.beginPath();ctx.ellipse(sx,sy+DR*0.02,DR*0.17,DR*0.06,0,0,6.28);ctx.fill();
   const cw=a.naturalWidth/nf;
+  /* ⚠ L'ANCRAGE SE CALCULE SUR LA PLANCHE D'ORIGINE, JAMAIS SUR LA TEINTÉE.
+     `fractionSol` est un cache indexé par une clé ; une planche teintée a
+     exactement la même géométrie, mais sous une clé neuve la table ne la
+     connaît pas, retombe sur 0,74 par défaut et crie dans la console — et
+     l'ennemi teinté flotte de quelques pixels au-dessus de son jumeau. */
   const top=hautSprite(sy,DR,a,cw,a.naturalHeight,'e:'+sk);let fr;
   if(once){const p=1-(en._atkT/(en._atkDur||0.7));fr=Math.min(nf-1,Math.max(0,Math.floor(p*nf)));}
   else fr=Math.floor(performance.now()/130+en.x*0.02)%nf;
-  ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
-  if(en.hurt>0){ctx.save();ctx.globalAlpha=0.5;ctx.globalCompositeOperation='lighter';ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);ctx.restore();}
+  const src=en.teinte?teinterCase(a,fr*cw,0,cw,a.naturalHeight,en.teinte):null;
+  if(src)ctx.drawImage(src,0,0,src.width,src.height,sx-DR/2,top,DR,DR);
+  else ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
+  if(en.hurt>0){ctx.save();ctx.globalAlpha=0.5;ctx.globalCompositeOperation='lighter';
+    if(src)ctx.drawImage(src,0,0,src.width,src.height,sx-DR/2,top,DR,DR);
+    else ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
+    ctx.restore();}
 }
 function drawImp(sx,sy,en,col){const r=en.r;
  ctx.fillStyle='#7a1e1e';
@@ -834,7 +925,7 @@ function enemyDirRow(en){
 // boss idle/attaque : oriente vers le héros -> 'se', 'sw' ou '' (sud)
 function bossFace(en){const r=enemyDirRow(en);if(r===1||r===2||r===3)return 'se';if(r===5||r===6||r===7)return 'sw';return '';}
 function drawEnemyDir(sx,sy,en){
-  const key=en.kind, dir=enemyDirRow(en);
+  const key=en.base||en.kind, dir=enemyDirRow(en);
   let state='idle', once=false;
   if(en._atkT>0){state=(en._atkIdx?'atk1':'atk0');once=true;}
   else if(en.aggro)state='walk';
@@ -848,17 +939,59 @@ function drawEnemyDir(sx,sy,en){
   const cw=a.naturalWidth/nf,top=sy-DR*0.74; let fr;
   if(once){const p=1-(en._atkT/(en._atkDur||0.6));fr=Math.min(nf-1,Math.max(0,Math.floor(p*nf)));}
   else fr=Math.floor(performance.now()/120+en.x*0.02)%nf;
-  ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
-  if(en.hurt>0){ctx.save();ctx.globalAlpha=0.5;ctx.globalCompositeOperation='lighter';ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);ctx.restore();}
+  /* La teinte remplace la SOURCE, jamais la destination : les quatre nombres
+     de placement restent identiques à ceux du sprite ordinaire, et le teinté
+     tombe exactement là où tomberait son jumeau. */
+  const src=en.teinte?teinterCase(a,fr*cw,0,cw,a.naturalHeight,en.teinte):null;
+  if(src)ctx.drawImage(src,0,0,src.width,src.height,sx-DR/2,top,DR,DR);
+  else ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
+  if(en.hurt>0){ctx.save();ctx.globalAlpha=0.5;ctx.globalCompositeOperation='lighter';
+    if(src)ctx.drawImage(src,0,0,src.width,src.height,sx-DR/2,top,DR,DR);
+    else ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
+    ctx.restore();}
+  return true;
+}
+
+/* ⚠ LA SEULE PLANCHE DE PNJ QU'UN ENNEMI PEUT EMPRUNTER.        (v9.57)
+   Le Soldat de 1918 porte l'uniforme du donneur du Bois, teinté. La liste
+   est explicite et fermée : on ne veut pas qu'un ennemi puisse aller piocher
+   au hasard dans les planches de PNJ, ni qu'un ajout futur ouvre la porte
+   sans qu'on l'ait décidé. */
+const NPC_ENNEMI={poilu:1};
+const NPC_ENNEMI_DR=124;
+function drawEnemyNpc(sx,sy,en){
+  const k=en.npcSprite; if(!k||!NPC_ENNEMI[k])return false;
+  const a=NPC_ANIM_IMG[k]; if(!a||!a.complete||!a.naturalWidth)return false;
+  const nf=NPC_ANIM_N||4, DR=NPC_ENNEMI_DR, cw=a.naturalWidth/nf;
+  ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle='rgba(0,0,0,0.35)';ctx.beginPath();
+  ctx.ellipse(sx,sy+DR*0.02,DR*0.17,DR*0.06,0,0,6.28);ctx.fill();
+  /* La planche est FIXE — quatre images, une seule direction. C'est
+     acceptable ici, et seulement ici : le Soldat tient sa ligne, il ne
+     traverse pas la salle en courant. */
+  const top=hautSprite(sy,DR,a,cw,a.naturalHeight,'n:'+k);
+  const fr=Math.floor(performance.now()/220+en.x*0.02)%nf;
+  const src=en.teinte?teinterCase(a,fr*cw,0,cw,a.naturalHeight,en.teinte):null;
+  if(src)ctx.drawImage(src,0,0,src.width,src.height,sx-DR/2,top,DR,DR);
+  else ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
+  if(en.hurt>0){ctx.save();ctx.globalAlpha=0.5;ctx.globalCompositeOperation='lighter';
+    if(src)ctx.drawImage(src,0,0,src.width,src.height,sx-DR/2,top,DR,DR);
+    else ctx.drawImage(a,fr*cw,0,cw,a.naturalHeight,sx-DR/2,top,DR,DR);
+    ctx.restore();}
   return true;
 }
 
 function drawEnemy(en){
   const sx=en.x-cam.x,sy=en.y-cam.y;
-  if(!en.boss&&ENEMY_DIR_KEYS[en.kind]&&!en.dying){if(drawEnemyDir(sx,sy,en))return;}
+  /* ⚠ UN TIREUR EMPRUNTE LA PLANCHE D'UNE AUTRE ESPÈCE. `en.base` porte la
+     planche, `en.kind` porte ce qu'il EST. Tous les accès aux tables de
+     sprites passent donc par `_k`, jamais par `en.kind`. */
+  const _k=en.base||en.kind;
+  if(!en.boss&&en.npcSprite&&!en.dying){if(drawEnemyNpc(sx,sy,en))return;}
+  if(!en.boss&&ENEMY_DIR_KEYS[_k]&&!en.dying){if(drawEnemyDir(sx,sy,en))return;}
   let _sk=null;
   if(en.boss){if(en.bkind==='swimmer')_sk='swimmer';else if(en.bkind==='seraphin')_sk='seraphin';else if(en.kind==='boss'&&!en.bkind)_sk='gardien';}
-  else if(en.kind==='imp'||en.kind==='wraith'||en.kind==='brute'||en.kind==='golem'||en.kind==='shade')_sk=en.kind;
+  else if(_k==='imp'||_k==='wraith'||_k==='brute'||_k==='golem'||_k==='shade')_sk=_k;
   const _sa=(_sk&&ENEMY_ANIM_IMG[_sk]&&ENEMY_ANIM_IMG[_sk].complete&&ENEMY_ANIM_IMG[_sk].naturalWidth)?_sk:null;
   let _bk=null;
   if(en.boss){if(en.kind==='falcon')_bk='falcon';else if(en.bkind&&BOSS_SET[en.bkind])_bk=en.bkind;}
@@ -883,10 +1016,16 @@ function drawEnemy(en){
     else if(en.bkind==='ent')drawEnt(sx,sy,en,col);
     else drawSeraphin(sx,sy,en,col);
   } else {
-    if(en.kind==='wraith')drawWraith(sx,sy,en,col);
-    else if(en.kind==='brute')drawBrute(sx,sy,en,col);
-    else if(en.kind==='shade')drawShade(sx,sy,en,col);
-    else if(en.kind==='golem')drawGolem(sx,sy,en,col);
+    /* ⚠ LE REPLI VECTORIEL TESTAIT `en.kind` NU.                   (v9.60)
+       C'était le SEUL accès resté hors de `_k` : un `sorcier`, dont la
+       planche est celle de l'ombre, tombait sur `drawImp` — la forme par
+       défaut — et se dessinait en diablotin dès que les sprites n'étaient
+       pas chargés. Trouvé par l'agent `recensement`, pas par les sept tests
+       du chantier : chacun vérifiait son propre domaine. */
+    if(_k==='wraith')drawWraith(sx,sy,en,col);
+    else if(_k==='brute')drawBrute(sx,sy,en,col);
+    else if(_k==='shade')drawShade(sx,sy,en,col);
+    else if(_k==='golem')drawGolem(sx,sy,en,col);
     else drawImp(sx,sy,en,col);
   }
   if(en.hp<en.hpMax&&!en.boss){ctx.fillStyle='#000';ctx.fillRect(sx-en.r,sy-en.r-9,en.r*2,4);

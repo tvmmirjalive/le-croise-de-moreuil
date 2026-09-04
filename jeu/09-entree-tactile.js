@@ -320,7 +320,7 @@ function _skMulti(C){
 function _skWarcry(C){
   const st=C.st;
   player.buffType='power';player.buffT=5+C.rank;
-  player.hp=Math.min(st.hpMax,player.hp+Math.round(st.hpMax*0.12));
+  soigner(Math.round(st.hpMax*0.12));      /* le venin mord ici aussi */
   player.cri={t:0,life:0.5,r:170};
   for(let i=0;i<34;i++){const a=rand(0,6.28),v=rand(2,5);
     part({x:player.x,y:player.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-1.5,life:rand(.5,1.0),
@@ -359,7 +359,9 @@ function trySkill(s,wx,wy){
                   SP:1+(st.sortPct||0)/100});
   renderSkillBar();return true;
 }
-const DMG_COL={phys:'#ffd85e',cold:'#7fd0ff',holy:'#fff2a0',fire:'#ff9a4d'};
+/* `DMG_COL` vivait ici. Elle est descendue en 07 : la brûlure et le venin
+   affichent leurs dégâts depuis 11-progression.js, et 11 ne peut pas importer
+   de 09 — c'est 09 qui importe 11. Une seule table pour tout le monde. */
 /* LE CRITIQUE : LA CHANCE EST PLAFONNÉE EN DUR, LES DÉGÂTS NE LE SONT PAS.
 
    Demandé par Mirja : « un plafond en dur de 80 % de critique, mais pour les
@@ -411,7 +413,7 @@ function hitEnemy(en,dmg,type){
    if(crit){geler(0.045);secouer(3.5+force*4,0.22);}
    else if(force>0.35)secouer(1.6+force*2,0.14);
   }
-  if(st.leech>0){player.hp=Math.min(st.hpMax,player.hp+Math.max(1,Math.round(dmg*st.leech/100)));}
+  if(st.leech>0){soigner(Math.max(1,Math.round(dmg*st.leech/100)));}
   const tag=res>0?' ⛨':(res<0?' ‼':'');
   floatText(en.x,en.y-en.r-6,(crit?'✷':'')+dmg+tag,crit?'#ff7a3d':(DMG_COL[type]||'#ffd85e'),crit);
   burst(en.x,en.y,en.col,crit?10:6);if(!crit)SFX.enemyHit({x:en.x,y:en.y});
