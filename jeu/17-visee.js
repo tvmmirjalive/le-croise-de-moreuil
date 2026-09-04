@@ -129,22 +129,115 @@ function eclatImpact(x,y,col,force,angle){
         {vmin:2.5,vmax:5.5+force*3,tmin:0.10,tmax:0.24,r:1.5+force,g:120,forme:'eclat'});
 }
 
+/* ── LE FILET DE LA BOUCLE DE RENDU ──────────────────────────  (v9.61)
+
+   `requestAnimationFrame(loop)` était la DERNIÈRE instruction de `loop`, sans
+   `try`, et le jeu n'a aucun `window.onerror`. Une seule exception dans
+   `update`, `majScene` ou `render` empêchait donc la replanification :
+
+     · la boucle mourait — mesuré en ligne, 60 images/s avant, 0 après ;
+     · l'écran restait sur sa dernière image, à moitié dessinée ;
+     · `running` restait à `true`, donc le jeu se croyait vivant ;
+     · et le joueur n'avait pas un mot.
+
+   C'est le symptôme exact du blocage de l'acte 2 signalé manette en main et
+   jamais élucidé : une exception au milieu de `render()` laisse un sol à
+   moitié peint sous des murs entiers — ce que montrent les images tirées de
+   la vidéo.
+
+   DEUX REMÈDES EXISTAIENT, ON PREND LES DEUX. Replanifier en tête suffit à
+   faire survivre la boucle, mais laisse une panne durable lever soixante fois
+   par seconde en silence. Un `try` seul attrape, mais il faut encore décider
+   quoi faire. Donc : on replanifie AVANT le corps — même un `catch` défaillant
+   ne peut plus tuer la boucle — et on compte les pannes CONSÉCUTIVES. Une
+   image saine efface l'ardoise, pour qu'un hoquet rare ne finisse pas par
+   arrêter un jeu qui marche. Au-delà de trois secondes de panne continue, on
+   s'arrête pour de bon et on le DIT : un écran figé sans message est ce qu'on
+   corrige ici, le reproduire proprement n'aurait aucun intérêt. */
+const PANNES_AVANT_ARRET=180;          /* trois secondes à 60 images */
+let _pannesImage=0;                    /* pannes CONSÉCUTIVES */
+let _pannesTotal=0;                    /* cumul, pour le diagnostic */
+let _boucleArretee=false;
+
+/* Le voile est bâti en styles EN LIGNE, sans une seule classe du jeu : si la
+   panne vient de la feuille de style ou d'un panneau, s'appuyer dessus
+   afficherait un message invisible. Rien n'est touché de la sauvegarde. */
+let _voilePose=false;
+function afficherPanneFatale(err){
+  /* ⚠ LE GARDE EST UN DRAPEAU, PAS UNE INTERROGATION DU DOM. La première
+     version faisait `if(document.getElementById('pannefatale'))return;` : en
+     navigateur c'est juste, mais ça délègue à l'état du document une décision
+     qui nous appartient — et le banc d'essai, qui FABRIQUE un élément pour
+     tout identifiant inconnu, la faisait sortir à tous les coups. Le voile
+     n'était jamais posé sous Node, et le premier test l'a même dit « posé »
+     parce qu'il le cherchait de la même façon. */
+  if(_voilePose)return;
+  _voilePose=true;
+  try{
+    const d=document.createElement('div');
+    d.id='pannefatale';
+    d.style.cssText='position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;'
+      +'background:#0b0e14;color:#e8e8ea;display:flex;flex-direction:column;'
+      +'align-items:center;justify-content:center;text-align:center;padding:24px;'
+      +'font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+    const h=document.createElement('div');
+    h.style.cssText='font-size:22px;font-weight:700;margin-bottom:12px;color:#ff8a6a';
+    h.textContent=tOu('panne.titre','Le jeu s’est arrêté');
+    const p=document.createElement('div');
+    p.style.cssText='max-width:32em;margin-bottom:20px;opacity:.9';
+    p.textContent=tOu('panne.corps',
+      'Une erreur s’est répétée à chaque image. Ta dernière sauvegarde est '
+     +'intacte : recharge la page et reprends où tu en étais.');
+    const b=document.createElement('button');
+    b.style.cssText='padding:12px 22px;font-size:16px;border-radius:10px;'
+      +'border:1px solid #3a4a6a;background:#16203a;color:#cfe3ff;cursor:pointer';
+    b.textContent=tOu('panne.recharger','Recharger le jeu');
+    b.onclick=function(){ try{location.reload();}catch(e){} };
+    const t2=document.createElement('div');
+    t2.style.cssText='margin-top:18px;font-size:12px;opacity:.45;max-width:40em;'
+      +'word-break:break-word';
+    t2.textContent=String((err&&(err.message||err))||'').slice(0,200);
+    d.appendChild(h);d.appendChild(p);d.appendChild(b);d.appendChild(t2);
+    document.body.appendChild(d);
+  }catch(e){}
+  /* On coupe le son : une musique qui continue sur un écran de panne donne à
+     croire que le jeu tourne encore. */
+  try{ paused=true; appliquerVolumes(); }catch(e){}
+}
+
 function loop(now){
-  const brut=Math.min(0.05,(now-last)/1000);last=now;
-  /* Le tremblement s'épuise avec le temps RÉEL : il continue de jouer pendant
-     l'arrêt sur image, ce qui est exactement l'effet recherché. */
-  if(SECOUSSE.t>0)SECOUSSE.t=Math.max(0,SECOUSSE.t-brut);
-  /* Arrêt sur image : on continue de dessiner, on suspend la simulation. Cette
-     poignée de millisecondes est ce qui donne du poids à un critique. */
-  let dt=brut;
-  if(arretImage>0){arretImage=Math.max(0,arretImage-brut);dt=0;}
-  if(running&&!paused&&dt>0){update(dt);majOrbes();}
-  /* La scène s'écrit pendant que la simulation est suspendue : c'est le
-     seul système qui avance en pause, et c'est voulu. */
-  if(typeof majScene==='function')majScene(brut);
-  render();
-  if(DIAG)majDiag();try{appliquerVolumes();}catch(e){}
-requestAnimationFrame(loop);}
+  /* ⚠ LA REPLANIFICATION PASSE AVANT LE CORPS. C'est tout le correctif : elle
+     ne dépend plus de la réussite de l'image qu'on s'apprête à dessiner. */
+  if(!_boucleArretee)requestAnimationFrame(loop);
+  try{
+    const brut=Math.min(0.05,(now-last)/1000);last=now;
+    /* Le tremblement s'épuise avec le temps RÉEL : il continue de jouer pendant
+       l'arrêt sur image, ce qui est exactement l'effet recherché. */
+    if(SECOUSSE.t>0)SECOUSSE.t=Math.max(0,SECOUSSE.t-brut);
+    /* Arrêt sur image : on continue de dessiner, on suspend la simulation. Cette
+       poignée de millisecondes est ce qui donne du poids à un critique. */
+    let dt=brut;
+    if(arretImage>0){arretImage=Math.max(0,arretImage-brut);dt=0;}
+    if(running&&!paused&&dt>0){update(dt);majOrbes();}
+    /* La scène s'écrit pendant que la simulation est suspendue : c'est le
+       seul système qui avance en pause, et c'est voulu. */
+    if(typeof majScene==='function')majScene(brut);
+    render();
+    if(DIAG)majDiag();try{appliquerVolumes();}catch(e){}
+    _pannesImage=0;                    /* une image saine efface l'ardoise */
+  }catch(err){
+    _pannesTotal++;
+    _pannesImage++;
+    /* Une seule trace par salve : soixante messages par seconde noieraient la
+       console et coûteraient plus cher que la panne elle-même. */
+    if(_pannesImage===1&&typeof console!=='undefined'&&console.error)
+      console.error('Le Dernier Outlaw — image en panne :',err);
+    if(_pannesImage>=PANNES_AVANT_ARRET&&!_boucleArretee){
+      _boucleArretee=true;
+      afficherPanneFatale(err);
+    }
+  }
+}
 
 let pathBudget=0;
 /* Les minuteurs du héros : refroidissements, régénération de mana, verrous. */

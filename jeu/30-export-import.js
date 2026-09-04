@@ -137,13 +137,49 @@ function _nombreSain(v,min,max){
   if(v==null)return true;
   return typeof v==='number'&&isFinite(v)&&v>=min&&v<=max;
 }
+/* Un affixe : un TYPE en forme d'identifiant, une VALEUR numérique.  (v9.63)
+
+   ⚠ LE CRIBLE S'ARRÊTAIT À LA SURFACE. Il ne vérifiait que
+   `Array.isArray(it.affixes)` — jamais le contenu. Or `affixText` rend
+   `tOu('affixe.'+a.t, a.t)` : un type inconnu ressort TEL QUEL, et
+   `itemHTML` le concatène dans une chaîne qui part dans `tip.innerHTML`.
+   Une sauvegarde reçue d'un tiers — le jeu sait les exporter, c'est fait
+   pour être partagé — exécutait donc du script chez celui qui l'importait.
+   Vérifié en navigateur sur le vrai chemin : `showTip` a déclenché un
+   `<img onerror>`. Trois vecteurs de plus derrière : `charm.v`, `sock.v` et
+   le nom d'une gemme en châsse.
+
+   On n'exige PAS que le type existe dans `AFFIX` : une sauvegarde d'une
+   version où l'affixe a disparu resterait lisible, et la forme identifiant
+   suffit à exclure toute balise. */
+function _affixeSain(a){
+  if(a==null)return true;
+  if(typeof a!=='object')return false;
+  if(typeof a.t!=='string'||!/^[a-z][a-z0-9_]{0,23}$/.test(a.t))return false;
+  return typeof a.v==='number'&&isFinite(a.v);
+}
 function _objetSain(it){
   if(!it||typeof it!=='object')return false;
   if(it.rarity!=null&&!RAR[it.rarity])return false;
   if(it.slot!=null&&it.slot!=='gem'&&it.slot!=='charm'&&P_SLOTS.indexOf(it.slot)<0)return false;
   if(!_chaineSaine(it.name)||!_chaineSaine(it.ico,16)||!_chaineSaine(it.setCol,16))return false;
   if(!_nombreSain(it.plus,0,50)||!_nombreSain(it.ilvl,1,999)||!_nombreSain(it.dura,0,9999))return false;
-  if(it.affixes!=null&&!Array.isArray(it.affixes))return false;
+  if(it.affixes!=null){
+    if(!Array.isArray(it.affixes))return false;
+    for(const a of it.affixes) if(!_affixeSain(a))return false;
+  }
+  if(!_affixeSain(it.charm)||!_affixeSain(it.sock))return false;
+  /* Les châsses portent des objets ENTIERS : mêmes règles, un cran plus bas.
+     Sans cette descente, le nom d'une gemme sertie échappait au crible. */
+  if(it.sockets!=null){
+    if(!Array.isArray(it.sockets))return false;
+    for(const g of it.sockets){
+      if(g==null)continue;
+      if(typeof g!=='object')return false;
+      if(!_chaineSaine(g.name)||!_chaineSaine(g.ico,16))return false;
+      if(!_affixeSain(g.sock))return false;
+    }
+  }
   return true;
 }
 function sauvegardeValide(txt){

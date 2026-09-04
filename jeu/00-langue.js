@@ -2301,6 +2301,12 @@ const TEXTES={
     'variante.givre':'Frostborn',
     'variante.orage':'Stormborn',
     'variante.venin':'Venomous',
+    /* L'écran de panne de la boucle de rendu (v9.61). Le français vit dans le
+       repli de `tOu`, comme partout ailleurs : seul l'anglais entre ici. */
+    'panne.titre':'The game has stopped',
+    'panne.corps':'An error repeated on every frame. Your last save is intact: '
+                 +'reload the page and pick up where you left off.',
+    'panne.recharger':'Reload the game',
     'ennemi.jeteur_de_sorts':'Spellcaster',
     'ennemi.franc_tireur':'Sharpshooter',
     'ennemi.cracheur_de_venin':'Venomspitter',

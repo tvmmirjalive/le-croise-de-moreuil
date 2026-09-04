@@ -866,9 +866,17 @@ function nomRarete(r){
   const d=RAR[rareteSure(r)];
   return tOu('rarete.'+rareteSure(r), d?d.name:'');
 }
+/* ⚠ DEUX VALEURS VIENNENT PEUT-ÊTRE D'UNE SAUVEGARDE IMPORTÉE.     (v9.63)
+   Le retour part dans `tip.innerHTML` par `itemHTML`. Quand le type d'affixe
+   est inconnu, c'est `a.t` LUI-MÊME qui sert de libellé ; et `a.v` est
+   interpolé à la place du « # ». Le crible d'import les refuse désormais,
+   mais le point de sortie doit tenir seul : un objet fabriqué en mémoire, ou
+   une sauvegarde d'une version future, ne doit pas pouvoir écrire de balise.
+   Sur une donnée saine — « +# Dégâts » et un nombre — l'échappement ne
+   change rien. */
 function affixText(a){const def=AFFIX.find(x=>x.t===a.t);
-  const nm=tOu('affixe.'+a.t, def?def.n:(a.t==='dmg'?'+# Dégâts':a.t));
-  return nm.replace('#',a.v);}
+  const nm=tOu('affixe.'+a.t, def?def.n:(a.t==='dmg'?'+# Dégâts':echapperHtml(a.t)));
+  return nm.replace('#',echapperHtml(a.v));}
 const inventory=[];
 /* CE QUI S'EXÉCUTE AU CHARGEMENT — sorti du premier niveau.
 
