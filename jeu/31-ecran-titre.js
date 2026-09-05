@@ -36,10 +36,12 @@ function _dateEmpl(o){
 let _emplIntention=null;         /* 'nouvelle' | null */
 function ouvrirEmplacements(intention){
   _emplIntention=intention||null;
-  const v=document.getElementById('ovVue');if(!v)return;
-  setOvVueCourante('emplacements');
-  v.innerHTML=vueEmplacements();
-  v.scrollTop=0;
+  /* ⚠ PASSE PAR `ovPoserVue`, ET C'EST TOUT LE CORRECTIF.          (v9.64)
+     Cette fonction écrivait `ovVue.innerHTML` puis rendait la main : la vue
+     restait `display:none`, faute de la classe `ouvert`. Le joueur cliquait
+     « Nouvelle partie », 2088 caractères et huit boutons atterrissaient dans
+     le DOM, et rien n'apparaissait. */
+  if(!ovPoserVue('emplacements', vueEmplacements()))return;
   if(typeof brancherEmplacements==='function')brancherEmplacements();
   ovMenuBoutons();
 }
@@ -112,8 +114,7 @@ function exportOuCode(n){
 function vueCodeExport(n){
   const code=codeSauvegarde(n);
   if(!code){toast(t('empl.vide'),2);return;}
-  setOvVueCourante('code');
-  document.getElementById('ovVue').innerHTML=
+  ovPoserVue('code',
      '<h3>'+t('code.titre',{n:n})+'</h3>'
     +'<p>'+t('code.intro')+'</p>'
     +'<textarea id="ovCode" readonly style="width:100%;height:110px;font:11px monospace;'
@@ -122,7 +123,7 @@ function vueCodeExport(n){
     +'<div class="ligne"><span>'+t('code.taille',{ko:(code.length/1024).toFixed(1)})+'</span>'
     +'<span style="display:flex;gap:6px">'
     +(navigator.share?'<button id="ovPartager">'+t('code.partager')+'</button>':'')
-    +'<button id="ovCopier">'+t('code.copier')+'</button></span></div>';
+    +'<button id="ovCopier">'+t('code.copier')+'</button></span></div>');
   const ta=document.getElementById('ovCode');
   const cp=document.getElementById('ovCopier');
   if(cp)cp.onclick=()=>{ try{ta.select();
@@ -136,14 +137,13 @@ function vueCodeExport(n){
 }
 let _codeCopie=false;
 function vueCodeImport(){
-  setOvVueCourante('code');
-  document.getElementById('ovVue').innerHTML=
+  ovPoserVue('code',
      '<h3>'+t('import.titre')+'</h3>'
     +'<p>'+t('import.intro')+'</p>'
     +'<textarea id="ovCodeIn" placeholder="OUTLAW1:…" style="width:100%;height:110px;font:11px monospace;'
     +'background:#0b1020;color:#dfe6f4;border:1px solid #2a3350;border-radius:6px;padding:6px"></textarea>'
     +'<div class="ligne"><span>'+t('import.rienEcrit')+'</span>'
-    +'<button id="ovLire">'+t('import.lire')+'</button></div>';
+    +'<button id="ovLire">'+t('import.lire')+'</button></div>');
   const b=document.getElementById('ovLire');
   /* ⚠ CETTE VARIABLE S'APPELAIT `t` ET MASQUAIT LA TRADUCTION. Troisième
      fois dans ce chantier : `renderQuests`, les onglets de boutique, et ici.
@@ -157,7 +157,6 @@ function vueChoixCible(txt){
   const json=(txt.trim().charAt(0)==='{')?txt.trim():_depuisTexte(txt);
   const o=json?sauvegardeValide(json):null;
   if(!o){ toast(t('import.pasUneSauvegarde'),3); return; }
-  setOvVueCourante('code');
   let h='<h3>'+t('import.cettePartie')+'</h3><p>'+resumeSauvegarde(o)+'</p>'
     +'<p style="color:#ff9a5a">'+t('import.choisirCible')+'</p>';
   for(let n=1;n<=NB_EMPL;n++){
@@ -166,7 +165,7 @@ function vueChoixCible(txt){
       +(e?resumeSauvegarde(e):'<span style="color:#6b789c">vide</span>')+'</span>'
       +'<button class="second" data-cible="'+n+'">Écrire ici</button></div>';
   }
-  const v=document.getElementById('ovVue'); v.innerHTML=h;
+  const v=ovPoserVue('code', h); if(!v)return;
   Array.prototype.forEach.call(v.querySelectorAll('[data-cible]'),b=>{
     b.onclick=()=>{
       const n=+b.getAttribute('data-cible');
@@ -186,15 +185,14 @@ function vueChoixCible(txt){
 function demanderSuppression(n,neuve){
   const o=sauvegardeEmpl(n); if(!o)return;
   _codeCopie=false;
-  setOvVueCourante('code');
-  document.getElementById('ovVue').innerHTML=
+  ovPoserVue('code',
      '<h3>'+(neuve?t('suppr.titreNeuve',{n:n}):t('suppr.titre',{n:n}))
     +'</h3><p>'+resumeSauvegarde(o)+'</p>'
     +'<p>'+(neuve?t('suppr.avertNeuve'):t('suppr.avert'))+'</p>'
     +'<div class="ligne"><span>'+t('suppr.definitif')+'</span>'
     +'<span style="display:flex;gap:6px">'
     +'<button id="ovExpAvant">'+t('empl.exporter')+'</button>'
-    +'<button class="second" id="ovSansExp">'+(neuve?t('suppr.nonRemplacer'):t('suppr.nonEffacer'))+'</button></span></div>';
+    +'<button class="second" id="ovSansExp">'+(neuve?t('suppr.nonRemplacer'):t('suppr.nonEffacer'))+'</button></span></div>');
   document.getElementById('ovExpAvant').onclick=()=>{
     const fichier=exportOuCode(n);
     /* Fichier : on sait qu'il est parti. Code : on exige un geste de plus,
@@ -214,8 +212,7 @@ function demanderSuppression(n,neuve){
 }
 function confirmerSuppression(n,exporte,neuve){
   const o=sauvegardeEmpl(n); if(!o)return;
-  setOvVueCourante('code');
-  document.getElementById('ovVue').innerHTML=
+  ovPoserVue('code',
      '<h3>'+t('suppr.derniere')+'</h3>'
     +'<p>'+(exporte?t('suppr.exportee')+' ':'')
     +(neuve?t('suppr.confirmeNeuve',{n:n}):t('suppr.confirme',{n:n}))+'</p>'
@@ -223,7 +220,7 @@ function confirmerSuppression(n,exporte,neuve){
     +'<div class="ligne"><span style="color:#ff9a5a">'+t('suppr.irreversible')+'</span>'
     +'<span style="display:flex;gap:6px">'
     +'<button class="second" id="ovAnnuler">'+t('suppr.annuler')+'</button>'
-    +'<button class="danger" id="ovEffacer">'+(neuve?t('suppr.remplacerCommencer'):t('suppr.effacer'))+'</button></span></div>';
+    +'<button class="danger" id="ovEffacer">'+(neuve?t('suppr.remplacerCommencer'):t('suppr.effacer'))+'</button></span></div>');
   document.getElementById('ovAnnuler').onclick=()=>ouvrirEmplacements(neuve?'nouvelle':null);
   document.getElementById('ovEffacer').onclick=()=>{
     supprimerEmpl(n);

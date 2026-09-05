@@ -334,20 +334,42 @@ const OV_VUES={
   }
 };
 let ovVueCourante=null;
+/* ⚠ LE SEUL ENDROIT QUI OUVRE UNE VUE DU TITRE.                    (v9.64)
+
+   `#ovVue` est `display:none` en CSS et ne s'affiche qu'avec la classe
+   `ouvert`. Cette ligne vivait ici, dans `ovMontrer` — et SIX fonctions de
+   `31-ecran-titre.js` écrivaient `ovVue.innerHTML` directement, sans jamais
+   la poser : la liste des emplacements, l'export et l'import par code, le
+   choix de la cible, et les deux confirmations de suppression.
+
+   Le HTML était écrit — 2088 caractères et 8 boutons pour « Nouvelle
+   partie » — mais INVISIBLE. **Tout l'écran de gestion des quatre
+   emplacements était mort sur les quatre cibles.** Signalé par Mirja manette
+   en main : « je suis condamnée à jouer ma partie commencée ».
+
+   C'est le même défaut que `closeAllPanels` et `fermerCarte` corrigeaient
+   ailleurs, et pour la même raison : plusieurs chemins, un oubli. Il n'y a
+   donc plus qu'un passage. Il enveloppe, pose la classe, remonte en haut et
+   branche les deux façons de refermer — le ✕ et le fond. */
+function ovPoserVue(nom, html){
+  const v=document.getElementById('ovVue'); if(!v)return null;
+  ovVueCourante=nom;
+  v.innerHTML='<div id="ovVueBoite"><button id="ovVueFermer" type="button" title="Fermer">✕</button>'
+             +(html||'')+'</div>';
+  v.className='ouvert';
+  v.scrollTop=0;
+  {const _f=document.getElementById('ovVueFermer'); if(_f)_f.onclick=ovFermerVue;}
+  /* Toucher le fond, à côté de la boîte, referme aussi. */
+  v.onclick=function(e){ if(e.target===v)ovFermerVue(); };
+  return v;
+}
 function ovMontrer(nom){
   const v=document.getElementById('ovVue');if(!v)return;
   /* Quitter la vue des emplacements oublie l'intention : sans ça, une
      bannière « Où veux-tu commencer ? » réapparaîtrait plus tard. */
   if(nom!=='emplacements')set_EmplIntention(null);
   if(ovVueCourante===nom){ovFermerVue();return;}
-  ovVueCourante=nom;
-  v.innerHTML='<div id="ovVueBoite"><button id="ovVueFermer" type="button" title="Fermer">✕</button>'
-             +(OV_VUES[nom]?OV_VUES[nom]():'')+'</div>';
-  v.className='ouvert';
-  v.scrollTop=0;
-  {const _f=document.getElementById('ovVueFermer'); if(_f)_f.onclick=ovFermerVue;}
-  /* Toucher le fond, à côté de la boîte, referme aussi. */
-  v.onclick=function(e){ if(e.target===v)ovFermerVue(); };
+  ovPoserVue(nom, OV_VUES[nom]?OV_VUES[nom]():'');
   /* Les bascules de réglage vivent dans la vue : on les rebranche à chaque rendu. */
   v.querySelectorAll&&Array.prototype.forEach.call(v.querySelectorAll('[data-opt]'),function(b){
     b.onclick=function(){const k=b.getAttribute('data-opt');
