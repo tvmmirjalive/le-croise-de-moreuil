@@ -706,7 +706,16 @@ canvas#game{touch-action:none}
     #ovMenu{gap:8px}
     #ovBoutons{gap:6px}
     #ovBoutons button{padding:9px 14px;font-size:14px}
-    #ovVue{max-height:38vh;font-size:12px}
+    /* ⚠ PAS DE `max-height` ICI.                                  (v9.65)
+       Cette ligne posait `max-height:38vh` — et `#ovVue` est `position:fixed`
+       sur les QUATRE bords. Sur un écran court, c'est-à-dire un téléphone en
+       paysage, le panneau était donc rogné au tiers : titre lisible, premier
+       emplacement tronqué en plein milieu d'une ligne, et le menu du titre
+       qui transparaissait dessous. Photographié par Mirja.
+       Les deux règles sont nées du même commit et se contredisaient depuis.
+       La vue est déjà `overflow:auto` avec `-webkit-overflow-scrolling` : sur
+       un écran court, elle DÉFILE, elle ne se coupe pas. */
+    #ovVue{font-size:12px}
   }
 
 /* LES CINÉMATIQUES PLEIN ÉCRAN — chantier D, v9.43.
