@@ -26,7 +26,7 @@
    Sans effet au clavier-souris, où l'API n'existe pas.
    ================================================================ */
 
-const BUILD='v9.65 — '+'2026-09-04';
+const BUILD='v9.66 — '+'2026-09-06';
 /* ================================================================
    LES ORBES SE RAFRAÎCHISSENT À CHAQUE IMAGE
 

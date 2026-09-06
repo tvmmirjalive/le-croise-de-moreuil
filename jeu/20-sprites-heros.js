@@ -989,11 +989,13 @@ function drawEnemyDir(sx,sy,en){
   return true;
 }
 
-/* ⚠ LA SEULE PLANCHE DE PNJ QU'UN ENNEMI PEUT EMPRUNTER.        (v9.57)
-   Le Soldat de 1918 porte l'uniforme du donneur du Bois, teinté. La liste
-   est explicite et fermée : on ne veut pas qu'un ennemi puisse aller piocher
-   au hasard dans les planches de PNJ, ni qu'un ajout futur ouvre la porte
-   sans qu'on l'ait décidé. */
+/* ⚠ LA SEULE PLANCHE DE PNJ QU'UN ENNEMI PEUT EMPRUNTER.  (v9.57 → v9.66)
+   Le Soldat de 1918 a porté l'uniforme du donneur du Bois pendant neuf
+   versions ; depuis la v9.66 il porte `shade`, et PLUS AUCUN tireur ne passe
+   par ici. La passerelle reste, fermée et explicite : on ne veut pas qu'un
+   ennemi puisse aller piocher au hasard dans les planches de PNJ, ni qu'un
+   ajout futur ouvre la porte sans qu'on l'ait décidé. `test_soldat` vérifie
+   qu'elle n'a qu'une entrée et que personne ne s'en sert. */
 const NPC_ENNEMI={poilu:1};
 const NPC_ENNEMI_DR=124;
 function drawEnemyNpc(sx,sy,en){
@@ -1028,7 +1030,12 @@ function drawEnemy(en){
   if(!en.boss&&ENEMY_DIR_KEYS[_k]&&!en.dying){if(drawEnemyDir(sx,sy,en))return;}
   let _sk=null;
   if(en.boss){if(en.bkind==='swimmer')_sk='swimmer';else if(en.bkind==='seraphin')_sk='seraphin';else if(en.kind==='boss'&&!en.bkind)_sk='gardien';}
-  else if(_k==='imp'||_k==='wraith'||_k==='brute'||_k==='golem'||_k==='shade')_sk=_k;
+  /* ⚠ TOUTE PLANCHE D'ANIMATION CONNUE, pas cinq clés en dur.       (v9.66)
+     La liste `imp|wraith|brute|golem|shade` excluait `swimmer`, `seraphin`
+     et `gardien`, qui ont pourtant leur planche : un Cracheur bâti sur
+     `swimmer` tombait dans le repli VECTORIEL et se dessinait en diablotin —
+     le défaut du sorcier corrigé en v9.60, une clé plus loin. */
+  else if(ENEMY_ANIM_IMG[_k])_sk=_k;
   const _sa=(_sk&&ENEMY_ANIM_IMG[_sk]&&ENEMY_ANIM_IMG[_sk].complete&&ENEMY_ANIM_IMG[_sk].naturalWidth)?_sk:null;
   let _bk=null;
   if(en.boss){if(en.kind==='falcon')_bk='falcon';else if(en.bkind&&BOSS_SET[en.bkind])_bk=en.bkind;}
@@ -1063,6 +1070,7 @@ function drawEnemy(en){
     else if(_k==='brute')drawBrute(sx,sy,en,col);
     else if(_k==='shade')drawShade(sx,sy,en,col);
     else if(_k==='golem')drawGolem(sx,sy,en,col);
+    else if(_k==='swimmer')drawSwimmer(sx,sy,en,col);
     else drawImp(sx,sy,en,col);
   }
   if(en.hp<en.hpMax&&!en.boss){ctx.fillStyle='#000';ctx.fillRect(sx-en.r,sy-en.r-9,en.r*2,4);

@@ -73,21 +73,31 @@ const ENEMY_TYPES={
    une difficulté — d'où le Cracheur, lent EXPRÈS, et le Soldat qui ne fuit
    presque pas.
 
-   ⚠ LE SOLDAT EMPRUNTE UNE PLANCHE DE PNJ. `poilu` est le donneur de quête
-   du Bois : 448×112, QUATRE IMAGES FIXES — pas de marche, pas de huit
-   directions, pas d'attaque, là où les cinq espèces d'ennemis en ont 32.
-   Un ennemi ordinaire bâti là-dessus glisserait de travers en regardant
-   ailleurs. Celui-ci TIENT SA LIGNE : il recule d'un pas et continue de
-   tirer. Une planche fixe ne se voit pas sur un ennemi qui reste debout.
-   Et les soldats de 1918 étaient déjà écrits dans le bandeau du Bois sans
-   jamais apparaître — les poser rattrape le texte au lieu d'y ajouter.
+   ⚠ `base` EST LA PLANCHE, `courbe` EST L'ESPÈCE DONT IL PREND SES CHIFFRES.
+   Les deux sont distincts depuis la v9.66. Avant, un `base==='poilu'?
+   'brute':base` en dur, à DEUX endroits, faisait le travail pour le seul
+   tireur dont la planche n'était pas une espèce. `swimmer` est dans le même
+   cas — une planche d'animation, pas une entrée de ENEMY_TYPES — et il
+   aurait fallu un troisième cas spécial. La courbe est ce que l'équilibrage
+   de la v9.58 a mesuré : elle ne bouge pas quand la planche change.
+
+   ⚠ LES PLANCHES SONT CELLES QUE MIRJA A DÉSIGNÉES (6 sept. 2026) sur la
+   planche contact de tous les sprites du jeu. Le Soldat de 1918 a porté
+   pendant neuf versions le PNJ `poilu` — 448×112, QUATRE IMAGES FIXES — et
+   c'est ce qui l'obligeait à « tenir sa ligne ». Le dessin qu'il fallait
+   était dans le jeu depuis le début, sous un autre nom : `shade`, l'Ombre
+   rôdeuse, est un soldat spectral au fusil, 8 directions, marche, attaque.
+   Le sorcier, qui portait `shade`, passe au Spectre bleu ; le Cracheur, qui
+   portait la brute, au Maître-Nageur ennemi. Son réglage de fuite reste
+   celui d'un ennemi qui tient sa ligne — c'est un choix de rythme, plus une
+   contrainte de dessin.
    ================================================================ */
 const TIREURS={
-  sorcier: {base:'shade', nom:'Jeteur de Sorts',    teinte:'170,120,255',
+  sorcier: {base:'wraith', courbe:'shade', nom:'Jeteur de Sorts',    teinte:'170,120,255',
             r:12, hp:0.70, dmg:1.00, spd:1.9, xp:1.6,
             portee:280, fuite:150, cd:2.0,  vitesse:5.0,  projR:11, ecart:0.06,
             el:null,     son:'magie',  acte:1},
-  tireur:  {base:'imp',   nom:'Franc-Tireur',       teinte:'90,110,140',
+  tireur:  {base:'imp',    courbe:'imp',   nom:'Franc-Tireur',       teinte:'90,110,140',
             r:12, hp:0.50, dmg:0.55, spd:2.6, xp:1.5,
             portee:300, fuite:190, cd:0.85, vitesse:9.0,  projR:6,  ecart:0.10,
             el:'phys',   son:'balle',  acte:1},
@@ -99,21 +109,22 @@ const TIREURS={
      redescendus à 1,60 : à 1,70 il TALONNAIT le corps à corps (×1,01 à
      l'acte 5, graine 2), et un ennemi qu'on ne peut pas frapper tout de
      suite n'a pas le droit de faire aussi mal qu'un ennemi collé à soi. */
-  cracheur:{base:'brute', nom:'Cracheur de Venin',  teinte:'150,220,90',
+  cracheur:{base:'swimmer', courbe:'brute', nom:'Cracheur de Venin',  teinte:'150,220,90',
             r:18, hp:1.50, dmg:1.60, spd:0.7, xp:1.8,
             portee:200, fuite:90,  cd:2.5,  vitesse:4.0,  projR:13, ecart:0.05,
             el:'venom',  son:'venin',  acte:2},
-  /* ⚠ SA TEINTE DOIT RESTER LOIN DE CELLE DU PNJ DU BOIS, qui partage sa
-     planche : si le soldat hostile ressemble au donneur, le joueur frappe le
-     donneur ou hésite devant chaque soldat. Bleu-vert spectral, franc. */
-  soldat:  {base:'poilu', nom:'Soldat de 1918',     teinte:'110,200,180',
+  /* ⚠ SA TEINTE DOIT RESTER LOIN DE LA PLANCHE NUE DE L'OMBRE RÔDEUSE, qui
+     est un ennemi ORDINAIRE des mêmes actes : si celui qui tire ressemble à
+     celui qui charge, le joueur ne sait plus lequel rejoindre. Bleu-vert
+     spectral, franc — `test_soldat` mesure l'écart pixel par pixel. */
+  soldat:  {base:'shade',  courbe:'brute', nom:'Soldat de 1918',     teinte:'110,200,180',
             /* Cadence portée de 2,2 s à 3,2 s : à exposition égale il
                dépassait le Cracheur en pression, alors qu'il est le plus
                difficile à rejoindre. Un fusil de 1918 se recharge à la
                main — la fiction et la mesure disent la même chose. */
             r:14, hp:1.00, dmg:1.15, spd:0.35, xp:1.7,
             portee:360, fuite:70,  cd:3.2,  vitesse:12.0, projR:5,  ecart:0.02,
-            el:'phys',   son:'balle',  acte:2, npc:'poilu'}
+            el:'phys',   son:'balle',  acte:2}
 };
 /* La part d'ennemis qui tirent, par acte. L'acte 1 n'en a aucun : on
    rencontre la faune ordinaire avant d'apprendre à traverser un tir. */

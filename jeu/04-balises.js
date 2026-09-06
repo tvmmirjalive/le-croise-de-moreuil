@@ -376,7 +376,10 @@ function makeEnemy(kind,x,y,depth,elvl){
      courbe reste unique. */
   if(TIREURS[kind]){
     const TI=TIREURS[kind];
-    const e=makeEnemy(TI.base==='poilu'?'brute':TI.base,x,y,depth,elvl);
+    /* `courbe` dit l'espèce dont il prend PV, dégâts et XP ; `base` dit la
+       planche. Le `base==='poilu'?'brute':base` qui vivait ici est mort en
+       v9.66 : `swimmer` aurait demandé le même cas spécial une seconde fois. */
+    const e=makeEnemy(TI.courbe||TI.base,x,y,depth,elvl);
     e.kind=kind;           /* ce qu'il EST                                  */
     e.base=TI.base;        /* la planche qu'il emprunte — voir drawEnemy    */
     e.tireur=kind;         /* le drapeau que lit l'IA                       */
