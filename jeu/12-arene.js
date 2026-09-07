@@ -164,12 +164,24 @@ function arenaBanner(t,sub,dur){ARENA_BAN.t=dur||2.6;ARENA_BAN.txt=t;ARENA_BAN.s
    Ces deux fonctions existent SÉPARÉMENT de `arenaEnter` et `arenaWin` pour
    une raison de mesure : la boucle se vérifie en la faisant tourner vingt fois
    d'affilée, ce qu'on ne peut pas faire en construisant vingt arènes. */
-function payerEntree(tier){
+/* ⚠ LE BOUTON ET LE PAIEMENT DOIVENT LIRE LA MÊME RÈGLE, ET ILS NE LE
+   FAISAIENT PAS. `payerEntree` accordait le Bronze gratuitement ; le bouton
+   du palier, lui, exigeait une clé de bronze comme les autres. Le palier
+   « porte de sortie du joueur ruiné » était donc verrouillé exactement pour
+   le joueur ruiné, et la boucle que la phase 1 venait d'ouvrir se refermait
+   dans l'interface. Signalé en jouant le 7 septembre 2026.
+   C'est « plusieurs chemins, un oubli » pour la quatrième fois : d'où un
+   SEUL prédicat, que les deux appellent. Il ne débite rien — c'est ce qui
+   permet au bouton de s'en servir. */
+function accesFosse(tier){
   if(!tier)return false;
   if(tier.gratuit)return true;
-  const K=arenaKeys();
-  if((K[tier.key]||0)<=0)return false;
-  K[tier.key]--;
+  return (arenaKeys()[tier.key]||0)>0;
+}
+function payerEntree(tier){
+  if(!accesFosse(tier))return false;
+  if(tier.gratuit)return true;
+  arenaKeys()[tier.key]--;
   return true;
 }
 function recompenserCles(tier,gagne){
@@ -537,7 +549,7 @@ function _arenePaliers(body, K, pool){
      la traduction — sinon `t('fosse.palierBouton')` serait allé chercher un
      champ dans un objet de palier. */
   for(const tr of ARENA_TIERS){
-    const has=(K[tr.key]||0)>0 && pool.length>0 && (!tr.needFalcon||bossKilled);
+    const has=accesFosse(tr) && pool.length>0 && (!tr.needFalcon||bossKilled);
     const b=document.createElement('button');
     b.textContent=(has?'⚔ ':'🔒 ')+t('fosse.palierBouton',
       {nom:nomPalier(tr),niv:tr.dlvl,vagues:tr.waves});
@@ -562,7 +574,18 @@ function _areneMarcheCles(body){
      dans ce chantier — `renderQuests`, les onglets de boutique, la lecture de
      code, et ici. C'est un nom trop court pour une variable de boucle dès
      lors qu'une fonction du même nom est importée partout. */
+  /* ⚠ LE MARCHÉ VENDAIT UNE CLÉ INUTILE ET UNE CLÉ EN DOUBLE. Il itérait sur
+     les PALIERS, alors qu'il vend des CLÉS, et les deux ne se correspondent
+     pas : le Bronze est `gratuit`, donc sa clé n'est jamais consommée — 3 000
+     pièces pour un objet que le jeu ne regarde pas ; et le Sceau du Falcon
+     partage la clé d'or avec le palier Or — deux boutons, deux prix
+     identiques, la même clé. C'est ce marché qui a fait acheter des clés de
+     bronze pour ouvrir un palier bronze verrouillé par ailleurs.
+     On itère donc sur les clés PAYANTES et DISTINCTES. */
+  const vus={};
   for(const tr of ARENA_TIERS){
+    if(tr.gratuit||vus[tr.key])continue;
+    vus[tr.key]=1;
     const c=prixCle(tr.key);
     const b=document.createElement('button');
     b.innerHTML=t('fosse.cleBouton',{palier:nomPalier(tr).toLowerCase()})+' <span class="gi"></span>'+nb(c);
@@ -574,7 +597,7 @@ function _areneMarcheCles(body){
       player.gold-=cout;const KK=arenaKeys();KK[k]=(KK[k]||0)+1;
       player.clesAchetees=player.clesAchetees||{};player.clesAchetees[k]=(player.clesAchetees[k]||0)+1;
       toast(t('fosse.cleAchetee',{or:nb(cout)}),2);SFX.gold&&SFX.gold();
-      refreshHud();saveGame();openArena();};})(t.key,c);
+      refreshHud();saveGame();openArena();};})(tr.key,c);
     body.appendChild(b);
   }
 }

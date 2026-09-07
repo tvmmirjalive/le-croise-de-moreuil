@@ -217,6 +217,7 @@ function _chargerMonde(s){
   if(s.bossCleared)bossCleared=s.bossCleared;
   if(s.stashCap)stashCap=s.stashCap;
   if(s.keys)player.keys=s.keys;
+  _purgerClesFantomes();
   if(s.arenaBossKills!=null)player.arenaBossKills=s.arenaBossKills;
   if(s.relics)for(let i=0;i<5;i++)relicDestroyed[i]=!!s.relics[i];
   if(s.arenaBest)player.arenaBest=s.arenaBest;
@@ -271,6 +272,32 @@ function _chargerProgression(s){
   for(let a=0;a<=maxAct&&a<ACTS.length;a++)actDiscovered[a]=true;
 }
 
+/* ── LES CLÉS FANTÔMES DES SAUVEGARDES D'AVANT LA v9.67 ──────────────────
+
+   Le marché de la Fosse créditait `player.keys[undefined]` au lieu de la clé
+   du palier acheté : la fermeture d'achat lisait `t.key`, un champ de la
+   fonction de traduction, restée là après le renommage de la variable de
+   boucle. Toute partie ayant acheté au moins une clé porte donc une entrée
+   `"undefined"` dans `keys` et dans `clesAchetees`.
+
+   ⚠ ELLE EST INOFFENSIVE, ET C'EST BIEN POURQUOI IL FAUT LA RETIRER. Rien ne
+   la lit — `_areneEntete` et `_arenePaliers` nomment les trois clés une par
+   une — donc elle ne casse rien, ne s'affiche nulle part, et se serait
+   recopiée de sauvegarde en sauvegarde indéfiniment. Un jour, un compteur
+   « nombre de clés » l'aurait ramassée.
+
+   ⚠ ON NE REND RIEN, ET CE N'EST PAS UN OUBLI. Le compte fantôme dit COMBIEN
+   d'achats ont été perdus, jamais LESQUELS : les trois paliers écrivaient
+   tous dans la même case. Créditer du bronze sous-paierait un achat d'or de
+   trente-sept mille pièces, créditer de l'or surpaierait l'inverse. On
+   nettoie donc, et la compensation se décide en connaissance de cause. */
+function _purgerClesFantomes(){
+  for(const table of [player.keys, player.clesAchetees]){
+    if(!table)continue;
+    for(const k in table) if(k==='undefined'||k==='null')delete table[k];
+  }
+}
+
 /* Le sac de mort revient tel quel. `undefined` = ancienne sauvegarde,
    `null` = aucun sac : les deux donnent null, jamais une perte silencieuse. */
 function _chargerDivers(s){
@@ -279,6 +306,7 @@ function _chargerDivers(s){
   if(s.autoSalv){autoSalv.white=!!s.autoSalv.white;autoSalv.magic=!!s.autoSalv.magic;
     for(const k in RARETES_PROTEGEES)delete autoSalv[k];}
   player.clesAchetees=s.clesAchetees||{};
+  _purgerClesFantomes();
   player.resets=s.resets||0;
   if(player.corpse)migrateIcons(player.corpse.items);
 }
