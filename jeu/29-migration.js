@@ -108,7 +108,7 @@ function amorcerPont(){
   try{ exporterVersPont(); }catch(e){}
   return repris;
 }
-function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,paraLvl:player.paraLvl,paraXp:player.paraXp,para:player.para,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,fossePalier:player.fossePalier,eclats:player.eclats,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,resets:player.resets,dons:player.dons,scenesVues:player.scenesVues,dits:player.dits,horo:Date.now()}));}catch(e){}}
+function saveGame(){try{SaveIO.write(JSON.stringify({v:2,lvl:player.lvl,xp:player.xp,xpNext:player.xpNext,xpTotal:player.xpTotal,statPts:player.statPts,treePts:player.treePts,tree:player.tree,paraLvl:player.paraLvl,paraXp:player.paraXp,para:player.para,bar:player.bar,baseStr:player.baseStr,baseDex:player.baseDex,baseVit:player.baseVit,baseEne:player.baseEne,baseAgi:player.baseAgi,gold:player.gold,frags:player.frags,potions:player.potions,manaPots:player.manaPots,kills:player.kills,totalDmg:player.totalDmg,skillRanks:player.skillRanks,equip:player.equip,inv:inventory,stash:stash,difficulty:difficulty,quests:quests,qc:qc,maxAct:maxAct,bossKilled:bossKilled,bossCleared:bossCleared,portals:player.portals,stashCap:stashCap,keys:player.keys,arenaBossKills:player.arenaBossKills,relics:relicDestroyed,arenaBest:player.arenaBest,fossePalier:player.fossePalier,eclats:player.eclats,scrollsId:player.scrollsId,opts:OPT,optsV:OPT_VERSION,actDiscovered:Object.keys(actDiscovered).filter(k=>actDiscovered[k]).map(Number),invCap:invCap,balises:player.balises,questSuivie:player.questSuivie,autoSalv:autoSalv,corpse:player.corpse,clesAchetees:player.clesAchetees,clesPerdues:player.clesPerdues,resets:player.resets,dons:player.dons,scenesVues:player.scenesVues,dits:player.dits,horo:Date.now()}));}catch(e){}}
 /* ================================================================
    MIGRATION DES SAUVEGARDES ANTÉRIEURES              (v8.75)
 
@@ -292,10 +292,20 @@ function _chargerProgression(s){
    trente-sept mille pièces, créditer de l'or surpaierait l'inverse. On
    nettoie donc, et la compensation se décide en connaissance de cause. */
 function _purgerClesFantomes(){
+  let perdues=0;
   for(const table of [player.keys, player.clesAchetees]){
     if(!table)continue;
-    for(const k in table) if(k==='undefined'||k==='null')delete table[k];
+    for(const k in table){
+      if(k!=='undefined'&&k!=='null')continue;
+      /* `Math.max` et non une somme : les DEUX tables portent le même compte,
+         c'est le même achat vu deux fois. Et la purge tourne deux fois au
+         chargement — une fois sur `keys`, une fois dans `_chargerDivers` — le
+         second passage ne trouvant plus rien, il n'ajoute rien. */
+      const n=table[k]|0; if(n>perdues)perdues=n;
+      delete table[k];
+    }
   }
+  if(perdues>0)player.clesPerdues=(player.clesPerdues||0)+perdues;
 }
 
 /* Le sac de mort revient tel quel. `undefined` = ancienne sauvegarde,
@@ -306,6 +316,7 @@ function _chargerDivers(s){
   if(s.autoSalv){autoSalv.white=!!s.autoSalv.white;autoSalv.magic=!!s.autoSalv.magic;
     for(const k in RARETES_PROTEGEES)delete autoSalv[k];}
   player.clesAchetees=s.clesAchetees||{};
+  player.clesPerdues=s.clesPerdues||0;
   _purgerClesFantomes();
   player.resets=s.resets||0;
   if(player.corpse)migrateIcons(player.corpse.items);
@@ -352,7 +363,16 @@ function diagnostiquerSauvegarde(brut){
   catch(e){ return {etat:SAUVE_ILLISIBLE,s:null,taille:brut.length,erreur:'JSON illisible — '+e.message}; }
   if(!s||typeof s!=='object')
     return {etat:SAUVE_ILLISIBLE,s:null,taille:brut.length,erreur:'contenu inattendu'};
-  return {etat:SAUVE_OK,s:s,taille:brut.length};
+  /* ⚠ LE COMPTE D'ACHATS PERDUS DOIT SORTIR D'ICI, PAS DE LA PARTIE CHARGÉE.
+     `_purgerClesFantomes` efface `clesAchetees["undefined"]` au chargement :
+     après une seule ouverture en v9.67, plus rien ne dirait combien d'achats
+     le joueur a perdus. Le diagnostic lit donc le BRUT, avant toute
+     migration, et rend le compte des deux sources — celle d'avant la purge
+     comme celle d'après. */
+  const brutFantome=(s.clesAchetees&&(s.clesAchetees['undefined']|0))||0;
+  const dejaCompte=s.clesPerdues|0;
+  return {etat:SAUVE_OK,s:s,taille:brut.length,
+          clesPerdues:brutFantome>dejaCompte?brutFantome:dejaCompte};
 }
 
 /* Ce que le joueur doit voir. Le message reste vrai même si on ne sait pas
