@@ -44,6 +44,48 @@ function beginNew(){try{SaveIO.clear();}catch(e){}startGame(false);}
    lignes mais exige iOS 16.4, très au-dessus de notre socle iOS 13.
    ================================================================ */
 
+/* --- LES BORNES DE L'IMPORT --------------------------------------
+
+   ⚠ BORNER LA TAILLE DU CODE REÇU NE PROTÈGE DE RIEN, et c'est le cœur du
+   sujet. Mesuré sur `_lzDecomprimer` le 9 septembre 2026, en lui donnant des
+   codes qui pointent chacun sur la dernière entrée du dictionnaire :
+
+     20 001 octets d'entrée  ->  200 030 001 caractères produits, en 61 ms
+
+   Or une sauvegarde pleine LÉGITIME fait 23 248 octets de code. L'entrée
+   hostile est donc PLUS PETITE qu'une entrée honnête : aucune borne d'entrée
+   ne peut les distinguer. C'est la taille PRODUITE qu'il faut surveiller, et
+   AVANT la concaténation — tester après, c'est allouer exactement ce qu'on
+   voulait refuser. La sortie croît en n²/2 : 1 000 codes en rendent 501 501,
+   5 000 en rendent 12 507 501.
+
+   LES MESURES QUI FIXENT CES BORNES, banc d'essai GRAINE=1 :
+     · sauvegarde NEUVE, acte 1 .................. JSON 10 829 o · code  5 344 o
+     · sauvegarde MAXIMALE LÉGITIME .............. JSON 58 616 o · code 23 248 o
+       (niveau 99, sac plein à INV_CAP_MAX=40, coffre plein à STASH_MAX=72,
+        les 9 emplacements portés en légendaire)
+     · même sauvegarde en `OUTLAW0:` (base64 nu) ............... ~78 155 o
+     · pire objet sur 3 000 tirages ....... 6 affixes, 3 châsses, 439 o
+
+   ⚠ ELLES ÉCARTENT L'ABSURDE, PAS L'AVANTAGEUX — même règle que le crible
+   plus bas, et même raison : une borne trop serrée refuse la partie d'un
+   joueur, ce qui coûte plus cher que ce qu'elle protège. Chacune est donc
+   posée à plus de dix fois la mesure, jamais au plus juste. Les ANCIENNES
+   sauvegardes passent aussi : elles sont plus petites, pas plus grosses. */
+const SAUVE_JSON_MAX=1048576;    /* 1 Mio — 17,9 x la plus grosse mesurée     */
+const SAUVE_CODE_MAX=1572864;    /* 1,5 Mio — le format le plus VOLUMINEUX est
+                                    `OUTLAW0:`, base64 NU : 4/3 du JSON, plus
+                                    l'en-tête et les blancs d'un copier-coller */
+const SAUVE_LZ_MAX=SAUVE_JSON_MAX;   /* ce que la décompression produit EST le
+                                        JSON : une seule borne, pas deux       */
+const SAUVE_DICO_MAX=65535;      /* au-delà, une clé ne peut plus sortir d'un
+                                    `charCodeAt` : la ranger ne ferait que
+                                    retenir de la mémoire pour rien           */
+const SAUVE_LISTE_MAX=512;       /* sac ou coffre — 4,5 x les 112 emplacements
+                                    que le jeu offre (40 + 72)                */
+const SAUVE_AFF_MAX=32;          /* 6 observés au pire sur 3 000 tirages      */
+const SAUVE_SOCK_MAX=16;         /* 3 observées au pire                       */
+
 /* --- compression LZ maison, sans dépendance ---------------------- */
 function _lzComprimer(txt){
   if(!txt)return '';
@@ -62,17 +104,34 @@ function _lzComprimer(txt){
   let s='';for(const n of out)s+=String.fromCharCode(n&0xFFFF);
   return s;
 }
-function _lzDecomprimer(comp){
+/* ⚠ CETTE BOUCLE N'AVAIT AUCUNE BORNE, ET C'ÉTAIT UNE BOMBE.      (v9.69)
+
+   `out+=entree` tournait tant que le flux durait, et chaque tour peut rendre
+   une entrée un caractère plus longue que la précédente. Voir la mesure au
+   bloc des bornes ci-dessus : 20 001 octets d'entrée produisaient 200 030 001
+   caractères, à partir d'un code PLUS PETIT qu'une sauvegarde honnête.
+
+   La borne est testée AVANT le `+=`, jamais après : c'est la concaténation
+   qui alloue, et refuser après avoir alloué ne protège de rien.
+
+   ⚠ ELLE REND `null`, JAMAIS UNE CHAÎNE TRONQUÉE. Un JSON coupé au milieu est
+   un fichier qu'on ne comprend pas ; le refuser est la seule réponse honnête.
+   ⚠ ET L'APPELANT DOIT TESTER `=== null`, PAS LA FAUSSETÉ : la chaîne vide
+   est un résultat LÉGITIME de cette fonction. */
+function _lzDecomprimer(comp,maxLong){
   if(!comp)return '';
-  const dico={};let code=256,prec=comp.charAt(0),out=prec,mot=prec;
+  const max=maxLong||SAUVE_LZ_MAX;
+  const dico={};let code=256,prec=comp.charAt(0),out=prec;
   for(let i=1;i<comp.length;i++){
     const k=comp.charCodeAt(i);
     let entree;
     if(k<256)entree=comp.charAt(i);
     else if(dico[k]!=null)entree=dico[k];
     else entree=prec+prec.charAt(0);
+    if(out.length+entree.length>max)return null;      /* AVANT d'allouer */
     out+=entree;
-    dico[code++]=prec+entree.charAt(0);
+    if(code<=SAUVE_DICO_MAX)dico[code]=prec+entree.charAt(0);
+    code++;
     prec=entree;
   }
   return out;
@@ -92,16 +151,46 @@ function _versTexte(json){
   }catch(e){ return 'OUTLAW0:'+btoa(unescape(encodeURIComponent(json))); }
 }
 function _depuisTexte(code){
-  const t=String(code||'').trim().replace(/\s+/g,'');
+  /* ⚠ `.replace(/\s+/g,'')` MANGEAIT LES ESPACES DANS LES NOMS.    (v9.69)
+
+     Il s'appliquait à TOUTE la chaîne, avant de savoir quel format arrivait.
+     Sur un JSON collé tel quel, il retirait donc aussi les espaces INTÉRIEURS
+     aux chaînes : « Crosse fêlée du vestiaire » revenait
+     « Crossefêléeduvestiaire ». La sauvegarde restait analysable et se
+     chargeait — c'est pour ça que personne ne l'a vu — mais chaque nom de
+     plusieurs mots était corrompu, en silence, à l'import.
+
+     Les blancs INTÉRIEURS ne se retirent que pour `OUTLAW1:` et `OUTLAW0:`,
+     qui sont du base64 : là, ils viennent du retour à la ligne d'un
+     copier-coller et n'ont aucun sens. Dans un JSON, ils en ont un.
+
+     ⚠ ET LA BORNE D'ENTRÉE RESTE EN TOUT PREMIER. `.trim()` fait une COPIE :
+     l'appliquer à un code de 500 Mio collé dans la boîte, c'est déjà l'avoir
+     accepté. On convertit UNE SEULE FOIS en chaîne, on mesure, puis on
+     touche. Elle ne remplace pas la borne de sortie de `_lzDecomprimer` — une
+     entrée honnête et une bombe ont la même taille. */
+  const brut=String(code==null?'':code);
+  if(brut.length>SAUVE_CODE_MAX)return null;
+  const t=brut.trim();                     /* blancs EXTÉRIEURS seulement */
   try{
     if(t.indexOf('OUTLAW1:')===0){
-      const bin=atob(t.slice(8).replace(/-/g,'+').replace(/_/g,'/'));
+      /* base64 : les blancs internes viennent du copier-coller, on les ôte */
+      const b64=t.slice(8).replace(/\s+/g,'').replace(/-/g,'+').replace(/_/g,'/');
+      const bin=atob(b64);
       let c='';for(let i=0;i+1<bin.length;i+=2)
         c+=String.fromCharCode(bin.charCodeAt(i)|(bin.charCodeAt(i+1)<<8));
-      return decodeURIComponent(escape(_lzDecomprimer(c)));
+      const j=_lzDecomprimer(c);
+      /* `=== null` et non `!j` : la chaîne vide est un résultat légitime. */
+      if(j===null)return null;
+      return decodeURIComponent(escape(j));
     }
-    if(t.indexOf('OUTLAW0:')===0)return decodeURIComponent(escape(atob(t.slice(8))));
-    if(t.charAt(0)==='{')return t;                 /* JSON collé tel quel */
+    if(t.indexOf('OUTLAW0:')===0){
+      const b64=t.slice(8).replace(/\s+/g,'');
+      const j=decodeURIComponent(escape(atob(b64)));
+      return j.length>SAUVE_JSON_MAX?null:j;
+    }
+    /* JSON collé : on rend le texte TEL QUEL, espaces intérieurs compris. */
+    if(t.charAt(0)==='{')return t.length>SAUVE_JSON_MAX?null:t;
   }catch(e){}
   return null;
 }
@@ -166,6 +255,8 @@ function _objetSain(it){
   if(!_nombreSain(it.plus,0,50)||!_nombreSain(it.ilvl,1,999)||!_nombreSain(it.dura,0,9999))return false;
   if(it.affixes!=null){
     if(!Array.isArray(it.affixes))return false;
+    /* 6 affixes au pire sur 3 000 tirages ; 32 écarte l'absurde sans gêner. */
+    if(it.affixes.length>SAUVE_AFF_MAX)return false;
     for(const a of it.affixes) if(!_affixeSain(a))return false;
   }
   if(!_affixeSain(it.charm)||!_affixeSain(it.sock))return false;
@@ -173,6 +264,8 @@ function _objetSain(it){
      Sans cette descente, le nom d'une gemme sertie échappait au crible. */
   if(it.sockets!=null){
     if(!Array.isArray(it.sockets))return false;
+    /* 3 châsses au pire ; 16 laisse toute la marge d'un objet à venir. */
+    if(it.sockets.length>SAUVE_SOCK_MAX)return false;
     for(const g of it.sockets){
       if(g==null)continue;
       if(typeof g!=='object')return false;
@@ -184,6 +277,12 @@ function _objetSain(it){
 }
 function sauvegardeValide(txt){
   try{
+    /* ⚠ LA TAILLE D'ABORD, AVANT `JSON.parse`.                    (v9.69)
+       Analyser un mégaoctet de JSON avant de le refuser, c'est construire
+       l'objet qu'on ne voulait pas. Cette borne double celle de
+       `_depuisTexte` exprès : `sauvegardeValide` est aussi appelée
+       directement, sur du texte qui n'est jamais passé par le décodeur. */
+    if(txt==null||String(txt).length>SAUVE_JSON_MAX)return null;
     const o=JSON.parse(txt);
     if(!o||typeof o!=='object')return null;
     /* On exige le minimum vital. Un fichier quelconque ne doit JAMAIS
@@ -198,6 +297,10 @@ function sauvegardeValide(txt){
     for(const liste of [o.inv,o.stash]){
       if(liste==null)continue;
       if(!Array.isArray(liste))return null;
+      /* Le jeu offre 40 places de sac et 72 de coffre : 512 est plus de
+         quatre fois le total, et refuse une liste d'un million d'objets
+         AVANT d'en cribler le premier. */
+      if(liste.length>SAUVE_LISTE_MAX)return null;
       for(const it of liste) if(it!=null&&!_objetSain(it))return null;
     }
     return o;
